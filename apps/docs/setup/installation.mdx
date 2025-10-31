@@ -1,0 +1,506 @@
+---
+title: "Installation Guide"
+description: "Complete installation guide for setting up the Waylio healthcare platform development environment with all required dependencies and configurations."
+---
+
+# Installation Guide
+
+This guide will walk you through setting up the Waylio healthcare platform development environment from scratch. Follow these steps carefully to ensure a proper installation.
+
+## Prerequisites
+
+Before installing Waylio, ensure your system meets the following requirements:
+
+### System Requirements
+
+<CardGroup cols={2}>
+<Card title="Operating System" icon="desktop">
+  macOS 10.15+, Windows 10+, or Linux (Ubuntu 18.04+)
+</Card>
+
+<Card title="Node.js" icon="node-js">
+  Node.js 18.17+ or 20.5+ (LTS recommended)
+</Card>
+
+<Card title="Package Manager" icon="package">
+  pnpm 8.0+ (required for monorepo management)
+</Card>
+
+<Card title="Database" icon="database">
+  PostgreSQL 14+ (local or cloud instance)
+</Card>
+</CardGroup>
+
+### Required Tools
+
+<Steps>
+<Step title="Install Node.js">
+  Download and install Node.js from [nodejs.org](https://nodejs.org/) or use a version manager:
+  
+  ```bash
+  # Using nvm (recommended)
+  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+  nvm install 20
+  nvm use 20
+  
+  # Using Homebrew (macOS)
+  brew install node@20
+  
+  # Verify installation
+  node --version
+  npm --version
+  ```
+</Step>
+
+<Step title="Install pnpm">
+  Install pnpm globally for monorepo package management:
+  
+  ```bash
+  # Using npm
+  npm install -g pnpm@latest
+  
+  # Using Homebrew (macOS)
+  brew install pnpm
+  
+  # Using curl
+  curl -fsSL https://get.pnpm.io/install.sh | sh -
+  
+  # Verify installation
+  pnpm --version
+  ```
+</Step>
+
+<Step title="Install Git">
+  Ensure Git is installed for version control:
+  
+  ```bash
+  # Check if Git is installed
+  git --version
+  
+  # Install Git if needed
+  # macOS: git is included with Xcode Command Line Tools
+  xcode-select --install
+  
+  # Windows: Download from git-scm.com
+  # Linux: sudo apt-get install git
+  ```
+</Step>
+
+<Step title="Install PostgreSQL">
+  Set up PostgreSQL database:
+  
+  ```bash
+  # Using Homebrew (macOS)
+  brew install postgresql@14
+  brew services start postgresql@14
+  
+  # Using Docker (all platforms)
+  docker run --name waylio-postgres \
+    -e POSTGRES_PASSWORD=password \
+    -e POSTGRES_DB=waylio \
+    -p 5432:5432 \
+    -d postgres:14
+  
+  # Verify connection
+  psql -h localhost -U postgres -d waylio
+  ```
+</Step>
+</Steps>
+
+## Repository Setup
+
+### Clone the Repository
+
+<Steps>
+<Step title="Clone Waylio Repository">
+  ```bash
+  # Clone the repository
+  git clone https://github.com/your-org/waylio.git
+  cd waylio
+  
+  # Verify repository structure
+  ls -la
+  ```
+</Step>
+
+<Step title="Install Dependencies">
+  Install all project dependencies using pnpm:
+  
+  ```bash
+  # Install all dependencies for the monorepo
+  pnpm install
+  
+  # This will install dependencies for all apps and packages
+  # The process may take 2-5 minutes depending on your internet connection
+  ```
+</Step>
+
+<Step title="Verify Installation">
+  Check that all packages are properly installed:
+  
+  ```bash
+  # List all workspaces
+  pnpm list --depth=0
+  
+  # Check for any installation issues
+  pnpm audit
+  
+  # Verify TypeScript compilation
+  pnpm build:packages
+  ```
+</Step>
+</Steps>
+
+## Environment Configuration
+
+### Database Setup
+
+<Steps>
+<Step title="Create Database">
+  Create the Waylio database and user:
+  
+  ```sql
+  -- Connect to PostgreSQL as superuser
+  psql -U postgres
+  
+  -- Create database
+  CREATE DATABASE waylio;
+  
+  -- Create user (optional, for production)
+  CREATE USER waylio_user WITH PASSWORD 'secure_password';
+  GRANT ALL PRIVILEGES ON DATABASE waylio TO waylio_user;
+  
+  -- Exit psql
+  \q
+  ```
+</Step>
+
+<Step title="Environment Variables">
+  Copy and configure environment variables:
+  
+  ```bash
+  # Copy environment template
+  cp .env.example .env.local
+  
+  # Edit the environment file
+  nano .env.local
+  ```
+  
+  Configure the following essential variables:
+  
+  ```bash
+  # Database
+  DATABASE_URL="postgresql://postgres:password@localhost:5432/waylio"
+  
+  # Authentication (Clerk)
+  CLERK_SECRET_KEY="sk_test_your_clerk_secret_key"
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_your_clerk_publishable_key"
+  
+  # Application
+  NEXT_PUBLIC_SITE_URL="http://localhost:3000"
+  
+  # Encryption
+  ENCRYPTION_MASTER_KEY="your-32-character-encryption-key"
+  JWT_SECRET="your-jwt-secret-key"
+  ```
+</Step>
+
+<Step title="Database Migration">
+  Set up the database schema:
+  
+  ```bash
+  # Generate Prisma client
+  pnpm db:generate
+  
+  # Run database migrations
+  pnpm db:migrate
+  
+  # Seed the database with initial data
+  pnpm db:seed
+  
+  # Verify database setup
+  pnpm db:studio
+  ```
+</Step>
+</Steps>
+
+## Service Configuration
+
+### External Services Setup
+
+<Tabs>
+<Tab title="Authentication (Clerk)">
+  **Setup Clerk for user authentication:**
+  
+  1. Create account at [clerk.com](https://clerk.com)
+  2. Create new application
+  3. Configure authentication methods:
+     - Email/Password
+     - Google OAuth (optional)
+     - Microsoft OAuth (for healthcare SSO)
+  4. Set up webhooks for user events
+  5. Configure organization settings for multi-tenancy
+  
+  ```bash
+  # Test Clerk integration
+  pnpm dev:web
+  # Visit http://localhost:3000 and test sign-up
+  ```
+</Tab>
+
+<Tab title="Database (Neon)">
+  **Setup Neon PostgreSQL (Production):**
+  
+  1. Create account at [neon.tech](https://neon.tech)
+  2. Create new project
+  3. Copy connection string
+  4. Update `DATABASE_URL` in production environment
+  
+  ```bash
+  # Production database URL format
+  DATABASE_URL="postgresql://username:password@ep-xxx.us-east-1.aws.neon.tech/waylio?sslmode=require"
+  ```
+</Tab>
+
+<Tab title="Email (Resend)">
+  **Setup Resend for email delivery:**
+  
+  1. Create account at [resend.com](https://resend.com)
+  2. Verify your domain
+  3. Generate API key
+  4. Configure DNS records for domain verification
+  
+  ```bash
+  # Add to environment variables
+  RESEND_API_KEY="re_your_resend_api_key"
+  ```
+</Tab>
+
+<Tab title="Storage (AWS S3)">
+  **Setup AWS S3 for file storage:**
+  
+  1. Create AWS account and S3 bucket
+  2. Configure bucket permissions and CORS
+  3. Create IAM user with S3 access
+  4. Generate access keys
+  
+  ```bash
+  # Add to environment variables
+  AWS_ACCESS_KEY_ID="your_aws_access_key"
+  AWS_SECRET_ACCESS_KEY="your_aws_secret_key"
+  AWS_S3_BUCKET="waylio-files"
+  AWS_REGION="us-east-1"
+  ```
+</Tab>
+</Tabs>
+
+## Development Environment
+
+### Start Development Servers
+
+<Steps>
+<Step title="Start All Applications">
+  Launch all development servers simultaneously:
+  
+  ```bash
+  # Start all applications in development mode
+  pnpm dev
+  
+  # This will start:
+  # - Web Dashboard: http://localhost:3000
+  # - API Server: http://localhost:3000/api
+  # - Marketing Site: http://localhost:3001
+  # - Storybook: http://localhost:6006
+  # - Database Studio: http://localhost:3005
+  # - Documentation: http://localhost:3004
+  ```
+</Step>
+
+<Step title="Individual Application Startup">
+  Start specific applications as needed:
+  
+  ```bash
+  # Web dashboard only
+  pnpm dev:web
+  
+  # API server only
+  pnpm dev:api
+  
+  # Storybook only
+  pnpm dev:storybook
+  
+  # Documentation only
+  pnpm dev:docs
+  
+  # Database studio only
+  pnpm db:studio
+  ```
+</Step>
+
+<Step title="Verify Installation">
+  Test that all services are running correctly:
+  
+  ```bash
+  # Check application health
+  curl http://localhost:3000/api/health
+  
+  # Check database connection
+  pnpm db:status
+  
+  # Run test suite
+  pnpm test
+  
+  # Check TypeScript compilation
+  pnpm type-check
+  ```
+</Step>
+</Steps>
+
+## Mobile App Setup (Optional)
+
+### React Native Development
+
+<Steps>
+<Step title="Install React Native CLI">
+  ```bash
+  # Install React Native CLI
+  npm install -g @react-native-community/cli
+  
+  # For iOS development (macOS only)
+  sudo gem install cocoapods
+  
+  # For Android development
+  # Install Android Studio and configure SDK
+  ```
+</Step>
+
+<Step title="Setup Mobile Environment">
+  ```bash
+  # Navigate to mobile app directory
+  cd apps/app
+  
+  # Install iOS dependencies (macOS only)
+  cd ios && pod install && cd ..
+  
+  # Start Metro bundler
+  pnpm start
+  
+  # Run on iOS simulator (macOS only)
+  pnpm ios
+  
+  # Run on Android emulator
+  pnpm android
+  ```
+</Step>
+</Steps>
+
+## Troubleshooting
+
+### Common Issues
+
+<AccordionGroup>
+<Accordion title="pnpm Installation Issues">
+  **Problem**: pnpm command not found or permission errors
+  
+  **Solutions**:
+  ```bash
+  # Reinstall pnpm
+  npm uninstall -g pnpm
+  npm install -g pnpm@latest
+  
+  # Fix permissions (macOS/Linux)
+  sudo chown -R $(whoami) ~/.pnpm
+  
+  # Use npx if global installation fails
+  npx pnpm install
+  ```
+</Accordion>
+
+<Accordion title="Database Connection Issues">
+  **Problem**: Cannot connect to PostgreSQL database
+  
+  **Solutions**:
+  ```bash
+  # Check if PostgreSQL is running
+  brew services list | grep postgresql
+  
+  # Start PostgreSQL service
+  brew services start postgresql@14
+  
+  # Check connection string format
+  echo $DATABASE_URL
+  
+  # Test connection manually
+  psql $DATABASE_URL
+  ```
+</Accordion>
+
+<Accordion title="Port Conflicts">
+  **Problem**: Port already in use errors
+  
+  **Solutions**:
+  ```bash
+  # Find process using port 3000
+  lsof -ti:3000
+  
+  # Kill process using port
+  kill -9 $(lsof -ti:3000)
+  
+  # Use different ports
+  PORT=3001 pnpm dev:web
+  ```
+</Accordion>
+
+<Accordion title="TypeScript Compilation Errors">
+  **Problem**: TypeScript build failures
+  
+  **Solutions**:
+  ```bash
+  # Clear TypeScript cache
+  pnpm clean:ts
+  
+  # Regenerate types
+  pnpm db:generate
+  
+  # Check for missing dependencies
+  pnpm install
+  
+  # Verify TypeScript version
+  pnpm tsc --version
+  ```
+</Accordion>
+</AccordionGroup>
+
+### Getting Help
+
+<CardGroup cols={2}>
+<Card title="Documentation" icon="book">
+  Check the comprehensive documentation at `/docs` for detailed guides and API references.
+</Card>
+
+<Card title="GitHub Issues" icon="github">
+  Report bugs and request features on the [GitHub repository](https://github.com/your-org/waylio/issues).
+</Card>
+
+<Card title="Community Discord" icon="discord">
+  Join the Waylio community Discord for real-time support and discussions.
+</Card>
+
+<Card title="Email Support" icon="envelope">
+  Contact the development team at support@waylio.com for technical assistance.
+</Card>
+</CardGroup>
+
+## Next Steps
+
+After successful installation:
+
+1. **Complete Environment Setup**: Configure all required environment variables
+2. **Run Tests**: Execute the test suite to verify everything works
+3. **Explore Documentation**: Read through the architecture and API documentation
+4. **Start Development**: Begin building features using the established patterns
+5. **Set Up CI/CD**: Configure continuous integration and deployment pipelines
+
+<Note>
+The installation process may take 15-30 minutes depending on your internet connection and system performance. Ensure all prerequisites are met before proceeding with the installation.
+</Note>

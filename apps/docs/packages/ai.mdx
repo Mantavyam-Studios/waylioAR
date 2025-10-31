@@ -1,0 +1,1229 @@
+---
+title: "AI Package"
+description: "Artificial Intelligence utilities and integrations including Multiset AI SDK for AR navigation, OpenAI for intelligent features, and healthcare-specific AI workflows."
+---
+
+# AI Package
+
+The AI package provides comprehensive artificial intelligence capabilities for the Waylio platform, including AR navigation through Multiset AI SDK, intelligent automation with OpenAI, and healthcare-specific AI workflows for enhanced patient care and operational efficiency.
+
+## Installation
+
+```bash
+# Install the AI package
+pnpm add @repo/ai
+
+# Peer dependencies (automatically installed in monorepo)
+pnpm add openai @multiset/ai-sdk
+```
+
+## Overview
+
+The AI package integrates cutting-edge AI technologies to enhance healthcare delivery, streamline operations, and provide intelligent insights across the Waylio platform. It focuses on practical AI applications that improve patient outcomes and staff efficiency.
+
+### Key Features
+
+<CardGroup cols={2}>
+<Card title="AR Navigation" icon="map">
+  Indoor navigation using Multiset AI SDK with real-time positioning and route optimization.
+</Card>
+
+<Card title="Intelligent Automation" icon="brain">
+  OpenAI-powered features for appointment scheduling, documentation, and patient communication.
+</Card>
+
+<Card title="Healthcare Analytics" icon="chart-bar">
+  AI-driven insights for queue management, resource optimization, and predictive analytics.
+</Card>
+
+<Card title="Natural Language Processing" icon="message-square">
+  Smart text processing for medical records, prescription parsing, and patient queries.
+</Card>
+</CardGroup>
+
+## AR Navigation (Multiset AI)
+
+### Indoor Positioning System
+
+<Tabs>
+<Tab title="Navigation Setup">
+  **Purpose**: Initialize AR navigation system for hospital indoor positioning
+  
+  ```typescript
+  import { MultisetAI, NavigationConfig } from '@repo/ai';
+  
+  // Initialize Multiset AI client
+  const multisetClient = new MultisetAI({
+    apiKey: process.env.MULTISET_API_KEY,
+    organizationId: process.env.MULTISET_ORG_ID,
+  });
+  
+  // Hospital navigation configuration
+  const navigationConfig: NavigationConfig = {
+    buildingId: 'waylio-main-hospital',
+    floors: [
+      {
+        id: 'ground-floor',
+        name: 'Ground Floor',
+        mapUrl: '/maps/ground-floor.svg',
+        beacons: [
+          { id: 'beacon-001', x: 100, y: 200, floor: 'ground-floor' },
+          { id: 'beacon-002', x: 300, y: 150, floor: 'ground-floor' },
+          { id: 'beacon-003', x: 500, y: 400, floor: 'ground-floor' },
+        ],
+      },
+      {
+        id: 'first-floor',
+        name: 'First Floor',
+        mapUrl: '/maps/first-floor.svg',
+        beacons: [
+          { id: 'beacon-101', x: 120, y: 180, floor: 'first-floor' },
+          { id: 'beacon-102', x: 280, y: 320, floor: 'first-floor' },
+        ],
+      },
+    ],
+    destinations: [
+      {
+        id: 'reception',
+        name: 'Reception',
+        floor: 'ground-floor',
+        coordinates: { x: 150, y: 100 },
+        category: 'service',
+      },
+      {
+        id: 'cardiology-dept',
+        name: 'Cardiology Department',
+        floor: 'first-floor',
+        coordinates: { x: 200, y: 250 },
+        category: 'department',
+      },
+      {
+        id: 'pharmacy',
+        name: 'Pharmacy',
+        floor: 'ground-floor',
+        coordinates: { x: 400, y: 300 },
+        category: 'service',
+      },
+    ],
+  };
+  
+  export async function initializeNavigation() {
+    await multisetClient.configure(navigationConfig);
+    return multisetClient;
+  }
+  ```
+</Tab>
+
+<Tab title="Navigation Component">
+  **Purpose**: React component for AR navigation interface
+  
+  ```typescript
+  import { useNavigation, NavigationView } from '@repo/ai';
+  import { useState, useEffect } from 'react';
+  
+  interface NavigationProps {
+    destinationId: string;
+    onNavigationComplete?: () => void;
+    onNavigationError?: (error: string) => void;
+  }
+  
+  export function ARNavigation({ 
+    destinationId, 
+    onNavigationComplete,
+    onNavigationError 
+  }: NavigationProps) {
+    const {
+      currentPosition,
+      route,
+      isNavigating,
+      startNavigation,
+      stopNavigation,
+      recalculateRoute,
+    } = useNavigation();
+    
+    const [destination, setDestination] = useState(null);
+    
+    useEffect(() => {
+      const loadDestination = async () => {
+        try {
+          const dest = await multisetClient.getDestination(destinationId);
+          setDestination(dest);
+        } catch (error) {
+          onNavigationError?.('Failed to load destination');
+        }
+      };
+      
+      loadDestination();
+    }, [destinationId]);
+    
+    const handleStartNavigation = async () => {
+      try {
+        await startNavigation(destinationId);
+      } catch (error) {
+        onNavigationError?.('Failed to start navigation');
+      }
+    };
+    
+    const handleStopNavigation = () => {
+      stopNavigation();
+      onNavigationComplete?.();
+    };
+    
+    if (!destination) {
+      return <div>Loading navigation...</div>;
+    }
+    
+    return (
+      <div className="relative h-full w-full">
+        {/* Navigation header */}
+        <div className="absolute top-4 left-4 right-4 z-10">
+          <div className="bg-white rounded-lg shadow-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold text-lg">
+                  Navigating to {destination.name}
+                </h2>
+                <p className="text-sm text-gray-600">
+                  {destination.floor} • {route?.estimatedTime} min walk
+                </p>
+              </div>
+              
+              <div className="flex gap-2">
+                {!isNavigating ? (
+                  <button
+                    onClick={handleStartNavigation}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg"
+                  >
+                    Start Navigation
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleStopNavigation}
+                    className="bg-red-600 text-white px-4 py-2 rounded-lg"
+                  >
+                    Stop Navigation
+                  </button>
+                )}
+                
+                <button
+                  onClick={recalculateRoute}
+                  className="bg-gray-600 text-white px-4 py-2 rounded-lg"
+                >
+                  Recalculate
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* AR Navigation View */}
+        <NavigationView
+          currentPosition={currentPosition}
+          route={route}
+          destination={destination}
+          isNavigating={isNavigating}
+          onArrival={onNavigationComplete}
+          className="h-full w-full"
+        />
+        
+        {/* Navigation instructions */}
+        {route && (
+          <div className="absolute bottom-4 left-4 right-4 z-10">
+            <div className="bg-white rounded-lg shadow-lg p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                  <span className="text-white text-sm font-bold">
+                    {route.currentStepIndex + 1}
+                  </span>
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium">
+                    {route.currentInstruction}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {route.remainingDistance}m • {route.remainingTime} min
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+  ```
+</Tab>
+
+<Tab title="Navigation Hooks">
+  **Purpose**: Custom hooks for navigation state management
+  
+  ```typescript
+  import { useState, useEffect, useCallback } from 'react';
+  import { multisetClient } from '@repo/ai';
+  
+  export function useNavigation() {
+    const [currentPosition, setCurrentPosition] = useState(null);
+    const [route, setRoute] = useState(null);
+    const [isNavigating, setIsNavigating] = useState(false);
+    const [error, setError] = useState(null);
+    
+    // Initialize position tracking
+    useEffect(() => {
+      const startPositionTracking = async () => {
+        try {
+          await multisetClient.startPositionTracking({
+            onPositionUpdate: (position) => {
+              setCurrentPosition(position);
+            },
+            onError: (error) => {
+              setError(error.message);
+            },
+          });
+        } catch (error) {
+          setError('Failed to start position tracking');
+        }
+      };
+      
+      startPositionTracking();
+      
+      return () => {
+        multisetClient.stopPositionTracking();
+      };
+    }, []);
+    
+    const startNavigation = useCallback(async (destinationId: string) => {
+      try {
+        setError(null);
+        setIsNavigating(true);
+        
+        const navigationRoute = await multisetClient.calculateRoute({
+          from: currentPosition,
+          to: destinationId,
+          preferences: {
+            avoidStairs: false,
+            preferElevators: true,
+            accessibilityMode: false,
+          },
+        });
+        
+        setRoute(navigationRoute);
+        
+        // Start turn-by-turn navigation
+        await multisetClient.startNavigation(navigationRoute.id, {
+          onRouteUpdate: (updatedRoute) => {
+            setRoute(updatedRoute);
+          },
+          onArrival: () => {
+            setIsNavigating(false);
+            setRoute(null);
+          },
+          onOffRoute: () => {
+            recalculateRoute();
+          },
+        });
+      } catch (error) {
+        setError('Failed to start navigation');
+        setIsNavigating(false);
+      }
+    }, [currentPosition]);
+    
+    const stopNavigation = useCallback(() => {
+      multisetClient.stopNavigation();
+      setIsNavigating(false);
+      setRoute(null);
+    }, []);
+    
+    const recalculateRoute = useCallback(async () => {
+      if (!route || !currentPosition) return;
+      
+      try {
+        const newRoute = await multisetClient.calculateRoute({
+          from: currentPosition,
+          to: route.destination.id,
+          preferences: route.preferences,
+        });
+        
+        setRoute(newRoute);
+      } catch (error) {
+        setError('Failed to recalculate route');
+      }
+    }, [route, currentPosition]);
+    
+    return {
+      currentPosition,
+      route,
+      isNavigating,
+      error,
+      startNavigation,
+      stopNavigation,
+      recalculateRoute,
+    };
+  }
+  
+  export function useDestinations() {
+    const [destinations, setDestinations] = useState([]);
+    const [loading, setLoading] = useState(true);
+    
+    useEffect(() => {
+      const loadDestinations = async () => {
+        try {
+          const dests = await multisetClient.getDestinations();
+          setDestinations(dests);
+        } catch (error) {
+          console.error('Failed to load destinations:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      loadDestinations();
+    }, []);
+    
+    const searchDestinations = useCallback(async (query: string) => {
+      try {
+        return await multisetClient.searchDestinations(query);
+      } catch (error) {
+        console.error('Failed to search destinations:', error);
+        return [];
+      }
+    }, []);
+    
+    return {
+      destinations,
+      loading,
+      searchDestinations,
+    };
+  }
+  ```
+</Tab>
+</Tabs>
+
+## OpenAI Integration
+
+### Intelligent Features
+
+<AccordionGroup>
+<Accordion title="Smart Appointment Scheduling">
+  ```typescript
+  import { OpenAI } from 'openai';
+  import { database } from '@repo/database';
+  
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+  
+  export class SmartScheduling {
+    static async parseAppointmentRequest(
+      naturalLanguageRequest: string,
+      patientContext: {
+        id: string;
+        name: string;
+        medicalHistory: string[];
+        preferredProviders: string[];
+      }
+    ) {
+      const prompt = `
+        Parse the following appointment request and extract structured information:
+        
+        Request: "${naturalLanguageRequest}"
+        
+        Patient Context:
+        - Name: ${patientContext.name}
+        - Medical History: ${patientContext.medicalHistory.join(', ')}
+        - Preferred Providers: ${patientContext.preferredProviders.join(', ')}
+        
+        Extract and return JSON with:
+        - appointmentType: string (consultation, follow-up, emergency, etc.)
+        - specialization: string (cardiology, dermatology, etc.)
+        - urgency: string (routine, urgent, emergency)
+        - preferredTimeframe: string (morning, afternoon, evening, specific date)
+        - symptoms: string[] (if mentioned)
+        - notes: string (additional context)
+        
+        Return only valid JSON.
+      `;
+      
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a medical appointment scheduling assistant. Parse natural language requests into structured appointment data.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature: 0.1,
+      });
+      
+      try {
+        return JSON.parse(response.choices[0].message.content);
+      } catch (error) {
+        throw new Error('Failed to parse appointment request');
+      }
+    }
+    
+    static async suggestOptimalSlots(
+      appointmentData: any,
+      patientId: string
+    ) {
+      // Get available providers based on specialization
+      const providers = await database.user.findMany({
+        where: {
+          specialization: appointmentData.specialization,
+          role: { name: 'physician' },
+        },
+        include: {
+          appointments: {
+            where: {
+              scheduledAt: {
+                gte: new Date(),
+                lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Next 30 days
+              },
+            },
+          },
+        },
+      });
+      
+      // Use AI to analyze optimal scheduling
+      const prompt = `
+        Analyze the following data to suggest optimal appointment slots:
+        
+        Appointment Requirements:
+        - Type: ${appointmentData.appointmentType}
+        - Urgency: ${appointmentData.urgency}
+        - Preferred Timeframe: ${appointmentData.preferredTimeframe}
+        
+        Available Providers: ${JSON.stringify(providers.map(p => ({
+          id: p.id,
+          name: `${p.firstName} ${p.lastName}`,
+          specialization: p.specialization,
+          currentLoad: p.appointments.length,
+        })))}
+        
+        Consider:
+        1. Provider availability and current workload
+        2. Appointment urgency
+        3. Patient preferences
+        4. Optimal scheduling patterns
+        
+        Return JSON array of top 3 recommended slots with:
+        - providerId: string
+        - providerName: string
+        - suggestedDate: string (ISO format)
+        - suggestedTime: string
+        - reasoning: string
+        - confidence: number (0-1)
+      `;
+      
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an AI scheduling optimizer for healthcare appointments.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature: 0.3,
+      });
+      
+      try {
+        return JSON.parse(response.choices[0].message.content);
+      } catch (error) {
+        throw new Error('Failed to generate scheduling suggestions');
+      }
+    }
+  }
+  ```
+</Accordion>
+
+<Accordion title="Medical Documentation Assistant">
+  ```typescript
+  export class MedicalDocumentationAI {
+    static async generateAppointmentSummary(
+      appointmentData: {
+        patientName: string;
+        providerName: string;
+        appointmentType: string;
+        duration: number;
+        notes: string;
+        symptoms: string[];
+        diagnosis?: string;
+        treatment?: string;
+        followUp?: string;
+      }
+    ) {
+      const prompt = `
+        Generate a professional medical appointment summary based on the following information:
+        
+        Patient: ${appointmentData.patientName}
+        Provider: ${appointmentData.providerName}
+        Appointment Type: ${appointmentData.appointmentType}
+        Duration: ${appointmentData.duration} minutes
+        
+        Clinical Notes: ${appointmentData.notes}
+        Symptoms: ${appointmentData.symptoms.join(', ')}
+        ${appointmentData.diagnosis ? `Diagnosis: ${appointmentData.diagnosis}` : ''}
+        ${appointmentData.treatment ? `Treatment: ${appointmentData.treatment}` : ''}
+        ${appointmentData.followUp ? `Follow-up: ${appointmentData.followUp}` : ''}
+        
+        Generate a structured summary with:
+        1. Chief Complaint
+        2. Assessment
+        3. Plan
+        4. Follow-up Instructions (if applicable)
+        
+        Use professional medical terminology and maintain HIPAA compliance.
+      `;
+      
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a medical documentation assistant. Generate professional, accurate medical summaries.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature: 0.2,
+      });
+      
+      return response.choices[0].message.content;
+    }
+    
+    static async extractMedicalEntities(
+      clinicalText: string
+    ) {
+      const prompt = `
+        Extract medical entities from the following clinical text:
+        
+        "${clinicalText}"
+        
+        Extract and categorize:
+        - Symptoms: List of symptoms mentioned
+        - Medications: List of medications mentioned
+        - Conditions: List of medical conditions mentioned
+        - Procedures: List of procedures mentioned
+        - Vital Signs: Any vital signs mentioned
+        - Allergies: Any allergies mentioned
+        
+        Return as JSON with arrays for each category.
+      `;
+      
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a medical NLP assistant specialized in extracting clinical entities.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature: 0.1,
+      });
+      
+      try {
+        return JSON.parse(response.choices[0].message.content);
+      } catch (error) {
+        throw new Error('Failed to extract medical entities');
+      }
+    }
+    
+    static async generatePrescriptionInstructions(
+      medication: {
+        name: string;
+        dosage: string;
+        frequency: string;
+        duration: string;
+        condition: string;
+      }
+    ) {
+      const prompt = `
+        Generate clear, patient-friendly instructions for the following prescription:
+        
+        Medication: ${medication.name}
+        Dosage: ${medication.dosage}
+        Frequency: ${medication.frequency}
+        Duration: ${medication.duration}
+        Condition: ${medication.condition}
+        
+        Generate:
+        1. Clear taking instructions
+        2. Important warnings or side effects to watch for
+        3. Food/timing considerations
+        4. What to do if a dose is missed
+        5. When to contact the doctor
+        
+        Use simple, patient-friendly language.
+      `;
+      
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a pharmaceutical assistant helping patients understand their medications.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature: 0.3,
+      });
+      
+      return response.choices[0].message.content;
+    }
+  }
+  ```
+</Accordion>
+
+<Accordion title="Patient Communication AI">
+  ```typescript
+  export class PatientCommunicationAI {
+    static async generateAppointmentReminder(
+      appointment: {
+        patientName: string;
+        providerName: string;
+        appointmentType: string;
+        scheduledAt: Date;
+        location: string;
+        preparationInstructions?: string;
+      },
+      channel: 'email' | 'sms'
+    ) {
+      const prompt = `
+        Generate a ${channel} appointment reminder with the following details:
+        
+        Patient: ${appointment.patientName}
+        Provider: ${appointment.providerName}
+        Type: ${appointment.appointmentType}
+        Date & Time: ${appointment.scheduledAt.toLocaleString()}
+        Location: ${appointment.location}
+        ${appointment.preparationInstructions ? `Preparation: ${appointment.preparationInstructions}` : ''}
+        
+        ${channel === 'email' ? 
+          'Generate a professional email with subject line and body.' :
+          'Generate a concise SMS message (under 160 characters).'
+        }
+        
+        Include:
+        - Friendly greeting
+        - Appointment details
+        - Location/parking information
+        - Preparation instructions (if any)
+        - Contact information for changes
+        ${channel === 'email' ? '- Professional closing' : ''}
+      `;
+      
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a healthcare communication specialist creating ${channel} messages for patients.`,
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature: 0.4,
+      });
+      
+      return response.choices[0].message.content;
+    }
+    
+    static async answerPatientQuery(
+      query: string,
+      patientContext: {
+        name: string;
+        recentAppointments: any[];
+        activePrescriptions: any[];
+        medicalHistory: string[];
+      }
+    ) {
+      const prompt = `
+        Answer the following patient query professionally and helpfully:
+        
+        Query: "${query}"
+        
+        Patient Context:
+        - Name: ${patientContext.name}
+        - Recent Appointments: ${JSON.stringify(patientContext.recentAppointments)}
+        - Active Prescriptions: ${JSON.stringify(patientContext.activePrescriptions)}
+        - Medical History: ${patientContext.medicalHistory.join(', ')}
+        
+        Guidelines:
+        1. Be helpful and empathetic
+        2. Provide accurate information based on context
+        3. Direct to appropriate resources when needed
+        4. Maintain professional boundaries
+        5. Suggest contacting healthcare provider for medical advice
+        6. Keep responses concise but complete
+        
+        If the query requires medical advice, politely redirect to their healthcare provider.
+      `;
+      
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful healthcare assistant. Provide information and support while maintaining appropriate boundaries.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature: 0.5,
+      });
+      
+      return response.choices[0].message.content;
+    }
+  }
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Healthcare Analytics
+
+### Predictive Analytics
+
+<Tabs>
+<Tab title="Queue Management AI">
+  ```typescript
+  export class QueueAnalyticsAI {
+    static async predictWaitTimes(
+      queueData: {
+        currentQueue: Array<{
+          position: number;
+          appointmentType: string;
+          estimatedDuration: number;
+          patientComplexity: 'low' | 'medium' | 'high';
+        }>;
+        providerData: {
+          averageAppointmentTime: number;
+          efficiency: number;
+          specialization: string;
+        };
+        historicalData: Array<{
+          date: string;
+          actualWaitTime: number;
+          queueLength: number;
+          timeOfDay: string;
+        }>;
+      }
+    ) {
+      const prompt = `
+        Analyze the following queue data to predict accurate wait times:
+        
+        Current Queue: ${JSON.stringify(queueData.currentQueue)}
+        Provider Data: ${JSON.stringify(queueData.providerData)}
+        Historical Patterns: ${JSON.stringify(queueData.historicalData.slice(-10))}
+        
+        Consider:
+        1. Current queue length and complexity
+        2. Provider efficiency and specialization
+        3. Historical wait time patterns
+        4. Time of day factors
+        5. Appointment type variations
+        
+        Return JSON with:
+        - predictedWaitTimes: array of wait times for each queue position
+        - confidence: number (0-1)
+        - factors: array of key factors affecting wait times
+        - recommendations: array of suggestions to optimize queue
+      `;
+      
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a healthcare operations analyst specializing in queue optimization.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature: 0.2,
+      });
+      
+      try {
+        return JSON.parse(response.choices[0].message.content);
+      } catch (error) {
+        throw new Error('Failed to predict wait times');
+      }
+    }
+    
+    static async optimizeScheduling(
+      schedulingData: {
+        appointments: Array<{
+          type: string;
+          duration: number;
+          priority: string;
+          patientComplexity: string;
+        }>;
+        providerAvailability: Array<{
+          start: string;
+          end: string;
+          breakTimes: string[];
+        }>;
+        constraints: {
+          maxConsecutiveAppointments: number;
+          bufferTime: number;
+          lunchBreak: { start: string; end: string };
+        };
+      }
+    ) {
+      const prompt = `
+        Optimize the following appointment schedule:
+        
+        Appointments to Schedule: ${JSON.stringify(schedulingData.appointments)}
+        Provider Availability: ${JSON.stringify(schedulingData.providerAvailability)}
+        Constraints: ${JSON.stringify(schedulingData.constraints)}
+        
+        Optimize for:
+        1. Minimal patient wait times
+        2. Provider efficiency
+        3. Balanced workload distribution
+        4. Emergency slot availability
+        5. Patient satisfaction
+        
+        Return JSON with:
+        - optimizedSchedule: array of scheduled appointments with times
+        - efficiency: number (0-1)
+        - reasoning: string explaining optimization decisions
+        - alternatives: array of alternative scheduling options
+      `;
+      
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an AI scheduling optimizer for healthcare facilities.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature: 0.3,
+      });
+      
+      try {
+        return JSON.parse(response.choices[0].message.content);
+      } catch (error) {
+        throw new Error('Failed to optimize scheduling');
+      }
+    }
+  }
+  ```
+</Tab>
+
+<Tab title="Resource Optimization">
+  ```typescript
+  export class ResourceOptimizationAI {
+    static async analyzeResourceUtilization(
+      resourceData: {
+        rooms: Array<{
+          id: string;
+          type: string;
+          capacity: number;
+          utilizationRate: number;
+          equipment: string[];
+        }>;
+        staff: Array<{
+          id: string;
+          role: string;
+          workload: number;
+          efficiency: number;
+          specializations: string[];
+        }>;
+        equipment: Array<{
+          id: string;
+          type: string;
+          utilizationRate: number;
+          maintenanceSchedule: string;
+        }>;
+        timeframe: string;
+      }
+    ) {
+      const prompt = `
+        Analyze resource utilization and provide optimization recommendations:
+        
+        Rooms: ${JSON.stringify(resourceData.rooms)}
+        Staff: ${JSON.stringify(resourceData.staff)}
+        Equipment: ${JSON.stringify(resourceData.equipment)}
+        Timeframe: ${resourceData.timeframe}
+        
+        Analyze:
+        1. Current utilization rates and bottlenecks
+        2. Resource allocation efficiency
+        3. Staff workload distribution
+        4. Equipment usage patterns
+        5. Capacity optimization opportunities
+        
+        Return JSON with:
+        - utilizationAnalysis: detailed breakdown by resource type
+        - bottlenecks: array of identified bottlenecks
+        - recommendations: array of optimization suggestions
+        - projectedImpact: estimated impact of recommendations
+        - priority: ranking of recommendations by impact
+      `;
+      
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a healthcare operations analyst specializing in resource optimization.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature: 0.2,
+      });
+      
+      try {
+        return JSON.parse(response.choices[0].message.content);
+      } catch (error) {
+        throw new Error('Failed to analyze resource utilization');
+      }
+    }
+  }
+  ```
+</Tab>
+
+<Tab title="Predictive Insights">
+  ```typescript
+  export class PredictiveInsightsAI {
+    static async predictPatientNoShows(
+      patientData: Array<{
+        id: string;
+        appointmentHistory: Array<{
+          scheduled: string;
+          status: 'completed' | 'no-show' | 'cancelled';
+          rescheduled: boolean;
+        }>;
+        demographics: {
+          age: number;
+          distance: number;
+          insurance: string;
+        };
+        upcomingAppointment: {
+          type: string;
+          scheduledAt: string;
+          provider: string;
+        };
+      }>
+    ) {
+      const prompt = `
+        Predict no-show probability for upcoming appointments:
+        
+        Patient Data: ${JSON.stringify(patientData)}
+        
+        Consider factors:
+        1. Historical no-show patterns
+        2. Appointment type and timing
+        3. Patient demographics
+        4. Distance and accessibility
+        5. Insurance and payment factors
+        6. Provider relationship
+        
+        Return JSON with:
+        - predictions: array of {patientId, noShowProbability, riskFactors}
+        - overallRisk: summary of no-show risk for the day
+        - interventions: suggested interventions for high-risk patients
+        - confidence: model confidence level
+      `;
+      
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a predictive analytics specialist for healthcare appointment management.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature: 0.1,
+      });
+      
+      try {
+        return JSON.parse(response.choices[0].message.content);
+      } catch (error) {
+        throw new Error('Failed to predict no-shows');
+      }
+    }
+  }
+  ```
+</Tab>
+</Tabs>
+
+## Development
+
+### Setup and Configuration
+
+<Steps>
+<Step title="Environment Variables">
+  ```bash
+  # OpenAI configuration
+  OPENAI_API_KEY="sk-..."
+  OPENAI_ORG_ID="org-..."
+  
+  # Multiset AI configuration
+  MULTISET_API_KEY="ms_..."
+  MULTISET_ORG_ID="org_..."
+  
+  # Optional: Custom endpoints
+  OPENAI_BASE_URL="https://api.openai.com/v1"
+  MULTISET_BASE_URL="https://api.multiset.ai/v1"
+  ```
+</Step>
+
+<Step title="AI Client Initialization">
+  ```typescript
+  // lib/ai-clients.ts
+  import { OpenAI } from 'openai';
+  import { MultisetAI } from '@multiset/ai-sdk';
+  
+  export const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    organization: process.env.OPENAI_ORG_ID,
+  });
+  
+  export const multisetAI = new MultisetAI({
+    apiKey: process.env.MULTISET_API_KEY,
+    organizationId: process.env.MULTISET_ORG_ID,
+  });
+  
+  // Rate limiting and error handling
+  export const aiRequest = async (
+    operation: () => Promise<any>,
+    retries: number = 3
+  ) => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        return await operation();
+      } catch (error) {
+        if (error.status === 429 && i < retries - 1) {
+          // Rate limit hit, wait and retry
+          await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+          continue;
+        }
+        throw error;
+      }
+    }
+  };
+  ```
+</Step>
+
+<Step title="Testing AI Features">
+  ```typescript
+  // __tests__/ai.test.ts
+  import { SmartScheduling, MedicalDocumentationAI } from '@repo/ai';
+  
+  // Mock OpenAI for testing
+  jest.mock('openai');
+  
+  describe('AI Features', () => {
+    test('parses appointment request correctly', async () => {
+      const request = "I need to see a cardiologist next week for chest pain";
+      const patientContext = {
+        id: 'patient_123',
+        name: 'John Doe',
+        medicalHistory: ['hypertension'],
+        preferredProviders: ['Dr. Smith'],
+      };
+      
+      const result = await SmartScheduling.parseAppointmentRequest(
+        request,
+        patientContext
+      );
+      
+      expect(result.appointmentType).toBe('consultation');
+      expect(result.specialization).toBe('cardiology');
+      expect(result.urgency).toBe('urgent');
+      expect(result.symptoms).toContain('chest pain');
+    });
+    
+    test('generates medical documentation', async () => {
+      const appointmentData = {
+        patientName: 'John Doe',
+        providerName: 'Dr. Smith',
+        appointmentType: 'consultation',
+        duration: 30,
+        notes: 'Patient reports chest pain',
+        symptoms: ['chest pain', 'shortness of breath'],
+        diagnosis: 'Possible angina',
+        treatment: 'Prescribed nitroglycerin',
+      };
+      
+      const summary = await MedicalDocumentationAI.generateAppointmentSummary(
+        appointmentData
+      );
+      
+      expect(summary).toContain('Chief Complaint');
+      expect(summary).toContain('Assessment');
+      expect(summary).toContain('Plan');
+    });
+  });
+  ```
+</Step>
+</Steps>
+
+## Best Practices
+
+### AI Safety and Ethics
+
+<AccordionGroup>
+<Accordion title="Healthcare AI Guidelines">
+  - Always validate AI-generated content with healthcare professionals
+  - Implement human oversight for critical medical decisions
+  - Maintain audit trails for all AI-assisted actions
+  - Ensure HIPAA compliance in all AI processing
+  - Use AI to augment, not replace, clinical judgment
+</Accordion>
+
+<Accordion title="Data Privacy and Security">
+  - Encrypt all data sent to AI services
+  - Implement data minimization principles
+  - Use secure API endpoints and authentication
+  - Regular security audits of AI integrations
+  - Clear data retention and deletion policies
+</Accordion>
+
+<Accordion title="Performance and Reliability">
+  - Implement proper error handling and fallbacks
+  - Monitor AI service performance and costs
+  - Use caching for frequently requested AI operations
+  - Implement rate limiting and request queuing
+  - Regular testing of AI model accuracy
+</Accordion>
+</AccordionGroup>
+
+<Note>
+The AI package provides powerful capabilities that must be used responsibly in healthcare contexts. Always prioritize patient safety, data privacy, and clinical accuracy when implementing AI features.
+</Note>

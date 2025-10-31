@@ -1,0 +1,985 @@
+---
+title: "Internationalization Package"
+description: "Comprehensive i18n solution for multi-language support across the Waylio healthcare platform with medical terminology and cultural adaptations."
+---
+
+# Internationalization Package
+
+The internationalization (i18n) package provides comprehensive multi-language support for the Waylio healthcare platform. It handles translations, locale-specific formatting, cultural adaptations, and medical terminology across different languages and regions.
+
+## Installation
+
+```bash
+# Install the internationalization package
+pnpm add @repo/internationalization
+
+# Peer dependencies (automatically installed in monorepo)
+pnpm add next-intl react-intl @formatjs/intl-localematcher
+```
+
+## Overview
+
+The i18n package enables the Waylio platform to serve healthcare providers and patients in multiple languages and regions. It provides specialized medical translations, cultural adaptations for healthcare practices, and locale-specific formatting for dates, times, and medical units.
+
+### Key Features
+
+<CardGroup cols={2}>
+<Card title="Medical Translations" icon="language">
+  Specialized medical terminology and healthcare-specific translations with clinical accuracy.
+</Card>
+
+<Card title="Cultural Adaptation" icon="globe">
+  Healthcare practice adaptations for different cultural contexts and regional preferences.
+</Card>
+
+<Card title="Dynamic Loading" icon="download">
+  Efficient translation loading with code splitting and lazy loading for better performance.
+</Card>
+
+<Card title="Pluralization Rules" icon="list-ordered">
+  Advanced pluralization handling for medical quantities, dosages, and appointment counts.
+</Card>
+</CardGroup>
+
+## Language Configuration
+
+### Supported Languages
+
+<Tabs>
+<Tab title="Language Setup">
+  **Purpose**: Configure supported languages and locales
+  
+  ```typescript
+  // lib/i18n/config.ts
+  export const SUPPORTED_LOCALES = [
+    'en-US', // English (United States)
+    'es-ES', // Spanish (Spain)
+    'es-MX', // Spanish (Mexico)
+    'fr-FR', // French (France)
+    'fr-CA', // French (Canada)
+    'de-DE', // German (Germany)
+    'it-IT', // Italian (Italy)
+    'pt-BR', // Portuguese (Brazil)
+    'zh-CN', // Chinese (Simplified)
+    'zh-TW', // Chinese (Traditional)
+    'ja-JP', // Japanese
+    'ko-KR', // Korean
+    'ar-SA', // Arabic (Saudi Arabia)
+    'hi-IN', // Hindi (India)
+    'ru-RU', // Russian
+  ] as const;
+  
+  export type SupportedLocale = typeof SUPPORTED_LOCALES[number];
+  
+  export const DEFAULT_LOCALE: SupportedLocale = 'en-US';
+  
+  export const LOCALE_NAMES: Record<SupportedLocale, string> = {
+    'en-US': 'English (US)',
+    'es-ES': 'Español (España)',
+    'es-MX': 'Español (México)',
+    'fr-FR': 'Français (France)',
+    'fr-CA': 'Français (Canada)',
+    'de-DE': 'Deutsch',
+    'it-IT': 'Italiano',
+    'pt-BR': 'Português (Brasil)',
+    'zh-CN': '简体中文',
+    'zh-TW': '繁體中文',
+    'ja-JP': '日本語',
+    'ko-KR': '한국어',
+    'ar-SA': 'العربية',
+    'hi-IN': 'हिन्दी',
+    'ru-RU': 'Русский',
+  };
+  
+  export const RTL_LOCALES: SupportedLocale[] = ['ar-SA'];
+  
+  export const MEDICAL_UNIT_SYSTEMS: Record<SupportedLocale, 'metric' | 'imperial'> = {
+    'en-US': 'imperial',
+    'es-ES': 'metric',
+    'es-MX': 'metric',
+    'fr-FR': 'metric',
+    'fr-CA': 'metric',
+    'de-DE': 'metric',
+    'it-IT': 'metric',
+    'pt-BR': 'metric',
+    'zh-CN': 'metric',
+    'zh-TW': 'metric',
+    'ja-JP': 'metric',
+    'ko-KR': 'metric',
+    'ar-SA': 'metric',
+    'hi-IN': 'metric',
+    'ru-RU': 'metric',
+  };
+  
+  export const DATE_FORMATS: Record<SupportedLocale, string> = {
+    'en-US': 'MM/dd/yyyy',
+    'es-ES': 'dd/MM/yyyy',
+    'es-MX': 'dd/MM/yyyy',
+    'fr-FR': 'dd/MM/yyyy',
+    'fr-CA': 'yyyy-MM-dd',
+    'de-DE': 'dd.MM.yyyy',
+    'it-IT': 'dd/MM/yyyy',
+    'pt-BR': 'dd/MM/yyyy',
+    'zh-CN': 'yyyy/MM/dd',
+    'zh-TW': 'yyyy/MM/dd',
+    'ja-JP': 'yyyy/MM/dd',
+    'ko-KR': 'yyyy. MM. dd.',
+    'ar-SA': 'dd/MM/yyyy',
+    'hi-IN': 'dd/MM/yyyy',
+    'ru-RU': 'dd.MM.yyyy',
+  };
+  
+  export const TIME_FORMATS: Record<SupportedLocale, '12h' | '24h'> = {
+    'en-US': '12h',
+    'es-ES': '24h',
+    'es-MX': '12h',
+    'fr-FR': '24h',
+    'fr-CA': '24h',
+    'de-DE': '24h',
+    'it-IT': '24h',
+    'pt-BR': '24h',
+    'zh-CN': '24h',
+    'zh-TW': '24h',
+    'ja-JP': '24h',
+    'ko-KR': '12h',
+    'ar-SA': '12h',
+    'hi-IN': '12h',
+    'ru-RU': '24h',
+  };
+  ```
+</Tab>
+
+<Tab title="Translation Structure">
+  **Purpose**: Organize translations by domain and context
+  
+  ```json
+  // messages/en-US.json
+  {
+    "common": {
+      "loading": "Loading...",
+      "error": "An error occurred",
+      "success": "Success",
+      "cancel": "Cancel",
+      "save": "Save",
+      "delete": "Delete",
+      "edit": "Edit",
+      "view": "View",
+      "search": "Search",
+      "filter": "Filter",
+      "sort": "Sort",
+      "next": "Next",
+      "previous": "Previous",
+      "close": "Close"
+    },
+    
+    "navigation": {
+      "dashboard": "Dashboard",
+      "appointments": "Appointments",
+      "patients": "Patients",
+      "providers": "Providers",
+      "prescriptions": "Prescriptions",
+      "reports": "Reports",
+      "settings": "Settings",
+      "help": "Help",
+      "logout": "Logout"
+    },
+    
+    "appointments": {
+      "title": "Appointments",
+      "schedule": "Schedule Appointment",
+      "reschedule": "Reschedule",
+      "cancel": "Cancel Appointment",
+      "confirm": "Confirm Appointment",
+      "upcoming": "Upcoming Appointments",
+      "past": "Past Appointments",
+      "today": "Today's Appointments",
+      "duration": "Duration",
+      "provider": "Healthcare Provider",
+      "patient": "Patient",
+      "type": "Appointment Type",
+      "status": "Status",
+      "notes": "Notes",
+      "instructions": "Pre-appointment Instructions",
+      "confirmation": {
+        "title": "Appointment Confirmed",
+        "message": "Your appointment has been scheduled successfully.",
+        "details": "Appointment Details",
+        "reminder": "You will receive a reminder 24 hours before your appointment."
+      },
+      "cancellation": {
+        "title": "Cancel Appointment",
+        "reason": "Cancellation Reason",
+        "confirm": "Are you sure you want to cancel this appointment?",
+        "success": "Appointment cancelled successfully."
+      },
+      "status": {
+        "scheduled": "Scheduled",
+        "confirmed": "Confirmed",
+        "in_progress": "In Progress",
+        "completed": "Completed",
+        "cancelled": "Cancelled",
+        "no_show": "No Show"
+      },
+      "types": {
+        "consultation": "Consultation",
+        "follow_up": "Follow-up",
+        "check_up": "Check-up",
+        "procedure": "Procedure",
+        "surgery": "Surgery",
+        "emergency": "Emergency",
+        "telehealth": "Telehealth"
+      }
+    },
+    
+    "medical": {
+      "vitals": {
+        "blood_pressure": "Blood Pressure",
+        "heart_rate": "Heart Rate",
+        "temperature": "Temperature",
+        "weight": "Weight",
+        "height": "Height",
+        "bmi": "BMI",
+        "oxygen_saturation": "Oxygen Saturation",
+        "respiratory_rate": "Respiratory Rate"
+      },
+      "units": {
+        "mmHg": "mmHg",
+        "bpm": "bpm",
+        "celsius": "°C",
+        "fahrenheit": "°F",
+        "kg": "kg",
+        "lbs": "lbs",
+        "cm": "cm",
+        "ft": "ft",
+        "in": "in",
+        "percent": "%",
+        "per_minute": "/min"
+      },
+      "specialties": {
+        "cardiology": "Cardiology",
+        "dermatology": "Dermatology",
+        "endocrinology": "Endocrinology",
+        "gastroenterology": "Gastroenterology",
+        "neurology": "Neurology",
+        "oncology": "Oncology",
+        "orthopedics": "Orthopedics",
+        "pediatrics": "Pediatrics",
+        "psychiatry": "Psychiatry",
+        "radiology": "Radiology",
+        "surgery": "Surgery",
+        "urology": "Urology"
+      },
+      "prescriptions": {
+        "medication": "Medication",
+        "dosage": "Dosage",
+        "frequency": "Frequency",
+        "duration": "Duration",
+        "instructions": "Instructions",
+        "refills": "Refills",
+        "pharmacy": "Pharmacy",
+        "prescriber": "Prescriber",
+        "date_prescribed": "Date Prescribed",
+        "status": "Status",
+        "active": "Active",
+        "expired": "Expired",
+        "discontinued": "Discontinued"
+      }
+    },
+    
+    "patients": {
+      "title": "Patients",
+      "add_patient": "Add Patient",
+      "patient_info": "Patient Information",
+      "medical_history": "Medical History",
+      "allergies": "Allergies",
+      "medications": "Current Medications",
+      "insurance": "Insurance Information",
+      "emergency_contact": "Emergency Contact",
+      "demographics": {
+        "first_name": "First Name",
+        "last_name": "Last Name",
+        "date_of_birth": "Date of Birth",
+        "gender": "Gender",
+        "phone": "Phone Number",
+        "email": "Email Address",
+        "address": "Address",
+        "city": "City",
+        "state": "State",
+        "zip_code": "ZIP Code",
+        "country": "Country"
+      },
+      "gender": {
+        "male": "Male",
+        "female": "Female",
+        "other": "Other",
+        "prefer_not_to_say": "Prefer not to say"
+      }
+    },
+    
+    "errors": {
+      "validation": {
+        "required": "This field is required",
+        "email": "Please enter a valid email address",
+        "phone": "Please enter a valid phone number",
+        "date": "Please enter a valid date",
+        "min_length": "Must be at least {min} characters",
+        "max_length": "Must be no more than {max} characters",
+        "numeric": "Must be a number",
+        "positive": "Must be a positive number"
+      },
+      "api": {
+        "network": "Network error. Please check your connection.",
+        "server": "Server error. Please try again later.",
+        "unauthorized": "You are not authorized to perform this action.",
+        "not_found": "The requested resource was not found.",
+        "conflict": "This action conflicts with existing data."
+      }
+    },
+    
+    "time": {
+      "now": "now",
+      "today": "today",
+      "yesterday": "yesterday",
+      "tomorrow": "tomorrow",
+      "this_week": "this week",
+      "last_week": "last week",
+      "next_week": "next week",
+      "this_month": "this month",
+      "last_month": "last month",
+      "next_month": "next month",
+      "days_ago": "{count, plural, =1 {1 day ago} other {# days ago}}",
+      "hours_ago": "{count, plural, =1 {1 hour ago} other {# hours ago}}",
+      "minutes_ago": "{count, plural, =1 {1 minute ago} other {# minutes ago}}",
+      "in_days": "{count, plural, =1 {in 1 day} other {in # days}}",
+      "in_hours": "{count, plural, =1 {in 1 hour} other {in # hours}}",
+      "in_minutes": "{count, plural, =1 {in 1 minute} other {in # minutes}}"
+    }
+  }
+  ```
+</Tab>
+
+<Tab title="Medical Translations">
+  **Purpose**: Specialized medical terminology translations
+  
+  ```json
+  // messages/es-ES.json (Spanish medical translations)
+  {
+    "medical": {
+      "vitals": {
+        "blood_pressure": "Presión Arterial",
+        "heart_rate": "Frecuencia Cardíaca",
+        "temperature": "Temperatura",
+        "weight": "Peso",
+        "height": "Altura",
+        "bmi": "IMC",
+        "oxygen_saturation": "Saturación de Oxígeno",
+        "respiratory_rate": "Frecuencia Respiratoria"
+      },
+      "specialties": {
+        "cardiology": "Cardiología",
+        "dermatology": "Dermatología",
+        "endocrinology": "Endocrinología",
+        "gastroenterology": "Gastroenterología",
+        "neurology": "Neurología",
+        "oncology": "Oncología",
+        "orthopedics": "Ortopedia",
+        "pediatrics": "Pediatría",
+        "psychiatry": "Psiquiatría",
+        "radiology": "Radiología",
+        "surgery": "Cirugía",
+        "urology": "Urología"
+      },
+      "symptoms": {
+        "fever": "Fiebre",
+        "headache": "Dolor de Cabeza",
+        "nausea": "Náuseas",
+        "fatigue": "Fatiga",
+        "dizziness": "Mareos",
+        "chest_pain": "Dolor en el Pecho",
+        "shortness_of_breath": "Dificultad para Respirar",
+        "abdominal_pain": "Dolor Abdominal",
+        "back_pain": "Dolor de Espalda",
+        "joint_pain": "Dolor Articular"
+      },
+      "conditions": {
+        "diabetes": "Diabetes",
+        "hypertension": "Hipertensión",
+        "asthma": "Asma",
+        "arthritis": "Artritis",
+        "depression": "Depresión",
+        "anxiety": "Ansiedad",
+        "migraine": "Migraña",
+        "allergies": "Alergias",
+        "heart_disease": "Enfermedad Cardíaca",
+        "cancer": "Cáncer"
+      },
+      "procedures": {
+        "blood_test": "Análisis de Sangre",
+        "x_ray": "Radiografía",
+        "mri": "Resonancia Magnética",
+        "ct_scan": "Tomografía Computarizada",
+        "ultrasound": "Ecografía",
+        "ecg": "Electrocardiograma",
+        "biopsy": "Biopsia",
+        "surgery": "Cirugía",
+        "vaccination": "Vacunación",
+        "physical_therapy": "Fisioterapia"
+      }
+    },
+    
+    "appointments": {
+      "instructions": {
+        "fasting": "Ayuno requerido: No coma ni beba nada excepto agua durante 12 horas antes de su cita.",
+        "medication": "Continúe tomando sus medicamentos regulares a menos que se le indique lo contrario.",
+        "arrive_early": "Llegue 15 minutos antes de su cita para el registro.",
+        "bring_insurance": "Traiga su tarjeta de seguro y una identificación válida.",
+        "bring_medications": "Traiga una lista de todos sus medicamentos actuales.",
+        "comfortable_clothing": "Use ropa cómoda y fácil de quitar si es necesario."
+      }
+    }
+  }
+  ```
+</Tab>
+</Tabs>
+
+## Translation Hooks and Components
+
+### React Integration
+
+<AccordionGroup>
+<Accordion title="Translation Hooks">
+  ```typescript
+  // hooks/use-translations.ts
+  import { useTranslations, useLocale, useFormatter } from 'next-intl';
+  import { SupportedLocale, MEDICAL_UNIT_SYSTEMS } from '../config';
+  
+  export function useT() {
+    return useTranslations();
+  }
+  
+  export function useMedicalTranslations() {
+    return useTranslations('medical');
+  }
+  
+  export function useAppointmentTranslations() {
+    return useTranslations('appointments');
+  }
+  
+  export function usePatientTranslations() {
+    return useTranslations('patients');
+  }
+  
+  export function useErrorTranslations() {
+    return useTranslations('errors');
+  }
+  
+  export function useTimeTranslations() {
+    return useTranslations('time');
+  }
+  
+  // Medical-specific formatting hooks
+  export function useMedicalFormatter() {
+    const locale = useLocale() as SupportedLocale;
+    const format = useFormatter();
+    const unitSystem = MEDICAL_UNIT_SYSTEMS[locale];
+    
+    const formatVitals = {
+      bloodPressure: (systolic: number, diastolic: number) => 
+        `${systolic}/${diastolic} mmHg`,
+        
+      heartRate: (rate: number) => 
+        format.number(rate, { style: 'unit', unit: 'per-minute' }),
+        
+      temperature: (temp: number, unit: 'celsius' | 'fahrenheit' = 'celsius') => {
+        if (unitSystem === 'imperial' && unit === 'celsius') {
+          temp = (temp * 9/5) + 32;
+          unit = 'fahrenheit';
+        } else if (unitSystem === 'metric' && unit === 'fahrenheit') {
+          temp = (temp - 32) * 5/9;
+          unit = 'celsius';
+        }
+        
+        return format.number(temp, {
+          style: 'unit',
+          unit: unit === 'celsius' ? 'celsius' : 'fahrenheit',
+          minimumFractionDigits: 1,
+          maximumFractionDigits: 1,
+        });
+      },
+      
+      weight: (weight: number, unit: 'kg' | 'lbs' = 'kg') => {
+        if (unitSystem === 'imperial' && unit === 'kg') {
+          weight = weight * 2.20462;
+          unit = 'lbs';
+        } else if (unitSystem === 'metric' && unit === 'lbs') {
+          weight = weight / 2.20462;
+          unit = 'kg';
+        }
+        
+        return format.number(weight, {
+          style: 'unit',
+          unit: unit === 'kg' ? 'kilogram' : 'pound',
+          minimumFractionDigits: 1,
+          maximumFractionDigits: 1,
+        });
+      },
+      
+      height: (height: number, unit: 'cm' | 'ft' = 'cm') => {
+        if (unitSystem === 'imperial' && unit === 'cm') {
+          const totalInches = height / 2.54;
+          const feet = Math.floor(totalInches / 12);
+          const inches = Math.round(totalInches % 12);
+          return `${feet}' ${inches}"`;
+        } else if (unitSystem === 'metric' && unit === 'ft') {
+          height = height * 30.48; // Convert feet to cm
+          unit = 'cm';
+        }
+        
+        return format.number(height, {
+          style: 'unit',
+          unit: 'centimeter',
+          maximumFractionDigits: 0,
+        });
+      },
+      
+      bmi: (bmi: number) => 
+        format.number(bmi, {
+          minimumFractionDigits: 1,
+          maximumFractionDigits: 1,
+        }),
+        
+      oxygenSaturation: (saturation: number) => 
+        format.number(saturation, {
+          style: 'percent',
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 1,
+        }) + '%',
+    };
+    
+    const formatMedication = {
+      dosage: (amount: number, unit: string) => 
+        `${format.number(amount)} ${unit}`,
+        
+      frequency: (times: number, period: 'day' | 'week' | 'month') => {
+        const t = useTranslations('medical.frequency');
+        return t('times_per_period', { times, period: t(period) });
+      },
+      
+      duration: (amount: number, unit: 'days' | 'weeks' | 'months') => {
+        const t = useTranslations('medical.duration');
+        return t('amount_unit', { amount, unit: t(unit, { count: amount }) });
+      },
+    };
+    
+    return {
+      formatVitals,
+      formatMedication,
+      unitSystem,
+    };
+  }
+  
+  // Date and time formatting with locale support
+  export function useDateTimeFormatter() {
+    const locale = useLocale() as SupportedLocale;
+    const format = useFormatter();
+    
+    return {
+      formatAppointmentDate: (date: Date) => 
+        format.dateTime(date, {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          weekday: 'long',
+        }),
+        
+      formatAppointmentTime: (date: Date) => 
+        format.dateTime(date, {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: TIME_FORMATS[locale] === '12h',
+        }),
+        
+      formatMedicalDate: (date: Date) => 
+        format.dateTime(date, {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }),
+        
+      formatRelativeTime: (date: Date) => 
+        format.relativeTime(date),
+        
+      formatDuration: (minutes: number) => {
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        
+        if (hours > 0) {
+          return format.list([
+            format.number(hours, { style: 'unit', unit: 'hour' }),
+            format.number(mins, { style: 'unit', unit: 'minute' }),
+          ]);
+        }
+        
+        return format.number(mins, { style: 'unit', unit: 'minute' });
+      },
+    };
+  }
+  
+  // Pluralization helper
+  export function usePluralization() {
+    const t = useTranslations();
+    
+    return {
+      appointments: (count: number) => 
+        t('appointments.count', { count }),
+        
+      patients: (count: number) => 
+        t('patients.count', { count }),
+        
+      medications: (count: number) => 
+        t('medical.medications.count', { count }),
+        
+      days: (count: number) => 
+        t('time.days', { count }),
+        
+      hours: (count: number) => 
+        t('time.hours', { count }),
+        
+      minutes: (count: number) => 
+        t('time.minutes', { count }),
+    };
+  }
+  ```
+</Accordion>
+
+<Accordion title="Translation Components">
+  ```typescript
+  // components/translation-components.tsx
+  import { useTranslations, useLocale } from 'next-intl';
+  import { SupportedLocale, RTL_LOCALES } from '../config';
+  import { useMedicalFormatter, useDateTimeFormatter } from '../hooks/use-translations';
+  
+  interface TranslatedTextProps {
+    namespace?: string;
+    messageKey: string;
+    values?: Record<string, any>;
+    fallback?: string;
+  }
+  
+  export function TranslatedText({ 
+    namespace, 
+    messageKey, 
+    values, 
+    fallback 
+  }: TranslatedTextProps) {
+    const t = useTranslations(namespace);
+    
+    try {
+      return <>{t(messageKey, values)}</>;
+    } catch (error) {
+      console.warn(`Translation missing: ${namespace}.${messageKey}`);
+      return <>{fallback || messageKey}</>;
+    }
+  }
+  
+  interface MedicalValueProps {
+    type: 'blood_pressure' | 'heart_rate' | 'temperature' | 'weight' | 'height' | 'bmi' | 'oxygen_saturation';
+    value: number | [number, number]; // Array for blood pressure
+    unit?: string;
+    showUnit?: boolean;
+  }
+  
+  export function MedicalValue({ 
+    type, 
+    value, 
+    unit, 
+    showUnit = true 
+  }: MedicalValueProps) {
+    const { formatVitals } = useMedicalFormatter();
+    const t = useTranslations('medical.vitals');
+    
+    let formattedValue: string;
+    
+    switch (type) {
+      case 'blood_pressure':
+        const [systolic, diastolic] = value as [number, number];
+        formattedValue = formatVitals.bloodPressure(systolic, diastolic);
+        break;
+        
+      case 'heart_rate':
+        formattedValue = formatVitals.heartRate(value as number);
+        break;
+        
+      case 'temperature':
+        formattedValue = formatVitals.temperature(value as number, unit as any);
+        break;
+        
+      case 'weight':
+        formattedValue = formatVitals.weight(value as number, unit as any);
+        break;
+        
+      case 'height':
+        formattedValue = formatVitals.height(value as number, unit as any);
+        break;
+        
+      case 'bmi':
+        formattedValue = formatVitals.bmi(value as number);
+        break;
+        
+      case 'oxygen_saturation':
+        formattedValue = formatVitals.oxygenSaturation(value as number);
+        break;
+        
+      default:
+        formattedValue = String(value);
+    }
+    
+    return (
+      <span className="medical-value">
+        <span className="value">{formattedValue}</span>
+        {showUnit && (
+          <span className="label ml-1 text-sm text-gray-600">
+            {t(type)}
+          </span>
+        )}
+      </span>
+    );
+  }
+  
+  interface AppointmentTimeProps {
+    date: Date;
+    showDate?: boolean;
+    showTime?: boolean;
+    showRelative?: boolean;
+  }
+  
+  export function AppointmentTime({ 
+    date, 
+    showDate = true, 
+    showTime = true, 
+    showRelative = false 
+  }: AppointmentTimeProps) {
+    const { formatAppointmentDate, formatAppointmentTime, formatRelativeTime } = useDateTimeFormatter();
+    
+    return (
+      <span className="appointment-time">
+        {showDate && (
+          <span className="date">{formatAppointmentDate(date)}</span>
+        )}
+        {showDate && showTime && <span className="separator"> at </span>}
+        {showTime && (
+          <span className="time">{formatAppointmentTime(date)}</span>
+        )}
+        {showRelative && (
+          <span className="relative ml-2 text-sm text-gray-500">
+            ({formatRelativeTime(date)})
+          </span>
+        )}
+      </span>
+    );
+  }
+  
+  interface LocalizedLayoutProps {
+    children: React.ReactNode;
+    className?: string;
+  }
+  
+  export function LocalizedLayout({ children, className = '' }: LocalizedLayoutProps) {
+    const locale = useLocale() as SupportedLocale;
+    const isRTL = RTL_LOCALES.includes(locale);
+    
+    return (
+      <div 
+        className={`${className} ${isRTL ? 'rtl' : 'ltr'}`}
+        dir={isRTL ? 'rtl' : 'ltr'}
+        lang={locale}
+      >
+        {children}
+      </div>
+    );
+  }
+  
+  interface LanguageSelectorProps {
+    onLanguageChange?: (locale: SupportedLocale) => void;
+    showFlags?: boolean;
+    compact?: boolean;
+  }
+  
+  export function LanguageSelector({ 
+    onLanguageChange, 
+    showFlags = true, 
+    compact = false 
+  }: LanguageSelectorProps) {
+    const currentLocale = useLocale() as SupportedLocale;
+    const t = useTranslations('common');
+    
+    const handleLanguageChange = (locale: SupportedLocale) => {
+      // Update URL with new locale
+      const url = new URL(window.location.href);
+      url.pathname = `/${locale}${url.pathname.substring(6)}`; // Remove current locale
+      window.location.href = url.toString();
+      
+      onLanguageChange?.(locale);
+    };
+    
+    if (compact) {
+      return (
+        <select
+          value={currentLocale}
+          onChange={(e) => handleLanguageChange(e.target.value as SupportedLocale)}
+          className="language-selector-compact"
+        >
+          {SUPPORTED_LOCALES.map((locale) => (
+            <option key={locale} value={locale}>
+              {LOCALE_NAMES[locale]}
+            </option>
+          ))}
+        </select>
+      );
+    }
+    
+    return (
+      <div className="language-selector">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          {t('language')}
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          {SUPPORTED_LOCALES.map((locale) => (
+            <button
+              key={locale}
+              onClick={() => handleLanguageChange(locale)}
+              className={`
+                flex items-center p-2 rounded-md border text-sm
+                ${currentLocale === locale 
+                  ? 'border-blue-500 bg-blue-50 text-blue-700' 
+                  : 'border-gray-300 hover:border-gray-400'
+                }
+              `}
+            >
+              {showFlags && (
+                <span className="flag mr-2">
+                  {getFlagEmoji(locale)}
+                </span>
+              )}
+              <span>{LOCALE_NAMES[locale]}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  
+  function getFlagEmoji(locale: SupportedLocale): string {
+    const flagMap: Record<SupportedLocale, string> = {
+      'en-US': '🇺🇸',
+      'es-ES': '🇪🇸',
+      'es-MX': '🇲🇽',
+      'fr-FR': '🇫🇷',
+      'fr-CA': '🇨🇦',
+      'de-DE': '🇩🇪',
+      'it-IT': '🇮🇹',
+      'pt-BR': '🇧🇷',
+      'zh-CN': '🇨🇳',
+      'zh-TW': '🇹🇼',
+      'ja-JP': '🇯🇵',
+      'ko-KR': '🇰🇷',
+      'ar-SA': '🇸🇦',
+      'hi-IN': '🇮🇳',
+      'ru-RU': '🇷🇺',
+    };
+    
+    return flagMap[locale] || '🌐';
+  }
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Development
+
+### Setup and Configuration
+
+<Steps>
+<Step title="Next.js Configuration">
+  ```typescript
+  // next.config.js
+  const createNextIntlPlugin = require('next-intl/plugin');
+  
+  const withNextIntl = createNextIntlPlugin();
+  
+  /** @type {import('next').NextConfig} */
+  const nextConfig = {
+    // Other Next.js config options
+  };
+  
+  module.exports = withNextIntl(nextConfig);
+  ```
+</Step>
+
+<Step title="Middleware Setup">
+  ```typescript
+  // middleware.ts
+  import createMiddleware from 'next-intl/middleware';
+  import { SUPPORTED_LOCALES, DEFAULT_LOCALE } from '@repo/internationalization/config';
+  
+  export default createMiddleware({
+    locales: SUPPORTED_LOCALES,
+    defaultLocale: DEFAULT_LOCALE,
+    localePrefix: 'always',
+  });
+  
+  export const config = {
+    matcher: ['/((?!api|_next|_vercel|.*\\..*).*)'],
+  };
+  ```
+</Step>
+
+<Step title="Translation Management">
+  ```bash
+  # Extract translatable strings
+  pnpm run i18n:extract
+  
+  # Validate translations
+  pnpm run i18n:validate
+  
+  # Generate missing translations
+  pnpm run i18n:generate
+  
+  # Update translation files
+  pnpm run i18n:update
+  ```
+</Step>
+</Steps>
+
+## Best Practices
+
+### Translation Guidelines
+
+<AccordionGroup>
+<Accordion title="Medical Accuracy">
+  - Use certified medical translators for clinical terminology
+  - Validate translations with healthcare professionals
+  - Maintain consistency in medical terminology across languages
+  - Consider regional variations in medical practices
+  - Include cultural context for healthcare instructions
+</Accordion>
+
+<Accordion title="User Experience">
+  - Provide clear language selection options
+  - Support right-to-left languages properly
+  - Use appropriate date and time formats for each locale
+  - Consider cultural preferences for colors and symbols
+  - Test with native speakers for usability
+</Accordion>
+
+<Accordion title="Technical Implementation">
+  - Use namespace organization for better maintainability
+  - Implement lazy loading for translation files
+  - Cache translations for better performance
+  - Provide fallbacks for missing translations
+  - Use ICU message format for complex pluralization
+</Accordion>
+</AccordionGroup>
+
+<Note>
+Internationalization in healthcare requires special attention to medical accuracy and cultural sensitivity. Always validate translations with qualified medical professionals and native speakers.
+</Note>

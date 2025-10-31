@@ -1,0 +1,1217 @@
+---
+title: "Observability Package"
+description: "Comprehensive monitoring, logging, and error tracking solution with Sentry and Better Stack for healthcare application observability."
+---
+
+# Observability Package
+
+The observability package provides comprehensive monitoring, logging, error tracking, and performance monitoring for the Waylio healthcare platform. It integrates Sentry for error tracking, Better Stack for uptime monitoring, and custom healthcare-specific observability tools.
+
+## Installation
+
+```bash
+# Install the observability package
+pnpm add @repo/observability
+
+# Peer dependencies (automatically installed in monorepo)
+pnpm add @sentry/nextjs @sentry/node @sentry/react
+```
+
+## Overview
+
+The observability package ensures the Waylio platform maintains high availability and performance standards required for healthcare applications. It provides real-time monitoring, detailed error tracking, performance metrics, and compliance-focused logging.
+
+### Key Features
+
+<CardGroup cols={2}>
+<Card title="Error Tracking" icon="bug">
+  Advanced error tracking with Sentry integration, including healthcare-specific error categorization.
+</Card>
+
+<Card title="Performance Monitoring" icon="activity">
+  Real-time performance monitoring with custom metrics for healthcare workflows.
+</Card>
+
+<Card title="Uptime Monitoring" icon="shield-check">
+  Comprehensive uptime monitoring with Better Stack for critical healthcare services.
+</Card>
+
+<Card title="Audit Logging" icon="file-text">
+  HIPAA-compliant audit logging for all healthcare-related activities and data access.
+</Card>
+</CardGroup>
+
+## Error Tracking
+
+### Sentry Integration
+
+<Tabs>
+<Tab title="Sentry Configuration">
+  **Purpose**: Configure Sentry for comprehensive error tracking
+  
+  ```typescript
+  // src/sentry/config.ts
+  import * as Sentry from '@sentry/nextjs';
+  import { User } from '@clerk/nextjs/server';
+  
+  export interface SentryConfig {
+    dsn: string;
+    environment: string;
+    release?: string;
+    enableTracing?: boolean;
+    enableProfiling?: boolean;
+    enableHealthcareContext?: boolean;
+  }
+  
+  export function initializeSentry(config: SentryConfig) {
+    Sentry.init({
+      dsn: config.dsn,
+      environment: config.environment,
+      release: config.release,
+      
+      // Performance monitoring
+      tracesSampleRate: config.enableTracing ? 0.1 : 0,
+      profilesSampleRate: config.enableProfiling ? 0.1 : 0,
+      
+      // Error filtering
+      beforeSend(event, hint) {
+        // Filter out non-critical errors in development
+        if (config.environment === 'development') {
+          const error = hint.originalException;
+          if (error instanceof Error) {
+            // Skip common development errors
+            if (error.message.includes('ResizeObserver loop limit exceeded')) {
+              return null;
+            }
+            if (error.message.includes('Non-Error promise rejection')) {
+              return null;
+            }
+          }
+        }
+        
+        // Add healthcare context if enabled
+        if (config.enableHealthcareContext) {
+          event.contexts = {
+            ...event.contexts,
+            healthcare: getHealthcareContext(),
+          };
+        }
+        
+        // Sanitize sensitive data
+        return sanitizeHealthcareData(event);
+      },
+      
+      // Custom integrations
+      integrations: [
+        new Sentry.BrowserTracing({
+          // Custom routing instrumentation
+          routingInstrumentation: Sentry.nextRouterInstrumentation,
+        }),
+        new Sentry.Replay({
+          // Mask sensitive healthcare data
+          maskAllText: true,
+          maskAllInputs: true,
+          blockAllMedia: true,
+        }),
+      ],
+      
+      // Custom tags
+      initialScope: {
+        tags: {
+          component: 'waylio-platform',
+          healthcare: 'true',
+        },
+      },
+    });
+  }
+  
+  function getHealthcareContext() {
+    return {
+      hipaa_compliant: true,
+      data_classification: 'healthcare',
+      audit_required: true,
+    };
+  }
+  
+  function sanitizeHealthcareData(event: Sentry.Event): Sentry.Event {
+    // Remove sensitive healthcare data from error reports
+    if (event.request?.data) {
+      event.request.data = sanitizeObject(event.request.data);
+    }
+    
+    if (event.extra) {
+      event.extra = sanitizeObject(event.extra);
+    }
+    
+    // Sanitize breadcrumbs
+    if (event.breadcrumbs) {
+      event.breadcrumbs = event.breadcrumbs.map(breadcrumb => ({
+        ...breadcrumb,
+        data: breadcrumb.data ? sanitizeObject(breadcrumb.data) : undefined,
+      }));
+    }
+    
+    return event;
+  }
+  
+  function sanitizeObject(obj: any): any {
+    if (!obj || typeof obj !== 'object') return obj;
+    
+    const sensitiveKeys = [
+      'ssn', 'social_security_number',
+      'dob', 'date_of_birth',
+      'medical_record_number', 'mrn',
+      'insurance_number',
+      'phone', 'email',
+      'address', 'zip_code',
+      'password', 'token', 'key',
+      'diagnosis', 'medication',
+      'symptoms', 'treatment',
+    ];
+    
+    const sanitized = { ...obj };
+    
+    for (const key in sanitized) {
+      const lowerKey = key.toLowerCase();
+      
+      if (sensitiveKeys.some(sensitive => lowerKey.includes(sensitive))) {
+        sanitized[key] = '[REDACTED]';
+      } else if (typeof sanitized[key] === 'object') {
+        sanitized[key] = sanitizeObject(sanitized[key]);
+      }
+    }
+    
+    return sanitized;
+  }
+  ```
+</Tab>
+
+<Tab title="Error Reporting">
+  **Purpose**: Custom error reporting with healthcare context
+  
+  ```typescript
+  // src/error-reporting.ts
+  import * as Sentry from '@sentry/nextjs';
+  import { User } from '@clerk/nextjs/server';
+  
+  export interface HealthcareErrorContext {
+    patientId?: string;
+    providerId?: string;
+    organizationId?: string;
+    appointmentId?: string;
+    prescriptionId?: string;
+    workflow?: string;
+    userRole?: string;
+    feature?: string;
+  }
+  
+  export class HealthcareErrorReporter {
+    static setUser(user: User) {
+      Sentry.setUser({
+        id: user.id,
+        email: user.primaryEmailAddress?.emailAddress,
+        username: user.username,
+        // Don't include sensitive user data
+      });
+    }
+    
+    static setHealthcareContext(context: HealthcareErrorContext) {
+      Sentry.setContext('healthcare', {
+        ...context,
+        timestamp: new Date().toISOString(),
+        hipaa_compliant: true,
+      });
+    }
+    
+    static reportError(
+      error: Error,
+      context?: HealthcareErrorContext,
+      level: Sentry.SeverityLevel = 'error'
+    ) {
+      Sentry.withScope((scope) => {
+        scope.setLevel(level);
+        
+        if (context) {
+          scope.setContext('healthcare', context);
+        }
+        
+        // Add healthcare-specific tags
+        scope.setTag('error_type', this.categorizeHealthcareError(error));
+        scope.setTag('requires_immediate_attention', this.requiresImmediateAttention(error));
+        
+        Sentry.captureException(error);
+      });
+    }
+    
+    static reportMessage(
+      message: string,
+      context?: HealthcareErrorContext,
+      level: Sentry.SeverityLevel = 'info'
+    ) {
+      Sentry.withScope((scope) => {
+        scope.setLevel(level);
+        
+        if (context) {
+          scope.setContext('healthcare', context);
+        }
+        
+        Sentry.captureMessage(message);
+      });
+    }
+    
+    static reportPerformanceIssue(
+      operation: string,
+      duration: number,
+      context?: HealthcareErrorContext
+    ) {
+      if (duration > 5000) { // Report slow operations (>5s)
+        this.reportMessage(
+          `Slow operation detected: ${operation} took ${duration}ms`,
+          {
+            ...context,
+            operation,
+            duration,
+          },
+          'warning'
+        );
+      }
+    }
+    
+    static reportHealthcareWorkflowError(
+      workflow: string,
+      step: string,
+      error: Error,
+      context?: HealthcareErrorContext
+    ) {
+      this.reportError(error, {
+        ...context,
+        workflow,
+        step,
+        error_category: 'workflow_error',
+      }, 'error');
+    }
+    
+    static reportDataIntegrityIssue(
+      entity: string,
+      issue: string,
+      context?: HealthcareErrorContext
+    ) {
+      this.reportMessage(
+        `Data integrity issue in ${entity}: ${issue}`,
+        {
+          ...context,
+          entity,
+          issue,
+          error_category: 'data_integrity',
+        },
+        'error'
+      );
+    }
+    
+    static reportSecurityEvent(
+      event: string,
+      severity: 'low' | 'medium' | 'high' | 'critical',
+      context?: HealthcareErrorContext
+    ) {
+      const level: Sentry.SeverityLevel = severity === 'critical' ? 'fatal' : 
+                                         severity === 'high' ? 'error' :
+                                         severity === 'medium' ? 'warning' : 'info';
+      
+      this.reportMessage(
+        `Security event: ${event}`,
+        {
+          ...context,
+          security_event: event,
+          severity,
+          error_category: 'security',
+        },
+        level
+      );
+    }
+    
+    private static categorizeHealthcareError(error: Error): string {
+      const message = error.message.toLowerCase();
+      
+      if (message.includes('patient') || message.includes('medical record')) {
+        return 'patient_data';
+      }
+      if (message.includes('appointment') || message.includes('schedule')) {
+        return 'scheduling';
+      }
+      if (message.includes('prescription') || message.includes('medication')) {
+        return 'prescription';
+      }
+      if (message.includes('payment') || message.includes('billing')) {
+        return 'billing';
+      }
+      if (message.includes('auth') || message.includes('permission')) {
+        return 'authentication';
+      }
+      if (message.includes('database') || message.includes('query')) {
+        return 'database';
+      }
+      if (message.includes('api') || message.includes('network')) {
+        return 'api';
+      }
+      
+      return 'general';
+    }
+    
+    private static requiresImmediateAttention(error: Error): boolean {
+      const criticalKeywords = [
+        'patient safety',
+        'medication error',
+        'data breach',
+        'security violation',
+        'hipaa violation',
+        'critical system',
+        'emergency',
+      ];
+      
+      const message = error.message.toLowerCase();
+      return criticalKeywords.some(keyword => message.includes(keyword));
+    }
+  }
+  
+  // React Error Boundary for healthcare applications
+  export class HealthcareErrorBoundary extends React.Component<
+    { children: React.ReactNode; fallback?: React.ComponentType<any> },
+    { hasError: boolean; error?: Error }
+  > {
+    constructor(props: any) {
+      super(props);
+      this.state = { hasError: false };
+    }
+    
+    static getDerivedStateFromError(error: Error) {
+      return { hasError: true, error };
+    }
+    
+    componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+      HealthcareErrorReporter.reportError(error, {
+        error_category: 'react_error',
+        component_stack: errorInfo.componentStack,
+      });
+    }
+    
+    render() {
+      if (this.state.hasError) {
+        const FallbackComponent = this.props.fallback || DefaultErrorFallback;
+        return <FallbackComponent error={this.state.error} />;
+      }
+      
+      return this.props.children;
+    }
+  }
+  
+  function DefaultErrorFallback({ error }: { error?: Error }) {
+    return (
+      <div className="error-boundary">
+        <h2>Something went wrong</h2>
+        <p>We're sorry, but something unexpected happened. Our team has been notified.</p>
+        <details>
+          <summary>Error details</summary>
+          <pre>{error?.message}</pre>
+        </details>
+        <button onClick={() => window.location.reload()}>
+          Reload page
+        </button>
+      </div>
+    );
+  }
+  ```
+</Tab>
+
+<Tab title="Performance Monitoring">
+  **Purpose**: Monitor healthcare application performance
+  
+  ```typescript
+  // src/performance-monitoring.ts
+  import * as Sentry from '@sentry/nextjs';
+  
+  export class PerformanceMonitor {
+    private static measurements = new Map<string, number>();
+    
+    static startMeasurement(name: string): string {
+      const measurementId = `${name}_${Date.now()}_${Math.random()}`;
+      this.measurements.set(measurementId, performance.now());
+      return measurementId;
+    }
+    
+    static endMeasurement(measurementId: string, context?: Record<string, any>) {
+      const startTime = this.measurements.get(measurementId);
+      if (!startTime) return;
+      
+      const duration = performance.now() - startTime;
+      this.measurements.delete(measurementId);
+      
+      // Report to Sentry
+      Sentry.addBreadcrumb({
+        category: 'performance',
+        message: `Operation completed in ${duration.toFixed(2)}ms`,
+        level: 'info',
+        data: {
+          duration,
+          ...context,
+        },
+      });
+      
+      // Report slow operations
+      if (duration > 1000) {
+        HealthcareErrorReporter.reportPerformanceIssue(
+          measurementId.split('_')[0],
+          duration,
+          context
+        );
+      }
+      
+      return duration;
+    }
+    
+    static measureAsync<T>(
+      name: string,
+      operation: () => Promise<T>,
+      context?: Record<string, any>
+    ): Promise<T> {
+      const measurementId = this.startMeasurement(name);
+      
+      return operation()
+        .then((result) => {
+          this.endMeasurement(measurementId, context);
+          return result;
+        })
+        .catch((error) => {
+          this.endMeasurement(measurementId, { ...context, error: true });
+          throw error;
+        });
+    }
+    
+    static measureSync<T>(
+      name: string,
+      operation: () => T,
+      context?: Record<string, any>
+    ): T {
+      const measurementId = this.startMeasurement(name);
+      
+      try {
+        const result = operation();
+        this.endMeasurement(measurementId, context);
+        return result;
+      } catch (error) {
+        this.endMeasurement(measurementId, { ...context, error: true });
+        throw error;
+      }
+    }
+    
+    // Healthcare-specific performance measurements
+    static measurePatientDataLoad(patientId: string, operation: () => Promise<any>) {
+      return this.measureAsync('patient_data_load', operation, {
+        patient_id: patientId,
+        operation_type: 'data_load',
+      });
+    }
+    
+    static measureAppointmentBooking(operation: () => Promise<any>) {
+      return this.measureAsync('appointment_booking', operation, {
+        operation_type: 'booking',
+        workflow: 'appointment_management',
+      });
+    }
+    
+    static measurePrescriptionProcessing(operation: () => Promise<any>) {
+      return this.measureAsync('prescription_processing', operation, {
+        operation_type: 'prescription',
+        workflow: 'medication_management',
+      });
+    }
+    
+    static measureDatabaseQuery(query: string, operation: () => Promise<any>) {
+      return this.measureAsync('database_query', operation, {
+        query_type: this.categorizeQuery(query),
+        operation_type: 'database',
+      });
+    }
+    
+    static measureAPICall(endpoint: string, method: string, operation: () => Promise<any>) {
+      return this.measureAsync('api_call', operation, {
+        endpoint,
+        method,
+        operation_type: 'api',
+      });
+    }
+    
+    private static categorizeQuery(query: string): string {
+      const lowerQuery = query.toLowerCase();
+      
+      if (lowerQuery.includes('patient')) return 'patient_query';
+      if (lowerQuery.includes('appointment')) return 'appointment_query';
+      if (lowerQuery.includes('prescription')) return 'prescription_query';
+      if (lowerQuery.includes('provider')) return 'provider_query';
+      if (lowerQuery.includes('organization')) return 'organization_query';
+      
+      return 'general_query';
+    }
+    
+    // Web Vitals monitoring
+    static initWebVitals() {
+      if (typeof window !== 'undefined') {
+        import('web-vitals').then(({ getCLS, getFID, getFCP, getLCP, getTTFB }) => {
+          getCLS((metric) => this.reportWebVital('CLS', metric));
+          getFID((metric) => this.reportWebVital('FID', metric));
+          getFCP((metric) => this.reportWebVital('FCP', metric));
+          getLCP((metric) => this.reportWebVital('LCP', metric));
+          getTTFB((metric) => this.reportWebVital('TTFB', metric));
+        });
+      }
+    }
+    
+    private static reportWebVital(name: string, metric: any) {
+      Sentry.addBreadcrumb({
+        category: 'web-vitals',
+        message: `${name}: ${metric.value}`,
+        level: 'info',
+        data: {
+          name,
+          value: metric.value,
+          rating: metric.rating,
+        },
+      });
+      
+      // Report poor web vitals
+      if (metric.rating === 'poor') {
+        HealthcareErrorReporter.reportMessage(
+          `Poor ${name} performance: ${metric.value}`,
+          {
+            metric_name: name,
+            metric_value: metric.value,
+            metric_rating: metric.rating,
+          },
+          'warning'
+        );
+      }
+    }
+  }
+  
+  // React hook for performance monitoring
+  export function usePerformanceMonitoring() {
+    const measureOperation = React.useCallback(
+      <T>(name: string, operation: () => Promise<T>, context?: Record<string, any>) => {
+        return PerformanceMonitor.measureAsync(name, operation, context);
+      },
+      []
+    );
+    
+    const startMeasurement = React.useCallback((name: string) => {
+      return PerformanceMonitor.startMeasurement(name);
+    }, []);
+    
+    const endMeasurement = React.useCallback((measurementId: string, context?: Record<string, any>) => {
+      return PerformanceMonitor.endMeasurement(measurementId, context);
+    }, []);
+    
+    return {
+      measureOperation,
+      startMeasurement,
+      endMeasurement,
+    };
+  }
+  ```
+</Tab>
+</Tabs>
+
+## Uptime Monitoring
+
+### Better Stack Integration
+
+<AccordionGroup>
+<Accordion title="Uptime Configuration">
+  ```typescript
+  // src/uptime/better-stack.ts
+  export interface UptimeMonitorConfig {
+    apiKey: string;
+    teamId: string;
+    environment: string;
+  }
+  
+  export class UptimeMonitor {
+    private apiKey: string;
+    private teamId: string;
+    private environment: string;
+    
+    constructor(config: UptimeMonitorConfig) {
+      this.apiKey = config.apiKey;
+      this.teamId = config.teamId;
+      this.environment = config.environment;
+    }
+    
+    async createHealthcareMonitors() {
+      const monitors = [
+        {
+          name: 'Waylio API Health',
+          url: `${process.env.NEXT_PUBLIC_API_URL}/api/health`,
+          check_frequency: 60, // 1 minute
+          request_timeout: 30,
+          recovery_period: 180,
+          confirmations: 2,
+          expected_status_codes: [200],
+          regions: ['us', 'eu'],
+          monitor_type: 'status',
+        },
+        {
+          name: 'Patient Portal Availability',
+          url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
+          check_frequency: 300, // 5 minutes
+          request_timeout: 30,
+          recovery_period: 300,
+          confirmations: 1,
+          expected_status_codes: [200],
+          regions: ['us', 'eu'],
+          monitor_type: 'status',
+        },
+        {
+          name: 'Appointment Booking API',
+          url: `${process.env.NEXT_PUBLIC_API_URL}/api/appointments/health`,
+          check_frequency: 120, // 2 minutes
+          request_timeout: 15,
+          recovery_period: 240,
+          confirmations: 2,
+          expected_status_codes: [200],
+          regions: ['us'],
+          monitor_type: 'status',
+        },
+        {
+          name: 'Prescription Service',
+          url: `${process.env.NEXT_PUBLIC_API_URL}/api/prescriptions/health`,
+          check_frequency: 180, // 3 minutes
+          request_timeout: 20,
+          recovery_period: 300,
+          confirmations: 2,
+          expected_status_codes: [200],
+          regions: ['us'],
+          monitor_type: 'status',
+        },
+        {
+          name: 'Database Connectivity',
+          url: `${process.env.NEXT_PUBLIC_API_URL}/api/health/database`,
+          check_frequency: 300, // 5 minutes
+          request_timeout: 10,
+          recovery_period: 600,
+          confirmations: 3,
+          expected_status_codes: [200],
+          regions: ['us'],
+          monitor_type: 'status',
+        },
+      ];
+      
+      for (const monitor of monitors) {
+        await this.createMonitor(monitor);
+      }
+    }
+    
+    private async createMonitor(config: any) {
+      try {
+        const response = await fetch('https://uptime.betterstack.com/api/v2/monitors', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            monitor: {
+              ...config,
+              team_id: this.teamId,
+              tags: [`environment:${this.environment}`, 'healthcare', 'waylio'],
+            },
+          }),
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to create monitor: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        console.log(`Created monitor: ${config.name}`, result.data.id);
+        
+        return result.data;
+      } catch (error) {
+        console.error(`Failed to create monitor ${config.name}:`, error);
+        throw error;
+      }
+    }
+    
+    async getMonitorStatus(monitorId: string) {
+      try {
+        const response = await fetch(`https://uptime.betterstack.com/api/v2/monitors/${monitorId}`, {
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+          },
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to get monitor status: ${response.statusText}`);
+        }
+        
+        return await response.json();
+      } catch (error) {
+        console.error(`Failed to get monitor status:`, error);
+        throw error;
+      }
+    }
+    
+    async createIncident(title: string, description: string, severity: 'minor' | 'major' | 'critical') {
+      try {
+        const response = await fetch('https://uptime.betterstack.com/api/v2/incidents', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            incident: {
+              name: title,
+              summary: description,
+              status: 'investigating',
+              severity,
+              team_id: this.teamId,
+            },
+          }),
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to create incident: ${response.statusText}`);
+        }
+        
+        return await response.json();
+      } catch (error) {
+        console.error('Failed to create incident:', error);
+        throw error;
+      }
+    }
+  }
+  ```
+</Accordion>
+
+<Accordion title="Health Check Endpoints">
+  ```typescript
+  // src/health-checks.ts
+  import { NextRequest, NextResponse } from 'next/server';
+  import { database } from '@repo/database';
+  
+  export interface HealthCheckResult {
+    status: 'healthy' | 'degraded' | 'unhealthy';
+    timestamp: string;
+    version: string;
+    environment: string;
+    checks: Record<string, {
+      status: 'pass' | 'fail' | 'warn';
+      duration: number;
+      message?: string;
+      details?: any;
+    }>;
+  }
+  
+  export class HealthChecker {
+    static async performHealthCheck(): Promise<HealthCheckResult> {
+      const startTime = Date.now();
+      const checks: HealthCheckResult['checks'] = {};
+      
+      // Database connectivity check
+      checks.database = await this.checkDatabase();
+      
+      // External services check
+      checks.clerk_auth = await this.checkClerkAuth();
+      checks.resend_email = await this.checkResendEmail();
+      checks.stripe_payments = await this.checkStripePayments();
+      
+      // System resources check
+      checks.memory = await this.checkMemoryUsage();
+      checks.disk_space = await this.checkDiskSpace();
+      
+      // Healthcare-specific checks
+      checks.patient_data_access = await this.checkPatientDataAccess();
+      checks.appointment_system = await this.checkAppointmentSystem();
+      checks.prescription_service = await this.checkPrescriptionService();
+      
+      const overallStatus = this.determineOverallStatus(checks);
+      
+      return {
+        status: overallStatus,
+        timestamp: new Date().toISOString(),
+        version: process.env.npm_package_version || 'unknown',
+        environment: process.env.NODE_ENV || 'unknown',
+        checks,
+      };
+    }
+    
+    private static async checkDatabase(): Promise<HealthCheckResult['checks'][string]> {
+      const start = Date.now();
+      
+      try {
+        await database.$queryRaw`SELECT 1`;
+        
+        return {
+          status: 'pass',
+          duration: Date.now() - start,
+          message: 'Database connection successful',
+        };
+      } catch (error) {
+        return {
+          status: 'fail',
+          duration: Date.now() - start,
+          message: 'Database connection failed',
+          details: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+    
+    private static async checkClerkAuth(): Promise<HealthCheckResult['checks'][string]> {
+      const start = Date.now();
+      
+      try {
+        const response = await fetch('https://api.clerk.dev/v1/health', {
+          headers: {
+            'Authorization': `Bearer ${process.env.CLERK_SECRET_KEY}`,
+          },
+        });
+        
+        if (response.ok) {
+          return {
+            status: 'pass',
+            duration: Date.now() - start,
+            message: 'Clerk authentication service is healthy',
+          };
+        } else {
+          return {
+            status: 'warn',
+            duration: Date.now() - start,
+            message: `Clerk API returned ${response.status}`,
+          };
+        }
+      } catch (error) {
+        return {
+          status: 'fail',
+          duration: Date.now() - start,
+          message: 'Failed to connect to Clerk',
+          details: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+    
+    private static async checkResendEmail(): Promise<HealthCheckResult['checks'][string]> {
+      const start = Date.now();
+      
+      try {
+        const response = await fetch('https://api.resend.com/domains', {
+          headers: {
+            'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+          },
+        });
+        
+        if (response.ok) {
+          return {
+            status: 'pass',
+            duration: Date.now() - start,
+            message: 'Resend email service is healthy',
+          };
+        } else {
+          return {
+            status: 'warn',
+            duration: Date.now() - start,
+            message: `Resend API returned ${response.status}`,
+          };
+        }
+      } catch (error) {
+        return {
+          status: 'fail',
+          duration: Date.now() - start,
+          message: 'Failed to connect to Resend',
+          details: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+    
+    private static async checkStripePayments(): Promise<HealthCheckResult['checks'][string]> {
+      const start = Date.now();
+      
+      try {
+        // Simple Stripe API call to check connectivity
+        const response = await fetch('https://api.stripe.com/v1/account', {
+          headers: {
+            'Authorization': `Bearer ${process.env.STRIPE_SECRET_KEY}`,
+          },
+        });
+        
+        if (response.ok) {
+          return {
+            status: 'pass',
+            duration: Date.now() - start,
+            message: 'Stripe payments service is healthy',
+          };
+        } else {
+          return {
+            status: 'warn',
+            duration: Date.now() - start,
+            message: `Stripe API returned ${response.status}`,
+          };
+        }
+      } catch (error) {
+        return {
+          status: 'fail',
+          duration: Date.now() - start,
+          message: 'Failed to connect to Stripe',
+          details: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+    
+    private static async checkMemoryUsage(): Promise<HealthCheckResult['checks'][string]> {
+      const start = Date.now();
+      
+      try {
+        const memUsage = process.memoryUsage();
+        const usedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+        const totalMB = Math.round(memUsage.heapTotal / 1024 / 1024);
+        const usagePercent = (usedMB / totalMB) * 100;
+        
+        let status: 'pass' | 'warn' | 'fail' = 'pass';
+        let message = `Memory usage: ${usedMB}MB / ${totalMB}MB (${usagePercent.toFixed(1)}%)`;
+        
+        if (usagePercent > 90) {
+          status = 'fail';
+          message += ' - Critical memory usage';
+        } else if (usagePercent > 75) {
+          status = 'warn';
+          message += ' - High memory usage';
+        }
+        
+        return {
+          status,
+          duration: Date.now() - start,
+          message,
+          details: memUsage,
+        };
+      } catch (error) {
+        return {
+          status: 'fail',
+          duration: Date.now() - start,
+          message: 'Failed to check memory usage',
+          details: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+    
+    private static async checkDiskSpace(): Promise<HealthCheckResult['checks'][string]> {
+      const start = Date.now();
+      
+      try {
+        // This is a simplified check - in production, you'd want to check actual disk usage
+        return {
+          status: 'pass',
+          duration: Date.now() - start,
+          message: 'Disk space check passed',
+        };
+      } catch (error) {
+        return {
+          status: 'fail',
+          duration: Date.now() - start,
+          message: 'Failed to check disk space',
+          details: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+    
+    private static async checkPatientDataAccess(): Promise<HealthCheckResult['checks'][string]> {
+      const start = Date.now();
+      
+      try {
+        // Test basic patient data query without accessing sensitive data
+        const count = await database.patient.count({
+          take: 1,
+        });
+        
+        return {
+          status: 'pass',
+          duration: Date.now() - start,
+          message: 'Patient data access is functional',
+        };
+      } catch (error) {
+        return {
+          status: 'fail',
+          duration: Date.now() - start,
+          message: 'Patient data access failed',
+          details: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+    
+    private static async checkAppointmentSystem(): Promise<HealthCheckResult['checks'][string]> {
+      const start = Date.now();
+      
+      try {
+        // Test appointment system functionality
+        const count = await database.appointment.count({
+          take: 1,
+        });
+        
+        return {
+          status: 'pass',
+          duration: Date.now() - start,
+          message: 'Appointment system is functional',
+        };
+      } catch (error) {
+        return {
+          status: 'fail',
+          duration: Date.now() - start,
+          message: 'Appointment system check failed',
+          details: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+    
+    private static async checkPrescriptionService(): Promise<HealthCheckResult['checks'][string]> {
+      const start = Date.now();
+      
+      try {
+        // Test prescription service functionality
+        const count = await database.prescription.count({
+          take: 1,
+        });
+        
+        return {
+          status: 'pass',
+          duration: Date.now() - start,
+          message: 'Prescription service is functional',
+        };
+      } catch (error) {
+        return {
+          status: 'fail',
+          duration: Date.now() - start,
+          message: 'Prescription service check failed',
+          details: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+    
+    private static determineOverallStatus(
+      checks: HealthCheckResult['checks']
+    ): HealthCheckResult['status'] {
+      const statuses = Object.values(checks).map(check => check.status);
+      
+      if (statuses.includes('fail')) {
+        return 'unhealthy';
+      }
+      
+      if (statuses.includes('warn')) {
+        return 'degraded';
+      }
+      
+      return 'healthy';
+    }
+  }
+  
+  // API route handler
+  export async function GET(request: NextRequest) {
+    try {
+      const healthCheck = await HealthChecker.performHealthCheck();
+      
+      const statusCode = healthCheck.status === 'healthy' ? 200 :
+                        healthCheck.status === 'degraded' ? 200 : 503;
+      
+      return NextResponse.json(healthCheck, { status: statusCode });
+    } catch (error) {
+      return NextResponse.json(
+        {
+          status: 'unhealthy',
+          timestamp: new Date().toISOString(),
+          error: error instanceof Error ? error.message : 'Unknown error',
+        },
+        { status: 503 }
+      );
+    }
+  }
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Development
+
+### Setup and Configuration
+
+<Steps>
+<Step title="Environment Variables">
+  ```bash
+  # Sentry configuration
+  SENTRY_DSN="https://..."
+  SENTRY_ORG="waylio"
+  SENTRY_PROJECT="waylio-platform"
+  SENTRY_AUTH_TOKEN="..."
+  
+  # Better Stack configuration
+  BETTERSTACK_API_KEY="..."
+  BETTERSTACK_TEAM_ID="..."
+  
+  # Application configuration
+  NEXT_PUBLIC_APP_URL="https://app.waylio.com"
+  NEXT_PUBLIC_API_URL="https://api.waylio.com"
+  ```
+</Step>
+
+<Step title="Sentry Setup">
+  ```typescript
+  // sentry.client.config.ts
+  import { initializeSentry } from '@repo/observability';
+  
+  initializeSentry({
+    dsn: process.env.SENTRY_DSN!,
+    environment: process.env.NODE_ENV,
+    release: process.env.VERCEL_GIT_COMMIT_SHA,
+    enableTracing: true,
+    enableProfiling: true,
+    enableHealthcareContext: true,
+  });
+  ```
+</Step>
+
+<Step title="Health Check API">
+  ```typescript
+  // app/api/health/route.ts
+  import { HealthChecker } from '@repo/observability';
+  
+  export { GET } from '@repo/observability/health-checks';
+  ```
+</Step>
+</Steps>
+
+## Best Practices
+
+### Observability Guidelines
+
+<AccordionGroup>
+<Accordion title="Error Handling">
+  - Implement comprehensive error boundaries
+  - Sanitize sensitive healthcare data from error reports
+  - Categorize errors by healthcare domain
+  - Set up alerts for critical healthcare workflows
+  - Maintain audit trails for all error events
+</Accordion>
+
+<Accordion title="Performance Monitoring">
+  - Monitor healthcare-specific operations
+  - Set performance budgets for critical workflows
+  - Track Web Vitals for patient-facing applications
+  - Monitor database query performance
+  - Alert on slow healthcare operations
+</Accordion>
+
+<Accordion title="Healthcare Compliance">
+  - Ensure HIPAA compliance in all logging
+  - Implement proper data sanitization
+  - Maintain audit trails for observability events
+  - Regular security reviews of monitoring setup
+  - Compliance-focused alerting and reporting
+</Accordion>
+</AccordionGroup>
+
+<Note>
+Observability in healthcare applications requires special attention to data privacy and compliance. Always ensure sensitive patient data is properly sanitized before logging or monitoring.
+</Note>

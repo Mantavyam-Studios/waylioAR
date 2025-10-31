@@ -1,0 +1,874 @@
+---
+title: "Authentication Package"
+description: "Comprehensive authentication utilities and components built on Clerk, providing secure user management and role-based access control."
+---
+
+# Authentication Package
+
+The authentication package provides a comprehensive set of utilities, components, and hooks for managing user authentication and authorization throughout the Waylio platform. Built on top of Clerk, it offers enterprise-grade security with healthcare-specific features.
+
+## Installation
+
+```bash
+# Install the authentication package
+pnpm add @repo/auth
+
+# Peer dependencies (automatically installed in monorepo)
+pnpm add @clerk/nextjs @clerk/types
+```
+
+## Overview
+
+The authentication package centralizes all authentication logic, providing a consistent interface across all Waylio applications while maintaining security best practices and HIPAA compliance requirements.
+
+### Key Features
+
+<CardGroup cols={2}>
+<Card title="Multi-Factor Authentication" icon="shield-check">
+  Built-in support for MFA with SMS, email, and authenticator apps for enhanced security.
+</Card>
+
+<Card title="Role-Based Access Control" icon="users-gear">
+  Hierarchical role system with fine-grained permissions for healthcare environments.
+</Card>
+
+<Card title="Organization Management" icon="building">
+  Multi-tenant support with organization-level isolation and custom branding.
+</Card>
+
+<Card title="Audit Logging" icon="file-text">
+  Comprehensive audit trails for all authentication events to meet compliance requirements.
+</Card>
+</CardGroup>
+
+## Core Components
+
+### Authentication Providers
+
+<Tabs>
+<Tab title="ClerkProvider Setup">
+  **Purpose**: Root authentication provider for the entire application
+  
+  ```typescript
+  // app/layout.tsx
+  import { ClerkProvider } from '@repo/auth';
+  import { Inter } from 'next/font/google';
+  
+  const inter = Inter({ subsets: ['latin'] });
+  
+  export default function RootLayout({
+    children,
+  }: {
+    children: React.ReactNode;
+  }) {
+    return (
+      <ClerkProvider>
+        <html lang="en">
+          <body className={inter.className}>
+            {children}
+          </body>
+        </html>
+      </ClerkProvider>
+    );
+  }
+  ```
+  
+  **Configuration Options**:
+  - Custom sign-in/sign-up URLs
+  - Organization features
+  - Session management
+  - Appearance customization
+</Tab>
+
+<Tab title="AuthGuard Component">
+  **Purpose**: Protect routes and components based on authentication status
+  
+  ```typescript
+  import { AuthGuard } from '@repo/auth';
+  
+  export default function ProtectedPage() {
+    return (
+      <AuthGuard
+        fallback={<div>Please sign in to access this page</div>}
+        requireRole="healthcare_provider"
+        requirePermission="view_patients"
+      >
+        <PatientDashboard />
+      </AuthGuard>
+    );
+  }
+  ```
+  
+  **Props**:
+  - `fallback`: Component to show when not authenticated
+  - `requireRole`: Required user role
+  - `requirePermission`: Required permission
+  - `requireOrganization`: Require organization membership
+</Tab>
+
+<Tab title="SignIn/SignUp Components">
+  **Purpose**: Customizable authentication forms with healthcare branding
+  
+  ```typescript
+  import { SignIn, SignUp } from '@repo/auth';
+  
+  // Sign-in page
+  export default function SignInPage() {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <SignIn
+          appearance={{
+            elements: {
+              formButtonPrimary: 'bg-blue-600 hover:bg-blue-700',
+              card: 'shadow-lg border border-gray-200',
+            },
+          }}
+          redirectUrl="/dashboard"
+        />
+      </div>
+    );
+  }
+  
+  // Sign-up page with custom fields
+  export default function SignUpPage() {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <SignUp
+          unsafeMetadata={{
+            role: 'patient',
+            source: 'web_registration',
+          }}
+          redirectUrl="/onboarding"
+        />
+      </div>
+    );
+  }
+  ```
+</Tab>
+</Tabs>
+
+### Authentication Hooks
+
+<AccordionGroup>
+<Accordion title="useAuth Hook">
+  **Purpose**: Access current authentication state and user information
+  
+  ```typescript
+  import { useAuth } from '@repo/auth';
+  
+  export function UserProfile() {
+    const { 
+      isLoaded, 
+      isSignedIn, 
+      user, 
+      signOut,
+      getToken,
+      has 
+    } = useAuth();
+    
+    if (!isLoaded) {
+      return <div>Loading...</div>;
+    }
+    
+    if (!isSignedIn) {
+      return <div>Please sign in</div>;
+    }
+    
+    const canManageUsers = has({ permission: 'manage_users' });
+    
+    return (
+      <div>
+        <h1>Welcome, {user.firstName}!</h1>
+        <p>Email: {user.primaryEmailAddress?.emailAddress}</p>
+        
+        {canManageUsers && (
+          <button>Manage Users</button>
+        )}
+        
+        <button onClick={() => signOut()}>
+          Sign Out
+        </button>
+      </div>
+    );
+  }
+  ```
+  
+  **Return Values**:
+  - `isLoaded`: Whether auth state is loaded
+  - `isSignedIn`: Whether user is authenticated
+  - `user`: Current user object
+  - `signOut`: Function to sign out user
+  - `getToken`: Function to get JWT token
+  - `has`: Function to check permissions
+</Accordion>
+
+<Accordion title="useUser Hook">
+  **Purpose**: Access detailed user information and profile management
+  
+  ```typescript
+  import { useUser } from '@repo/auth';
+  
+  export function UserSettings() {
+    const { user, isLoaded } = useUser();
+    
+    if (!isLoaded || !user) {
+      return <div>Loading user data...</div>;
+    }
+    
+    const updateProfile = async (data: Partial<UserProfile>) => {
+      await user.update(data);
+    };
+    
+    return (
+      <div>
+        <img 
+          src={user.imageUrl} 
+          alt={`${user.firstName} ${user.lastName}`}
+          className="w-16 h-16 rounded-full"
+        />
+        
+        <div>
+          <h2>{user.fullName}</h2>
+          <p>{user.primaryEmailAddress?.emailAddress}</p>
+          <p>Role: {user.publicMetadata.role}</p>
+          <p>Organization: {user.publicMetadata.organizationName}</p>
+        </div>
+        
+        <button onClick={() => updateProfile({ firstName: 'New Name' })}>
+          Update Profile
+        </button>
+      </div>
+    );
+  }
+  ```
+</Accordion>
+
+<Accordion title="useOrganization Hook">
+  **Purpose**: Manage organization membership and settings
+  
+  ```typescript
+  import { useOrganization } from '@repo/auth';
+  
+  export function OrganizationSettings() {
+    const { 
+      organization, 
+      membership,
+      invitations,
+      memberships,
+      isLoaded 
+    } = useOrganization();
+    
+    if (!isLoaded) {
+      return <div>Loading organization...</div>;
+    }
+    
+    if (!organization) {
+      return <div>No organization selected</div>;
+    }
+    
+    const inviteUser = async (email: string, role: string) => {
+      await organization.inviteMember({
+        emailAddress: email,
+        role: role,
+      });
+    };
+    
+    return (
+      <div>
+        <h1>{organization.name}</h1>
+        <p>Members: {organization.membersCount}</p>
+        <p>Your role: {membership?.role}</p>
+        
+        <div>
+          <h3>Pending Invitations</h3>
+          {invitations?.map((invitation) => (
+            <div key={invitation.id}>
+              {invitation.emailAddress} - {invitation.role}
+            </div>
+          ))}
+        </div>
+        
+        <button onClick={() => inviteUser('user@example.com', 'member')}>
+          Invite User
+        </button>
+      </div>
+    );
+  }
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Role-Based Access Control
+
+### Role Hierarchy
+
+<Tabs>
+<Tab title="Healthcare Roles">
+  **Role Structure**:
+  ```typescript
+  export const HealthcareRoles = {
+    // Administrative roles
+    SUPER_ADMIN: 'super_admin',
+    ORG_ADMIN: 'org_admin',
+    IT_ADMIN: 'it_admin',
+    
+    // Healthcare provider roles
+    PHYSICIAN: 'physician',
+    NURSE: 'nurse',
+    NURSE_PRACTITIONER: 'nurse_practitioner',
+    PHYSICIAN_ASSISTANT: 'physician_assistant',
+    
+    // Support staff roles
+    RECEPTIONIST: 'receptionist',
+    MEDICAL_ASSISTANT: 'medical_assistant',
+    PHARMACY_TECH: 'pharmacy_tech',
+    
+    // Security and facilities
+    SECURITY_GUARD: 'security_guard',
+    PARKING_ATTENDANT: 'parking_attendant',
+    
+    // Patient roles
+    PATIENT: 'patient',
+    PATIENT_GUARDIAN: 'patient_guardian',
+  } as const;
+  
+  export type HealthcareRole = typeof HealthcareRoles[keyof typeof HealthcareRoles];
+  ```
+</Tab>
+
+<Tab title="Permission System">
+  **Permission Categories**:
+  ```typescript
+  export const Permissions = {
+    // Patient management
+    VIEW_PATIENTS: 'view_patients',
+    EDIT_PATIENTS: 'edit_patients',
+    CREATE_PATIENTS: 'create_patients',
+    DELETE_PATIENTS: 'delete_patients',
+    
+    // Appointment management
+    VIEW_APPOINTMENTS: 'view_appointments',
+    SCHEDULE_APPOINTMENTS: 'schedule_appointments',
+    CANCEL_APPOINTMENTS: 'cancel_appointments',
+    MANAGE_QUEUE: 'manage_queue',
+    
+    // Prescription management
+    VIEW_PRESCRIPTIONS: 'view_prescriptions',
+    CREATE_PRESCRIPTIONS: 'create_prescriptions',
+    APPROVE_PRESCRIPTIONS: 'approve_prescriptions',
+    
+    // System administration
+    MANAGE_USERS: 'manage_users',
+    MANAGE_ORGANIZATION: 'manage_organization',
+    VIEW_AUDIT_LOGS: 'view_audit_logs',
+    MANAGE_SYSTEM_SETTINGS: 'manage_system_settings',
+    
+    // Navigation and parking
+    MANAGE_NAVIGATION: 'manage_navigation',
+    MANAGE_PARKING: 'manage_parking',
+    VIEW_PARKING_ANALYTICS: 'view_parking_analytics',
+  } as const;
+  
+  export type Permission = typeof Permissions[keyof typeof Permissions];
+  ```
+</Tab>
+
+<Tab title="Role-Permission Mapping">
+  **Permission Assignment**:
+  ```typescript
+  export const RolePermissions: Record<HealthcareRole, Permission[]> = {
+    [HealthcareRoles.SUPER_ADMIN]: [
+      // All permissions
+      ...Object.values(Permissions),
+    ],
+    
+    [HealthcareRoles.PHYSICIAN]: [
+      Permissions.VIEW_PATIENTS,
+      Permissions.EDIT_PATIENTS,
+      Permissions.VIEW_APPOINTMENTS,
+      Permissions.SCHEDULE_APPOINTMENTS,
+      Permissions.VIEW_PRESCRIPTIONS,
+      Permissions.CREATE_PRESCRIPTIONS,
+      Permissions.APPROVE_PRESCRIPTIONS,
+    ],
+    
+    [HealthcareRoles.NURSE]: [
+      Permissions.VIEW_PATIENTS,
+      Permissions.EDIT_PATIENTS,
+      Permissions.VIEW_APPOINTMENTS,
+      Permissions.MANAGE_QUEUE,
+      Permissions.VIEW_PRESCRIPTIONS,
+    ],
+    
+    [HealthcareRoles.RECEPTIONIST]: [
+      Permissions.VIEW_PATIENTS,
+      Permissions.CREATE_PATIENTS,
+      Permissions.VIEW_APPOINTMENTS,
+      Permissions.SCHEDULE_APPOINTMENTS,
+      Permissions.CANCEL_APPOINTMENTS,
+    ],
+    
+    [HealthcareRoles.PATIENT]: [
+      // Patients can only view their own data
+      // Implemented through data filtering, not permissions
+    ],
+  };
+  ```
+</Tab>
+</Tabs>
+
+### Permission Checking
+
+<AccordionGroup>
+<Accordion title="Component-Level Protection">
+  ```typescript
+  import { usePermissions } from '@repo/auth';
+  
+  export function PatientManagement() {
+    const { hasPermission, hasRole } = usePermissions();
+    
+    const canEditPatients = hasPermission('edit_patients');
+    const canCreatePatients = hasPermission('create_patients');
+    const isPhysician = hasRole('physician');
+    
+    return (
+      <div>
+        <PatientList />
+        
+        {canCreatePatients && (
+          <button>Add New Patient</button>
+        )}
+        
+        {canEditPatients && (
+          <button>Edit Patient</button>
+        )}
+        
+        {isPhysician && (
+          <PrescriptionPanel />
+        )}
+      </div>
+    );
+  }
+  ```
+</Accordion>
+
+<Accordion title="API Route Protection">
+  ```typescript
+  // middleware/auth.ts
+  import { auth, checkPermission } from '@repo/auth';
+  import { NextRequest, NextResponse } from 'next/server';
+  
+  export function withAuth(
+    handler: (req: NextRequest) => Promise<NextResponse>,
+    requiredPermission?: string
+  ) {
+    return async (req: NextRequest) => {
+      const { userId } = auth();
+      
+      if (!userId) {
+        return NextResponse.json(
+          { error: 'Unauthorized' },
+          { status: 401 }
+        );
+      }
+      
+      if (requiredPermission) {
+        const hasPermission = await checkPermission(userId, requiredPermission);
+        
+        if (!hasPermission) {
+          return NextResponse.json(
+            { error: 'Forbidden' },
+            { status: 403 }
+          );
+        }
+      }
+      
+      return handler(req);
+    };
+  }
+  
+  // Usage in API route
+  export const GET = withAuth(
+    async (req: NextRequest) => {
+      // Handle the request
+      return NextResponse.json({ data: 'Protected data' });
+    },
+    'view_patients'
+  );
+  ```
+</Accordion>
+
+<Accordion title="Server Action Protection">
+  ```typescript
+  import { auth, requirePermission } from '@repo/auth';
+  
+  export async function createPatient(formData: FormData) {
+    'use server';
+    
+    const { userId } = auth();
+    await requirePermission(userId, 'create_patients');
+    
+    const patientData = {
+      firstName: formData.get('firstName') as string,
+      lastName: formData.get('lastName') as string,
+      email: formData.get('email') as string,
+    };
+    
+    // Create patient logic
+    const patient = await database.patient.create({
+      data: patientData,
+    });
+    
+    return patient;
+  }
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Organization Management
+
+### Multi-Tenant Architecture
+
+<Tabs>
+<Tab title="Organization Setup">
+  ```typescript
+  import { useOrganization, useOrganizationList } from '@repo/auth';
+  
+  export function OrganizationSwitcher() {
+    const { organization } = useOrganization();
+    const { organizationList, setActive } = useOrganizationList();
+    
+    return (
+      <select
+        value={organization?.id || ''}
+        onChange={(e) => setActive({ organization: e.target.value })}
+      >
+        <option value="">Select Organization</option>
+        {organizationList?.map((org) => (
+          <option key={org.organization.id} value={org.organization.id}>
+            {org.organization.name}
+          </option>
+        ))}
+      </select>
+    );
+  }
+  ```
+</Tab>
+
+<Tab title="Organization Creation">
+  ```typescript
+  import { useOrganizationList } from '@repo/auth';
+  
+  export function CreateOrganization() {
+    const { createOrganization } = useOrganizationList();
+    
+    const handleCreate = async (formData: FormData) => {
+      const name = formData.get('name') as string;
+      const slug = formData.get('slug') as string;
+      
+      try {
+        const organization = await createOrganization({
+          name,
+          slug,
+        });
+        
+        // Redirect to organization dashboard
+        window.location.href = `/org/${organization.slug}`;
+      } catch (error) {
+        console.error('Failed to create organization:', error);
+      }
+    };
+    
+    return (
+      <form action={handleCreate}>
+        <input
+          name="name"
+          placeholder="Organization Name"
+          required
+        />
+        <input
+          name="slug"
+          placeholder="organization-slug"
+          required
+        />
+        <button type="submit">Create Organization</button>
+      </form>
+    );
+  }
+  ```
+</Tab>
+
+<Tab title="Member Management">
+  ```typescript
+  import { useOrganization } from '@repo/auth';
+  
+  export function MemberManagement() {
+    const { organization, memberships } = useOrganization({
+      memberships: {
+        infinite: true,
+      },
+    });
+    
+    const inviteMember = async (email: string, role: string) => {
+      await organization?.inviteMember({
+        emailAddress: email,
+        role,
+      });
+    };
+    
+    const removeMember = async (userId: string) => {
+      const membership = memberships?.find(m => m.publicUserData.userId === userId);
+      if (membership) {
+        await membership.destroy();
+      }
+    };
+    
+    return (
+      <div>
+        <h2>Organization Members</h2>
+        
+        {memberships?.map((membership) => (
+          <div key={membership.id} className="flex items-center justify-between">
+            <div>
+              <span>{membership.publicUserData.firstName} {membership.publicUserData.lastName}</span>
+              <span className="text-sm text-gray-500 ml-2">({membership.role})</span>
+            </div>
+            
+            <button 
+              onClick={() => removeMember(membership.publicUserData.userId)}
+              className="text-red-600"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        
+        <InviteMemberForm onInvite={inviteMember} />
+      </div>
+    );
+  }
+  ```
+</Tab>
+</Tabs>
+
+## Security Features
+
+### Session Management
+
+<AccordionGroup>
+<Accordion title="Session Configuration">
+  ```typescript
+  // clerk.config.ts
+  export const clerkConfig = {
+    sessionTokenTemplate: 'waylio_session',
+    sessionMaxAge: 24 * 60 * 60, // 24 hours
+    
+    // Multi-session support
+    multiSessionApplication: true,
+    
+    // Session security
+    secureMode: process.env.NODE_ENV === 'production',
+    
+    // Custom session claims
+    sessionClaims: {
+      organizationId: '{{org.id}}',
+      role: '{{user.public_metadata.role}}',
+      permissions: '{{user.public_metadata.permissions}}',
+    },
+  };
+  ```
+</Accordion>
+
+<Accordion title="Token Management">
+  ```typescript
+  import { useAuth } from '@repo/auth';
+  
+  export function useApiToken() {
+    const { getToken } = useAuth();
+    
+    const getAuthenticatedToken = async () => {
+      try {
+        const token = await getToken({
+          template: 'waylio_api',
+        });
+        
+        return token;
+      } catch (error) {
+        console.error('Failed to get token:', error);
+        throw error;
+      }
+    };
+    
+    return { getAuthenticatedToken };
+  }
+  
+  // Usage in API calls
+  export async function fetchPatients() {
+    const { getAuthenticatedToken } = useApiToken();
+    const token = await getAuthenticatedToken();
+    
+    const response = await fetch('/api/patients', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    return response.json();
+  }
+  ```
+</Accordion>
+
+<Accordion title="Audit Logging">
+  ```typescript
+  import { useAuth } from '@repo/auth';
+  import { auditLog } from '@repo/observability';
+  
+  export function useAuditLog() {
+    const { user } = useAuth();
+    
+    const logAction = async (action: string, resource: string, details?: any) => {
+      await auditLog.create({
+        userId: user?.id,
+        userEmail: user?.primaryEmailAddress?.emailAddress,
+        organizationId: user?.organizationMemberships[0]?.organization.id,
+        action,
+        resource,
+        details,
+        timestamp: new Date(),
+        ipAddress: await getClientIP(),
+        userAgent: navigator.userAgent,
+      });
+    };
+    
+    return { logAction };
+  }
+  
+  // Usage example
+  export function PatientEditor() {
+    const { logAction } = useAuditLog();
+    
+    const updatePatient = async (patientId: string, data: any) => {
+      // Update patient
+      await updatePatientData(patientId, data);
+      
+      // Log the action
+      await logAction('UPDATE', 'PATIENT', {
+        patientId,
+        changedFields: Object.keys(data),
+      });
+    };
+    
+    return (
+      // Component JSX
+    );
+  }
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Development
+
+### Setup and Configuration
+
+<Steps>
+<Step title="Environment Variables">
+  ```bash
+  # Required Clerk configuration
+  CLERK_SECRET_KEY="sk_test_..."
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_..."
+  
+  # Optional configuration
+  NEXT_PUBLIC_CLERK_SIGN_IN_URL="/sign-in"
+  NEXT_PUBLIC_CLERK_SIGN_UP_URL="/sign-up"
+  NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL="/dashboard"
+  NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL="/onboarding"
+  ```
+</Step>
+
+<Step title="Middleware Setup">
+  ```typescript
+  // middleware.ts
+  import { authMiddleware } from '@repo/auth';
+  
+  export default authMiddleware({
+    publicRoutes: [
+      '/',
+      '/about',
+      '/contact',
+      '/api/webhooks/(.*)',
+    ],
+    ignoredRoutes: [
+      '/api/health',
+      '/api/metrics',
+    ],
+  });
+  
+  export const config = {
+    matcher: ['/((?!.+\\.[\\w]+$|_next).*)', '/', '/(api|trpc)(.*)'],
+  };
+  ```
+</Step>
+
+<Step title="Testing Authentication">
+  ```typescript
+  // __tests__/auth.test.tsx
+  import { render, screen } from '@testing-library/react';
+  import { ClerkProvider } from '@repo/auth';
+  import { AuthGuard } from '@repo/auth';
+  
+  const TestComponent = () => (
+    <AuthGuard>
+      <div>Protected Content</div>
+    </AuthGuard>
+  );
+  
+  test('shows protected content when authenticated', () => {
+    render(
+      <ClerkProvider>
+        <TestComponent />
+      </ClerkProvider>
+    );
+    
+    expect(screen.getByText('Protected Content')).toBeInTheDocument();
+  });
+  ```
+</Step>
+</Steps>
+
+## Best Practices
+
+### Security Guidelines
+
+<AccordionGroup>
+<Accordion title="Authentication Best Practices">
+  - Always use HTTPS in production
+  - Implement proper session timeout
+  - Use strong password requirements
+  - Enable multi-factor authentication
+  - Regularly rotate API keys
+  - Monitor for suspicious activity
+</Accordion>
+
+<Accordion title="Authorization Best Practices">
+  - Follow principle of least privilege
+  - Use role-based access control
+  - Implement defense in depth
+  - Validate permissions on both client and server
+  - Audit all access attempts
+  - Regularly review user permissions
+</Accordion>
+
+<Accordion title="HIPAA Compliance">
+  - Log all access to patient data
+  - Implement automatic session timeout
+  - Use encryption for all data transmission
+  - Maintain audit trails for compliance
+  - Implement proper user access controls
+  - Regular security assessments
+</Accordion>
+</AccordionGroup>
+
+<Note>
+The authentication package is critical for security and compliance. Always follow healthcare industry standards and regularly update security configurations.
+</Note>

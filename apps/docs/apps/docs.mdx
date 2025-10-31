@@ -1,0 +1,745 @@
+---
+title: "Documentation Site"
+description: "Comprehensive documentation site built with Mintlify, providing guides, API references, and technical documentation for the Waylio platform."
+---
+
+# Documentation Site
+
+The documentation site is the comprehensive knowledge base for the Waylio platform, built with Mintlify. It provides detailed guides, API references, component documentation, and technical resources for developers, healthcare professionals, and system administrators.
+
+<Info>
+The documentation site runs on port 3004 in development. Access it at http://localhost:3004 to browse the complete documentation.
+</Info>
+
+## Overview
+
+The documentation site serves as the single source of truth for all Waylio-related information, from getting started guides to detailed API references. It's designed to support different user types with role-specific content and progressive disclosure of information.
+
+### Key Features
+
+<CardGroup cols={2}>
+<Card title="Interactive Documentation" icon="book-open">
+  Live code examples, interactive API explorer, and runnable code snippets throughout the documentation.
+</Card>
+
+<Card title="Multi-Audience Support" icon="users">
+  Tailored content for developers, healthcare professionals, administrators, and end users.
+</Card>
+
+<Card title="Search & Navigation" icon="magnifying-glass">
+  Powerful search functionality with instant results and intuitive navigation structure.
+</Card>
+
+<Card title="Version Control" icon="code-branch">
+  Versioned documentation that stays in sync with platform releases and feature updates.
+</Card>
+</CardGroup>
+
+## Documentation Structure
+
+### Getting Started
+
+<Tabs>
+<Tab title="Quick Start Guide">
+  **Audience**: New developers and administrators
+  **Content**: 
+  - Platform overview and architecture
+  - Installation and setup instructions
+  - First-time configuration
+  - Basic usage examples
+  
+  **Key Sections**:
+  - Prerequisites and requirements
+  - Step-by-step installation
+  - Environment configuration
+  - Verification and testing
+  - Common troubleshooting
+</Tab>
+
+<Tab title="Architecture Overview">
+  **Audience**: Technical stakeholders and developers
+  **Content**:
+  - System architecture diagrams
+  - Component relationships
+  - Data flow patterns
+  - Integration points
+  
+  **Visual Elements**:
+  - Interactive architecture diagrams
+  - Service dependency maps
+  - Data flow visualizations
+  - Technology stack overview
+</Tab>
+
+<Tab title="User Guides">
+  **Audience**: Healthcare professionals and end users
+  **Content**:
+  - Role-specific workflows
+  - Feature tutorials
+  - Best practices
+  - Troubleshooting guides
+  
+  **User Types**:
+  - Patients and attendants
+  - Healthcare providers
+  - Administrative staff
+  - IT administrators
+</Tab>
+</Tabs>
+
+### API Documentation
+
+<AccordionGroup>
+<Accordion title="REST API Reference">
+  **Coverage**: Complete API endpoint documentation
+  
+  **Features**:
+  - Interactive API explorer
+  - Request/response examples
+  - Authentication guides
+  - Error code references
+  - Rate limiting information
+  
+  **Organization**:
+  ```
+  /api-reference/
+  ├── authentication/
+  ├── appointments/
+  ├── patients/
+  ├── prescriptions/
+  ├── navigation/
+  ├── parking/
+  ├── notifications/
+  └── webhooks/
+  ```
+  
+  **Example API Documentation**:
+  ```mdx
+  ---
+  title: "Create Appointment"
+  api: "POST /api/appointments"
+  description: "Create a new appointment for a patient with a healthcare provider."
+  ---
+  
+  # Create Appointment
+  
+  Creates a new appointment in the system and automatically adds it to the provider's queue.
+  
+  <RequestExample>
+  \`\`\`bash
+  curl -X POST "https://api.waylio.com/appointments" \
+    -H "Authorization: Bearer YOUR_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "patientId": "patient_123",
+      "providerId": "provider_456",
+      "appointmentTypeId": "type_789",
+      "scheduledAt": "2024-02-01T10:00:00Z",
+      "duration": 30,
+      "notes": "Follow-up appointment"
+    }'
+  \`\`\`
+  </RequestExample>
+
+  <ResponseExample>
+  \`\`\`json
+  {
+    "id": "appointment_abc123",
+    "patientId": "patient_123",
+    "providerId": "provider_456",
+    "scheduledAt": "2024-02-01T10:00:00Z",
+    "status": "scheduled",
+    "confirmationNumber": "CONF-2024-001",
+    "queuePosition": 3,
+    "estimatedWaitTime": 15
+  }
+  \`\`\`
+  </ResponseExample>
+  ```
+</Accordion>
+
+<Accordion title="SDK Documentation">
+  **Languages**: TypeScript/JavaScript, Python, Go, Swift, Kotlin
+  
+  **Content**:
+  - Installation instructions
+  - Authentication setup
+  - Code examples
+  - Best practices
+  - Migration guides
+  
+  **Example SDK Usage**:
+  ```typescript
+  // TypeScript SDK example
+  import { WaylioClient } from '@waylio/sdk';
+  
+  const client = new WaylioClient({
+    apiKey: process.env.WAYLIO_API_KEY,
+    environment: 'production', // or 'sandbox'
+  });
+  
+  // Create an appointment
+  const appointment = await client.appointments.create({
+    patientId: 'patient_123',
+    providerId: 'provider_456',
+    scheduledAt: new Date('2024-02-01T10:00:00Z'),
+    duration: 30,
+  });
+  
+  console.log('Appointment created:', appointment.confirmationNumber);
+  ```
+</Accordion>
+
+<Accordion title="Webhook Documentation">
+  **Content**:
+  - Webhook event types
+  - Payload schemas
+  - Security verification
+  - Retry policies
+  - Testing guides
+  
+  **Event Types**:
+  - `appointment.created`
+  - `appointment.updated`
+  - `appointment.cancelled`
+  - `prescription.ready`
+  - `queue.position_updated`
+  - `notification.delivered`
+</Accordion>
+</AccordionGroup>
+
+### Component Documentation
+
+<Tabs>
+<Tab title="Design System">
+  **Integration**: Storybook component library
+  
+  **Content**:
+  - Component usage guidelines
+  - Props and API reference
+  - Design tokens and themes
+  - Accessibility standards
+  - Code examples
+  
+  **Component Categories**:
+  - Form components
+  - Data display
+  - Navigation
+  - Feedback
+  - Healthcare-specific components
+</Tab>
+
+<Tab title="Package Documentation">
+  **Coverage**: All 20+ shared packages
+  
+  **Structure**:
+  ```
+  /packages/
+  ├── auth/           # Authentication utilities
+  ├── database/       # Database schema and utilities
+  ├── design-system/  # UI components
+  ├── email/          # Email templates
+  ├── notifications/  # Notification system
+  ├── payments/       # Payment processing
+  └── ...
+  ```
+  
+  **Package Template**:
+  - Installation and setup
+  - Configuration options
+  - Usage examples
+  - API reference
+  - Migration guides
+  - Troubleshooting
+</Tab>
+
+<Tab title="Integration Guides">
+  **External Services**:
+  - Clerk (Authentication)
+  - Stripe (Payments)
+  - Resend (Email)
+  - Knock (Notifications)
+  - Multiset AI (Navigation)
+  - PostHog (Analytics)
+  
+  **Integration Content**:
+  - Setup instructions
+  - Configuration examples
+  - Best practices
+  - Common issues
+  - Testing strategies
+</Tab>
+</Tabs>
+
+## Content Management
+
+### Mintlify Configuration
+
+<AccordionGroup>
+<Accordion title="Site Configuration">
+  ```json
+  // mint.json
+  {
+    "name": "Waylio Documentation",
+    "logo": {
+      "dark": "/logo/dark.svg",
+      "light": "/logo/light.svg"
+    },
+    "favicon": "/favicon.svg",
+    "colors": {
+      "primary": "#2563eb",
+      "light": "#3b82f6",
+      "dark": "#1d4ed8"
+    },
+    "topbarLinks": [
+      {
+        "name": "Support",
+        "url": "mailto:support@waylio.com"
+      }
+    ],
+    "topbarCtaButton": {
+      "name": "Dashboard",
+      "url": "https://app.waylio.com"
+    },
+    "navigation": [
+      {
+        "group": "Get Started",
+        "pages": [
+          "introduction",
+          "quickstart",
+          "architecture"
+        ]
+      },
+      {
+        "group": "Applications",
+        "pages": [
+          "apps/api",
+          "apps/app",
+          "apps/web",
+          "apps/email",
+          "apps/storybook",
+          "apps/studio",
+          "apps/docs"
+        ]
+      }
+    ]
+  }
+  ```
+</Accordion>
+
+<Accordion title="Page Templates">
+  **Standard Page Structure**:
+  ```mdx
+  ---
+  title: "Page Title"
+  description: "Brief description for SEO and navigation"
+  ---
+  
+  # Page Title
+  
+  Introduction paragraph with overview and context.
+  
+  <Info>
+  Important information or tips for users.
+  </Info>
+  
+  ## Main Content Sections
+  
+  ### Subsection
+  
+  Content with examples and explanations.
+  
+  <CardGroup cols={2}>
+  <Card title="Feature 1" icon="icon-name">
+    Description of feature 1
+  </Card>
+  <Card title="Feature 2" icon="icon-name">
+    Description of feature 2
+  </Card>
+  </CardGroup>
+  
+  <Note>
+  Additional notes or references.
+  </Note>
+  ```
+</Accordion>
+
+<Accordion title="Component Usage">
+  **Mintlify Components**:
+  ```mdx
+  {/* Callout boxes */}
+  <Info>Information callout</Info>
+  <Warning>Warning message</Warning>
+  <Tip>Helpful tip</Tip>
+  <Note>Additional note</Note>
+  <Check>Success message</Check>
+
+  {/* Interactive elements */}
+  <Tabs>
+  <Tab title="Tab 1">Content 1</Tab>
+  <Tab title="Tab 2">Content 2</Tab>
+  </Tabs>
+  
+  <AccordionGroup>
+  <Accordion title="Section 1">
+    Collapsible content
+  </Accordion>
+  </AccordionGroup>
+  
+  {/* Code examples */}
+  <CodeGroup>
+  \`\`\`typescript TypeScript
+  const example = "TypeScript code";
+  \`\`\`
+  \`\`\`python Python
+  example = "Python code"
+  \`\`\`
+  </CodeGroup>
+
+  {/* Step-by-step guides */}
+  <Steps>
+  <Step title="Step 1">
+    First step instructions
+  </Step>
+  <Step title="Step 2">
+    Second step instructions
+  </Step>
+  </Steps>
+  ```
+</Accordion>
+</AccordionGroup>
+
+### Content Creation Workflow
+
+<Steps>
+<Step title="Plan Content Structure">
+  1. Identify target audience
+  2. Define learning objectives
+  3. Outline content hierarchy
+  4. Plan interactive elements
+  5. Consider cross-references
+</Step>
+
+<Step title="Write and Format">
+  1. Create MDX file with frontmatter
+  2. Write content using Mintlify components
+  3. Add code examples and screenshots
+  4. Include interactive elements
+  5. Add navigation and cross-links
+</Step>
+
+<Step title="Review and Test">
+  1. Preview in development environment
+  2. Test all interactive elements
+  3. Verify code examples work
+  4. Check responsive design
+  5. Validate accessibility
+</Step>
+
+<Step title="Publish and Maintain">
+  1. Deploy to production
+  2. Monitor user feedback
+  3. Update based on platform changes
+  4. Maintain accuracy and relevance
+  5. Track usage analytics
+</Step>
+</Steps>
+
+## Search and Navigation
+
+### Search Functionality
+
+<Tabs>
+<Tab title="Global Search">
+  **Features**:
+  - Instant search results
+  - Content type filtering
+  - Keyboard shortcuts (Cmd/Ctrl + K)
+  - Search result highlighting
+  - Recent searches
+  
+  **Search Scope**:
+  - Page titles and descriptions
+  - Content text
+  - Code examples
+  - API endpoints
+  - Component names
+</Tab>
+
+<Tab title="Contextual Navigation">
+  **Features**:
+  - Breadcrumb navigation
+  - Previous/next page links
+  - Related content suggestions
+  - Table of contents
+  - Quick navigation sidebar
+  
+  **Navigation Patterns**:
+  - Hierarchical structure
+  - Cross-references
+  - Progressive disclosure
+  - Role-based content
+</Tab>
+
+<Tab title="Content Discovery">
+  **Features**:
+  - Featured content
+  - Recently updated pages
+  - Popular content
+  - Content recommendations
+  - Tag-based filtering
+  
+  **Discovery Methods**:
+  - Landing page highlights
+  - Sidebar recommendations
+  - Footer links
+  - Search suggestions
+</Tab>
+</Tabs>
+
+## Analytics and Feedback
+
+### Usage Analytics
+
+<AccordionGroup>
+<Accordion title="Content Performance">
+  **Metrics Tracked**:
+  - Page views and unique visitors
+  - Time spent on pages
+  - Search queries and results
+  - User flow patterns
+  - Exit points and bounce rates
+  
+  **Analytics Tools**:
+  - Google Analytics integration
+  - Mintlify built-in analytics
+  - Custom event tracking
+  - User behavior heatmaps
+</Accordion>
+
+<Accordion title="User Feedback">
+  **Feedback Mechanisms**:
+  - Page rating system
+  - Feedback forms
+  - Comment sections
+  - GitHub issue integration
+  - Direct email contact
+  
+  **Feedback Processing**:
+  - Regular review cycles
+  - Priority-based improvements
+  - User request tracking
+  - Response time monitoring
+</Accordion>
+</AccordionGroup>
+
+## Development
+
+### Local Development
+
+<Steps>
+<Step title="Start Documentation Server">
+  ```bash
+  # Start only the documentation site
+  pnpm dev --filter docs
+  
+  # Or start all services
+  pnpm dev
+  ```
+  
+  The documentation site will be available at http://localhost:3004
+</Step>
+
+<Step title="Create New Content">
+  ```bash
+  # Create new documentation page
+  touch apps/docs/new-page.mdx
+  
+  # Add to navigation in mint.json
+  # Test locally before committing
+  ```
+</Step>
+
+<Step title="Preview Changes">
+  ```bash
+  # Build documentation
+  pnpm build --filter docs
+  
+  # Preview built site
+  pnpm preview --filter docs
+  ```
+</Step>
+</Steps>
+
+### Content Guidelines
+
+<Tabs>
+<Tab title="Writing Style">
+  **Principles**:
+  - Clear and concise language
+  - Active voice over passive
+  - Present tense for current features
+  - Second person ("you") for instructions
+  - Consistent terminology
+  
+  **Structure**:
+  - Lead with most important information
+  - Use progressive disclosure
+  - Include complete examples
+  - Provide context and rationale
+  - End with next steps
+</Tab>
+
+<Tab title="Code Examples">
+  **Best Practices**:
+  - Complete, runnable examples
+  - Real-world scenarios
+  - Error handling included
+  - Multiple language support
+  - Copy-paste ready
+  
+  **Example Format**:
+  ```typescript
+  // Complete example with imports and context
+  import { WaylioClient } from '@waylio/sdk';
+  
+  async function createAppointment() {
+    try {
+      const client = new WaylioClient({
+        apiKey: process.env.WAYLIO_API_KEY,
+      });
+      
+      const appointment = await client.appointments.create({
+        patientId: 'patient_123',
+        providerId: 'provider_456',
+        scheduledAt: new Date('2024-02-01T10:00:00Z'),
+      });
+      
+      console.log('Success:', appointment.confirmationNumber);
+      return appointment;
+    } catch (error) {
+      console.error('Failed to create appointment:', error);
+      throw error;
+    }
+  }
+  ```
+</Tab>
+
+<Tab title="Visual Elements">
+  **Guidelines**:
+  - Use screenshots for UI guidance
+  - Include diagrams for complex concepts
+  - Optimize images for web
+  - Provide alt text for accessibility
+  - Use consistent styling
+  
+  **Image Management**:
+  ```mdx
+  {/* Optimized image with frame */}
+  <Frame>
+    <img
+      src="/images/dashboard-overview.png"
+      alt="Waylio dashboard showing patient queue and appointments"
+      width="800"
+      height="600"
+    />
+  </Frame>
+
+  {/* Responsive image */}
+  <img
+    src="/images/mobile-app.png"
+    alt="Waylio mobile app interface"
+    className="max-w-sm mx-auto"
+  />
+  ```
+</Tab>
+</Tabs>
+
+## Deployment and Maintenance
+
+### Deployment Process
+
+<Steps>
+<Step title="Content Review">
+  1. Review all changes for accuracy
+  2. Test interactive elements
+  3. Verify code examples
+  4. Check responsive design
+  5. Validate accessibility
+</Step>
+
+<Step title="Build and Deploy">
+  ```bash
+  # Build documentation
+  pnpm build --filter docs
+  
+  # Deploy to production (automated via CI/CD)
+  # Mintlify automatically deploys on push to main
+  ```
+</Step>
+
+<Step title="Post-Deployment">
+  1. Verify deployment success
+  2. Test critical user paths
+  3. Monitor for errors
+  4. Check analytics setup
+  5. Update team on changes
+</Step>
+</Steps>
+
+### Maintenance Tasks
+
+<AccordionGroup>
+<Accordion title="Regular Updates">
+  **Weekly Tasks**:
+  - Review user feedback
+  - Update outdated content
+  - Fix broken links
+  - Add new features documentation
+  - Monitor search queries
+  
+  **Monthly Tasks**:
+  - Analyze usage patterns
+  - Plan content improvements
+  - Review and update screenshots
+  - Audit accessibility compliance
+  - Update integration guides
+</Accordion>
+
+<Accordion title="Version Management">
+  **Versioning Strategy**:
+  - Documentation versions match platform releases
+  - Maintain previous version archives
+  - Clear migration guides between versions
+  - Deprecation notices for old features
+  - Forward compatibility notes
+</Accordion>
+</AccordionGroup>
+
+## Integration with Development
+
+### Documentation-Driven Development
+
+<AccordionGroup>
+<Accordion title="API Documentation">
+  **Process**:
+  1. Document API endpoints before implementation
+  2. Use documentation as specification
+  3. Generate OpenAPI specs from documentation
+  4. Validate implementation against docs
+  5. Keep docs and code in sync
+</Accordion>
+
+<Accordion title="Component Documentation">
+  **Integration with Storybook**:
+  - Embed Storybook stories in documentation
+  - Link to component examples
+  - Sync component props documentation
+  - Include usage guidelines
+  - Maintain design system consistency
+</Accordion>
+</AccordionGroup>
+
+<Note>
+The documentation site is the primary resource for understanding and using the Waylio platform. It's designed to grow with the platform and serve users at every level of expertise.
+</Note>

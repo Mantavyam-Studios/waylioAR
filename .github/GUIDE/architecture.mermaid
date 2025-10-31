@@ -1,0 +1,117 @@
+graph LR
+    %% COLUMN 1: USERS (ACTORS)
+    subgraph Users["1. Users (Actors)"]
+        direction TB
+        Patient["fa:fa-user-injured Public User<br>Patient/Attendant"]
+        Doctor["fa:fa-user-doctor Doctor"]
+        Staff["fa:fa-user-nurse Reception/Nursing"]
+        Admin["fa:fa-user-shield Admin"]
+        Parking["fa:fa-car Parking Security"]
+    end
+
+    %% COLUMN 2: FRONTEND CLIENTS
+    subgraph Frontend["2. Frontend Clients"]
+        direction TB
+        MobileApp["fa:fa-mobile-alt Waylio Mobile App<br>[Kotlin / Swift]"]
+        StaffDashboard["fa:fa-display Waylio Web Dashboards<br>[Next.js / apps/app]"]
+    end
+
+    %% COLUMN 3: BACKEND API (SERVERLESS)
+    subgraph Backend["3. Backend API (apps/api on Vercel)"]
+        direction TB
+        APIServer["fa:fa-server API Gateway<br>[Next.js Serverless Functions]"]
+        
+        subgraph CoreServices["Core Service Domains"]
+            direction TB
+            ApptSvc["P1: Appointment &<br>Queue Service"]
+            RxSvc["P2: Prescription<br>Service"]
+            NavSvc["P3: AR Navigation<br>Service"]
+            ParkSvc["P4: Parking<br>Service"]
+            UserSvc["User & Org<br>Management"]
+        end
+    end
+
+    %% COLUMN 4: SHARED PACKAGES
+    subgraph Packages["4. Shared Packages (packages/*)"]
+        direction TB
+        PrismaPkg["fa:fa-database @repo/database<br>[Prisma Client]"]
+        AuthPkg["fa:fa-lock @repo/auth"]
+        NotifyPkg["fa:fa-bell @repo/notifications"]
+        EmailPkg["fa:fa-envelope @repo/email"]
+        PaymentPkg["fa:fa-credit-card @repo/payments"]
+    end
+
+    %% COLUMN 5: EXTERNAL MANAGED SERVICES (SaaS)
+    subgraph External["5. External Managed Services (SaaS)"]
+        direction TB
+        Clerk["fa:fa-id-card Clerk<br>[Authentication]"]
+        Neon["fa:fa-database NeonDB<br>[PostgreSQL]"]
+        Knock["fa:fa-broadcast-tower Knock<br>[Real-time Notifications]"]
+        Resend["fa:fa-paper-plane Resend<br>[Transactional Email]"]
+        Stripe["fa:fa-stripe Stripe<br>[Payment Gateway]"]
+        Multiset["fa:fa-map-location-dot Multiset AI<br>[AR Navigation SDK]"]
+    end
+
+    %% --- INTERACTIONS ---
+
+    %% 1. User -> Frontend Interactions
+    Patient --> MobileApp
+    Doctor --> StaffDashboard
+    Staff --> StaffDashboard
+    Admin --> StaffDashboard
+    Parking --> StaffDashboard
+
+    %% 2. Frontend -> Auth (Clerk)
+    MobileApp --> Clerk
+    StaffDashboard --> Clerk
+
+    %% 3. Frontend -> Backend API
+    MobileApp --> APIServer
+    StaffDashboard --> APIServer
+
+    %% 4. Backend -> Internal Service Routing
+    APIServer --> ApptSvc
+    APIServer --> RxSvc
+    APIServer --> NavSvc
+    APIServer --> ParkSvc
+    APIServer --> UserSvc
+    APIServer --> AuthPkg
+
+    %% 5. Services -> Shared Packages (Internal Logic)
+    ApptSvc --> PrismaPkg
+    ApptSvc --> PaymentPkg
+    ApptSvc --> NotifyPkg
+    RxSvc --> PrismaPkg
+    RxSvc --> NotifyPkg
+    RxSvc --> EmailPkg
+    NavSvc --> PrismaPkg
+    ParkSvc --> PrismaPkg
+    ParkSvc --> PaymentPkg
+    UserSvc --> PrismaPkg
+    UserSvc --> AuthPkg
+
+    %% 6. Shared Packages -> External SaaS (Outbound API Calls)
+    PrismaPkg --> Neon
+    AuthPkg --> Clerk
+    NotifyPkg --> Knock
+    EmailPkg --> Resend
+    PaymentPkg --> Stripe
+
+    %% 7. Real-time PUSH & Special SDKs (Closing the loop)
+    Knock --> MobileApp
+    Knock --> StaffDashboard
+    MobileApp --> Multiset
+
+    %% Define Styles
+    classDef SaaS fill:#E6F7FF,stroke:#005280,stroke-width:2px
+    classDef App fill:#F6F8FA,stroke:#333,stroke-width:2px
+    classDef API fill:#FFF7E6,stroke:#D9A400,stroke-width:2px
+    classDef Pkg fill:#F3E8FD,stroke:#5E239D,stroke-width:1px,stroke-dasharray:5 5
+    classDef Actor fill:#F0F0F0,stroke:#333,stroke-width:2px
+
+    %% Apply Styles
+    class Patient,Doctor,Staff,Admin,Parking Actor
+    class MobileApp,StaffDashboard App
+    class APIServer,ApptSvc,RxSvc,NavSvc,ParkSvc,UserSvc API
+    class PrismaPkg,AuthPkg,NotifyPkg,EmailPkg,PaymentPkg Pkg
+    class Clerk,Neon,Knock,Resend,Stripe,Multiset SaaS

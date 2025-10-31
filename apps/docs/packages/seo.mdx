@@ -1,0 +1,1270 @@
+---
+title: "SEO Package"
+description: "Comprehensive SEO optimization utilities and metadata management for healthcare websites with schema markup, performance optimization, and accessibility features."
+---
+
+# SEO Package
+
+The SEO package provides comprehensive search engine optimization utilities and metadata management for the Waylio healthcare platform. It includes healthcare-specific schema markup, performance optimization, accessibility features, and compliance with medical website SEO best practices.
+
+## Installation
+
+```bash
+# Install the SEO package
+pnpm add @repo/seo
+
+# Peer dependencies (automatically installed in monorepo)
+pnpm add next react react-dom
+```
+
+## Overview
+
+The SEO package implements healthcare-focused SEO strategies that comply with medical advertising regulations while maximizing search visibility. It provides structured data markup, metadata management, and performance optimization specifically tailored for healthcare websites.
+
+### Key Features
+
+<CardGroup cols={2}>
+<Card title="Healthcare Schema" icon="stethoscope">
+  Medical and healthcare-specific structured data markup for better search visibility.
+</Card>
+
+<Card title="Metadata Management" icon="tags">
+  Dynamic metadata generation with healthcare compliance and local SEO optimization.
+</Card>
+
+<Card title="Performance SEO" icon="gauge">
+  Core Web Vitals optimization and performance monitoring for better search rankings.
+</Card>
+
+<Card title="Accessibility SEO" icon="universal-access">
+  WCAG-compliant accessibility features that improve both UX and search rankings.
+</Card>
+</CardGroup>
+
+## Metadata Management
+
+### Dynamic Metadata
+
+<Tabs>
+<Tab title="Metadata Generator">
+  **Purpose**: Generate SEO-optimized metadata for healthcare pages
+  
+  ```typescript
+  // src/metadata/metadata-generator.ts
+  import { Metadata } from 'next';
+  
+  export interface HealthcarePageData {
+    title: string;
+    description: string;
+    type: 'hospital' | 'clinic' | 'provider' | 'service' | 'article' | 'appointment';
+    organizationName?: string;
+    providerName?: string;
+    specialty?: string;
+    location?: {
+      address: string;
+      city: string;
+      state: string;
+      zipCode: string;
+      coordinates?: {
+        latitude: number;
+        longitude: number;
+      };
+    };
+    services?: string[];
+    publishedDate?: Date;
+    modifiedDate?: Date;
+    author?: string;
+    medicallyReviewed?: boolean;
+    reviewedBy?: string;
+    reviewDate?: Date;
+  }
+  
+  export interface SEOConfig {
+    siteName: string;
+    siteUrl: string;
+    defaultTitle: string;
+    defaultDescription: string;
+    defaultImage: string;
+    twitterHandle?: string;
+    facebookAppId?: string;
+    organizationSchema?: any;
+  }
+  
+  export class HealthcareSEOGenerator {
+    private config: SEOConfig;
+    
+    constructor(config: SEOConfig) {
+      this.config = config;
+    }
+    
+    // Generate metadata for healthcare pages
+    generateMetadata(data: HealthcarePageData, pathname: string): Metadata {
+      const url = `${this.config.siteUrl}${pathname}`;
+      const title = this.generateTitle(data);
+      const description = this.generateDescription(data);
+      const keywords = this.generateKeywords(data);
+      
+      const metadata: Metadata = {
+        title,
+        description,
+        keywords,
+        authors: data.author ? [{ name: data.author }] : undefined,
+        
+        // Open Graph
+        openGraph: {
+          title,
+          description,
+          url,
+          siteName: this.config.siteName,
+          type: this.getOpenGraphType(data.type),
+          images: [
+            {
+              url: this.config.defaultImage,
+              width: 1200,
+              height: 630,
+              alt: title,
+            },
+          ],
+          locale: 'en_US',
+        },
+        
+        // Twitter
+        twitter: {
+          card: 'summary_large_image',
+          title,
+          description,
+          images: [this.config.defaultImage],
+          creator: this.config.twitterHandle,
+        },
+        
+        // Robots
+        robots: {
+          index: true,
+          follow: true,
+          googleBot: {
+            index: true,
+            follow: true,
+            'max-video-preview': -1,
+            'max-image-preview': 'large',
+            'max-snippet': -1,
+          },
+        },
+        
+        // Verification
+        verification: {
+          google: process.env.GOOGLE_SITE_VERIFICATION,
+          yandex: process.env.YANDEX_VERIFICATION,
+          yahoo: process.env.YAHOO_VERIFICATION,
+        },
+        
+        // Additional metadata
+        other: {
+          'medical-disclaimer': 'This information is for educational purposes only and should not replace professional medical advice.',
+          'last-reviewed': data.reviewDate?.toISOString() || new Date().toISOString(),
+          'medically-reviewed': data.medicallyReviewed ? 'true' : 'false',
+        },
+      };
+      
+      // Add location-specific metadata
+      if (data.location) {
+        metadata.other = {
+          ...metadata.other,
+          'geo.region': `US-${data.location.state}`,
+          'geo.placename': data.location.city,
+          'geo.position': data.location.coordinates 
+            ? `${data.location.coordinates.latitude};${data.location.coordinates.longitude}`
+            : undefined,
+        };
+      }
+      
+      return metadata;
+    }
+    
+    // Generate SEO-optimized title
+    private generateTitle(data: HealthcarePageData): string {
+      const { title, type, organizationName, providerName, specialty, location } = data;
+      
+      switch (type) {
+        case 'hospital':
+          return `${title} | ${organizationName} - ${location?.city}, ${location?.state}`;
+          
+        case 'clinic':
+          return `${title} | ${organizationName} - ${location?.city}, ${location?.state}`;
+          
+        case 'provider':
+          const providerTitle = `${providerName}${specialty ? `, ${specialty}` : ''}`;
+          return `${providerTitle} | ${organizationName} - ${location?.city}, ${location?.state}`;
+          
+        case 'service':
+          return `${title} | ${organizationName} - ${location?.city}, ${location?.state}`;
+          
+        case 'article':
+          return `${title} | ${this.config.siteName}`;
+          
+        case 'appointment':
+          return `Book Appointment | ${organizationName} - ${location?.city}, ${location?.state}`;
+          
+        default:
+          return `${title} | ${this.config.siteName}`;
+      }
+    }
+    
+    // Generate SEO-optimized description
+    private generateDescription(data: HealthcarePageData): string {
+      const { description, type, organizationName, providerName, specialty, location, services } = data;
+      
+      let baseDescription = description;
+      
+      // Add location and services context
+      if (location && services && services.length > 0) {
+        const servicesList = services.slice(0, 3).join(', ');
+        baseDescription += ` Located in ${location.city}, ${location.state}. Services include ${servicesList}.`;
+      }
+      
+      // Add provider context
+      if (type === 'provider' && providerName && specialty) {
+        baseDescription += ` ${providerName} specializes in ${specialty}.`;
+      }
+      
+      // Add call-to-action
+      if (type !== 'article') {
+        baseDescription += ' Book an appointment online or call today.';
+      }
+      
+      // Ensure description is within optimal length (150-160 characters)
+      if (baseDescription.length > 160) {
+        baseDescription = baseDescription.substring(0, 157) + '...';
+      }
+      
+      return baseDescription;
+    }
+    
+    // Generate relevant keywords
+    private generateKeywords(data: HealthcarePageData): string[] {
+      const keywords: string[] = [];
+      
+      // Add type-specific keywords
+      switch (data.type) {
+        case 'hospital':
+          keywords.push('hospital', 'medical center', 'healthcare');
+          break;
+        case 'clinic':
+          keywords.push('clinic', 'medical clinic', 'healthcare');
+          break;
+        case 'provider':
+          keywords.push('doctor', 'physician', 'healthcare provider');
+          if (data.specialty) {
+            keywords.push(data.specialty.toLowerCase());
+          }
+          break;
+        case 'service':
+          keywords.push('medical services', 'healthcare services');
+          break;
+      }
+      
+      // Add location keywords
+      if (data.location) {
+        keywords.push(
+          data.location.city.toLowerCase(),
+          data.location.state.toLowerCase(),
+          `${data.location.city.toLowerCase()} ${data.location.state.toLowerCase()}`,
+        );
+      }
+      
+      // Add service keywords
+      if (data.services) {
+        keywords.push(...data.services.map(service => service.toLowerCase()));
+      }
+      
+      // Add organization keywords
+      if (data.organizationName) {
+        keywords.push(data.organizationName.toLowerCase());
+      }
+      
+      return [...new Set(keywords)]; // Remove duplicates
+    }
+    
+    // Get Open Graph type
+    private getOpenGraphType(type: string): 'website' | 'article' {
+      return type === 'article' ? 'article' : 'website';
+    }
+    
+    // Generate canonical URL
+    generateCanonicalUrl(pathname: string): string {
+      return `${this.config.siteUrl}${pathname}`;
+    }
+    
+    // Generate breadcrumb schema
+    generateBreadcrumbSchema(breadcrumbs: Array<{ name: string; url: string }>): any {
+      return {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: breadcrumbs.map((crumb, index) => ({
+          '@type': 'ListItem',
+          position: index + 1,
+          name: crumb.name,
+          item: `${this.config.siteUrl}${crumb.url}`,
+        })),
+      };
+    }
+    
+    // Generate FAQ schema
+    generateFAQSchema(faqs: Array<{ question: string; answer: string }>): any {
+      return {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: faqs.map(faq => ({
+          '@type': 'Question',
+          name: faq.question,
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: faq.answer,
+          },
+        })),
+      };
+    }
+    
+    // Generate article schema
+    generateArticleSchema(data: HealthcarePageData, content: string): any {
+      return {
+        '@context': 'https://schema.org',
+        '@type': 'Article',
+        headline: data.title,
+        description: data.description,
+        author: data.author ? {
+          '@type': 'Person',
+          name: data.author,
+        } : undefined,
+        datePublished: data.publishedDate?.toISOString(),
+        dateModified: data.modifiedDate?.toISOString(),
+        publisher: {
+          '@type': 'Organization',
+          name: this.config.siteName,
+          logo: {
+            '@type': 'ImageObject',
+            url: this.config.defaultImage,
+          },
+        },
+        mainEntityOfPage: {
+          '@type': 'WebPage',
+          '@id': this.config.siteUrl,
+        },
+        articleBody: content,
+        medicalAudience: {
+          '@type': 'MedicalAudience',
+          audienceType: 'Patient',
+        },
+      };
+    }
+  }
+  
+  // Default configuration
+  export const defaultSEOConfig: SEOConfig = {
+    siteName: 'Waylio Healthcare',
+    siteUrl: process.env.NEXT_PUBLIC_SITE_URL || 'https://waylio.com',
+    defaultTitle: 'Waylio - Modern Healthcare Management Platform',
+    defaultDescription: 'Streamline your healthcare experience with Waylio. Book appointments, manage prescriptions, and navigate hospitals with ease.',
+    defaultImage: '/images/og-default.jpg',
+    twitterHandle: '@waylio',
+  };
+  
+  // Singleton instance
+  export const seoGenerator = new HealthcareSEOGenerator(defaultSEOConfig);
+  ```
+</Tab>
+
+<Tab title="Schema Markup">
+  **Purpose**: Generate healthcare-specific structured data
+  
+  ```typescript
+  // src/schema/healthcare-schema.ts
+  export interface HealthcareOrganization {
+    name: string;
+    type: 'Hospital' | 'Clinic' | 'MedicalOrganization';
+    address: {
+      streetAddress: string;
+      addressLocality: string;
+      addressRegion: string;
+      postalCode: string;
+      addressCountry: string;
+    };
+    telephone: string;
+    url: string;
+    logo?: string;
+    image?: string;
+    description?: string;
+    services?: string[];
+    acceptedInsurance?: string[];
+    paymentAccepted?: string[];
+    priceRange?: string;
+    openingHours?: string[];
+    specialties?: string[];
+    accreditation?: string[];
+  }
+  
+  export interface HealthcareProvider {
+    name: string;
+    jobTitle: string;
+    specialty: string;
+    qualifications?: string[];
+    affiliation: string;
+    telephone?: string;
+    email?: string;
+    image?: string;
+    description?: string;
+    languages?: string[];
+    acceptingNewPatients?: boolean;
+    yearsOfExperience?: number;
+  }
+  
+  export interface MedicalService {
+    name: string;
+    description: string;
+    serviceType: string;
+    provider: HealthcareProvider;
+    availableChannel?: 'InPerson' | 'Online' | 'Telephone';
+    serviceArea?: string;
+    hoursAvailable?: string[];
+    eligibleRegion?: string;
+  }
+  
+  export class HealthcareSchemaGenerator {
+    // Generate organization schema
+    generateOrganizationSchema(org: HealthcareOrganization): any {
+      const schema = {
+        '@context': 'https://schema.org',
+        '@type': org.type,
+        name: org.name,
+        address: {
+          '@type': 'PostalAddress',
+          streetAddress: org.address.streetAddress,
+          addressLocality: org.address.addressLocality,
+          addressRegion: org.address.addressRegion,
+          postalCode: org.address.postalCode,
+          addressCountry: org.address.addressCountry,
+        },
+        telephone: org.telephone,
+        url: org.url,
+        logo: org.logo ? {
+          '@type': 'ImageObject',
+          url: org.logo,
+        } : undefined,
+        image: org.image,
+        description: org.description,
+        priceRange: org.priceRange,
+        openingHours: org.openingHours,
+        paymentAccepted: org.paymentAccepted,
+        currenciesAccepted: 'USD',
+      };
+      
+      // Add medical-specific properties
+      if (org.services && org.services.length > 0) {
+        schema['medicalSpecialty'] = org.services;
+      }
+      
+      if (org.acceptedInsurance && org.acceptedInsurance.length > 0) {
+        schema['paymentAccepted'] = org.acceptedInsurance;
+      }
+      
+      if (org.specialties && org.specialties.length > 0) {
+        schema['medicalSpecialty'] = org.specialties;
+      }
+      
+      return schema;
+    }
+    
+    // Generate provider schema
+    generateProviderSchema(provider: HealthcareProvider, organization: HealthcareOrganization): any {
+      return {
+        '@context': 'https://schema.org',
+        '@type': 'Physician',
+        name: provider.name,
+        jobTitle: provider.jobTitle,
+        medicalSpecialty: provider.specialty,
+        qualifications: provider.qualifications,
+        affiliation: {
+          '@type': 'Organization',
+          name: provider.affiliation,
+        },
+        telephone: provider.telephone,
+        email: provider.email,
+        image: provider.image,
+        description: provider.description,
+        knowsLanguage: provider.languages,
+        workLocation: {
+          '@type': 'Place',
+          name: organization.name,
+          address: organization.address,
+        },
+        availableService: provider.acceptingNewPatients ? {
+          '@type': 'MedicalService',
+          name: 'New Patient Consultations',
+          serviceType: 'Medical consultation',
+        } : undefined,
+      };
+    }
+    
+    // Generate medical service schema
+    generateServiceSchema(service: MedicalService, organization: HealthcareOrganization): any {
+      return {
+        '@context': 'https://schema.org',
+        '@type': 'MedicalService',
+        name: service.name,
+        description: service.description,
+        serviceType: service.serviceType,
+        provider: {
+          '@type': 'Organization',
+          name: organization.name,
+        },
+        availableChannel: service.availableChannel,
+        serviceArea: service.serviceArea,
+        hoursAvailable: service.hoursAvailable,
+        eligibleRegion: service.eligibleRegion,
+        category: 'Healthcare',
+      };
+    }
+    
+    // Generate appointment booking schema
+    generateAppointmentSchema(
+      provider: HealthcareProvider,
+      organization: HealthcareOrganization,
+      appointmentUrl: string
+    ): any {
+      return {
+        '@context': 'https://schema.org',
+        '@type': 'Service',
+        name: 'Medical Appointment Booking',
+        description: `Book an appointment with ${provider.name}`,
+        provider: {
+          '@type': 'Physician',
+          name: provider.name,
+          medicalSpecialty: provider.specialty,
+        },
+        serviceLocation: {
+          '@type': 'Place',
+          name: organization.name,
+          address: organization.address,
+        },
+        potentialAction: {
+          '@type': 'ReserveAction',
+          target: {
+            '@type': 'EntryPoint',
+            urlTemplate: appointmentUrl,
+            actionPlatform: [
+              'http://schema.org/DesktopWebPlatform',
+              'http://schema.org/MobileWebPlatform',
+            ],
+          },
+          result: {
+            '@type': 'Reservation',
+            name: 'Medical Appointment',
+          },
+        },
+      };
+    }
+    
+    // Generate local business schema
+    generateLocalBusinessSchema(organization: HealthcareOrganization): any {
+      return {
+        '@context': 'https://schema.org',
+        '@type': 'LocalBusiness',
+        '@id': organization.url,
+        name: organization.name,
+        image: organization.image,
+        telephone: organization.telephone,
+        address: {
+          '@type': 'PostalAddress',
+          streetAddress: organization.address.streetAddress,
+          addressLocality: organization.address.addressLocality,
+          addressRegion: organization.address.addressRegion,
+          postalCode: organization.address.postalCode,
+          addressCountry: organization.address.addressCountry,
+        },
+        geo: {
+          '@type': 'GeoCoordinates',
+          // These would be populated from actual coordinates
+          latitude: '40.7128',
+          longitude: '-74.0060',
+        },
+        url: organization.url,
+        openingHours: organization.openingHours,
+        priceRange: organization.priceRange,
+        paymentAccepted: organization.paymentAccepted,
+        currenciesAccepted: 'USD',
+      };
+    }
+    
+    // Generate review schema
+    generateReviewSchema(reviews: Array<{
+      author: string;
+      rating: number;
+      reviewBody: string;
+      datePublished: Date;
+    }>, organization: HealthcareOrganization): any {
+      const aggregateRating = reviews.length > 0 ? {
+        '@type': 'AggregateRating',
+        ratingValue: (reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length).toFixed(1),
+        reviewCount: reviews.length,
+        bestRating: 5,
+        worstRating: 1,
+      } : undefined;
+      
+      return {
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        name: organization.name,
+        aggregateRating,
+        review: reviews.map(review => ({
+          '@type': 'Review',
+          author: {
+            '@type': 'Person',
+            name: review.author,
+          },
+          reviewRating: {
+            '@type': 'Rating',
+            ratingValue: review.rating,
+            bestRating: 5,
+            worstRating: 1,
+          },
+          reviewBody: review.reviewBody,
+          datePublished: review.datePublished.toISOString(),
+        })),
+      };
+    }
+    
+    // Generate medical condition schema
+    generateMedicalConditionSchema(condition: {
+      name: string;
+      description: string;
+      symptoms?: string[];
+      treatments?: string[];
+      riskFactors?: string[];
+      prevention?: string[];
+    }): any {
+      return {
+        '@context': 'https://schema.org',
+        '@type': 'MedicalCondition',
+        name: condition.name,
+        description: condition.description,
+        signOrSymptom: condition.symptoms?.map(symptom => ({
+          '@type': 'MedicalSymptom',
+          name: symptom,
+        })),
+        possibleTreatment: condition.treatments?.map(treatment => ({
+          '@type': 'MedicalTherapy',
+          name: treatment,
+        })),
+        riskFactor: condition.riskFactors?.map(factor => ({
+          '@type': 'MedicalRiskFactor',
+          name: factor,
+        })),
+        primaryPrevention: condition.prevention?.map(prevention => ({
+          '@type': 'MedicalTherapy',
+          name: prevention,
+        })),
+      };
+    }
+    
+    // Generate medical procedure schema
+    generateMedicalProcedureSchema(procedure: {
+      name: string;
+      description: string;
+      procedureType: string;
+      bodyLocation?: string;
+      preparation?: string[];
+      followup?: string[];
+    }): any {
+      return {
+        '@context': 'https://schema.org',
+        '@type': 'MedicalProcedure',
+        name: procedure.name,
+        description: procedure.description,
+        procedureType: procedure.procedureType,
+        bodyLocation: procedure.bodyLocation,
+        preparation: procedure.preparation?.map(prep => ({
+          '@type': 'MedicalEntity',
+          name: prep,
+        })),
+        followup: procedure.followup?.map(followup => ({
+          '@type': 'MedicalEntity',
+          name: followup,
+        })),
+      };
+    }
+  }
+  
+  // Singleton instance
+  export const schemaGenerator = new HealthcareSchemaGenerator();
+  ```
+</Tab>
+
+<Tab title="SEO Components">
+  **Purpose**: React components for SEO optimization
+  
+  ```typescript
+  // src/components/seo-components.tsx
+  import React from 'react';
+  import Head from 'next/head';
+  import { seoGenerator, HealthcarePageData } from '../metadata/metadata-generator';
+  import { schemaGenerator, HealthcareOrganization } from '../schema/healthcare-schema';
+  
+  interface SEOHeadProps {
+    pageData: HealthcarePageData;
+    pathname: string;
+    children?: React.ReactNode;
+  }
+  
+  export function SEOHead({ pageData, pathname, children }: SEOHeadProps) {
+    const metadata = seoGenerator.generateMetadata(pageData, pathname);
+    const canonicalUrl = seoGenerator.generateCanonicalUrl(pathname);
+    
+    return (
+      <Head>
+        {/* Basic Meta Tags */}
+        <title>{metadata.title as string}</title>
+        <meta name="description" content={metadata.description as string} />
+        <meta name="keywords" content={(metadata.keywords as string[])?.join(', ')} />
+        <link rel="canonical" href={canonicalUrl} />
+        
+        {/* Open Graph */}
+        <meta property="og:title" content={metadata.openGraph?.title} />
+        <meta property="og:description" content={metadata.openGraph?.description} />
+        <meta property="og:url" content={metadata.openGraph?.url} />
+        <meta property="og:type" content={metadata.openGraph?.type} />
+        <meta property="og:site_name" content={metadata.openGraph?.siteName} />
+        <meta property="og:locale" content={metadata.openGraph?.locale} />
+        {metadata.openGraph?.images?.map((image, index) => (
+          <React.Fragment key={index}>
+            <meta property="og:image" content={image.url} />
+            <meta property="og:image:width" content={image.width?.toString()} />
+            <meta property="og:image:height" content={image.height?.toString()} />
+            <meta property="og:image:alt" content={image.alt} />
+          </React.Fragment>
+        ))}
+        
+        {/* Twitter */}
+        <meta name="twitter:card" content={metadata.twitter?.card} />
+        <meta name="twitter:title" content={metadata.twitter?.title} />
+        <meta name="twitter:description" content={metadata.twitter?.description} />
+        <meta name="twitter:creator" content={metadata.twitter?.creator} />
+        {metadata.twitter?.images?.map((image, index) => (
+          <meta key={index} name="twitter:image" content={image} />
+        ))}
+        
+        {/* Robots */}
+        <meta name="robots" content={`${metadata.robots?.index ? 'index' : 'noindex'}, ${metadata.robots?.follow ? 'follow' : 'nofollow'}`} />
+        
+        {/* Additional Meta Tags */}
+        {metadata.other && Object.entries(metadata.other).map(([key, value]) => (
+          value && <meta key={key} name={key} content={value} />
+        ))}
+        
+        {/* Verification */}
+        {metadata.verification?.google && (
+          <meta name="google-site-verification" content={metadata.verification.google} />
+        )}
+        
+        {children}
+      </Head>
+    );
+  }
+  
+  interface StructuredDataProps {
+    schema: any;
+  }
+  
+  export function StructuredData({ schema }: StructuredDataProps) {
+    return (
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(schema, null, 2),
+        }}
+      />
+    );
+  }
+  
+  interface OrganizationSchemaProps {
+    organization: HealthcareOrganization;
+  }
+  
+  export function OrganizationSchema({ organization }: OrganizationSchemaProps) {
+    const schema = schemaGenerator.generateOrganizationSchema(organization);
+    
+    return <StructuredData schema={schema} />;
+  }
+  
+  interface BreadcrumbSchemaProps {
+    breadcrumbs: Array<{ name: string; url: string }>;
+  }
+  
+  export function BreadcrumbSchema({ breadcrumbs }: BreadcrumbSchemaProps) {
+    const schema = seoGenerator.generateBreadcrumbSchema(breadcrumbs);
+    
+    return <StructuredData schema={schema} />;
+  }
+  
+  interface FAQSchemaProps {
+    faqs: Array<{ question: string; answer: string }>;
+  }
+  
+  export function FAQSchema({ faqs }: FAQSchemaProps) {
+    const schema = seoGenerator.generateFAQSchema(faqs);
+    
+    return <StructuredData schema={schema} />;
+  }
+  
+  interface LocalBusinessSchemaProps {
+    organization: HealthcareOrganization;
+  }
+  
+  export function LocalBusinessSchema({ organization }: LocalBusinessSchemaProps) {
+    const schema = schemaGenerator.generateLocalBusinessSchema(organization);
+    
+    return <StructuredData schema={schema} />;
+  }
+  
+  // SEO-optimized image component
+  interface SEOImageProps {
+    src: string;
+    alt: string;
+    title?: string;
+    width?: number;
+    height?: number;
+    loading?: 'lazy' | 'eager';
+    className?: string;
+  }
+  
+  export function SEOImage({ 
+    src, 
+    alt, 
+    title, 
+    width, 
+    height, 
+    loading = 'lazy',
+    className 
+  }: SEOImageProps) {
+    return (
+      <img
+        src={src}
+        alt={alt}
+        title={title}
+        width={width}
+        height={height}
+        loading={loading}
+        className={className}
+        // Add structured data for images
+        itemProp="image"
+      />
+    );
+  }
+  
+  // SEO-optimized heading component
+  interface SEOHeadingProps {
+    level: 1 | 2 | 3 | 4 | 5 | 6;
+    children: React.ReactNode;
+    id?: string;
+    className?: string;
+  }
+  
+  export function SEOHeading({ level, children, id, className }: SEOHeadingProps) {
+    const Tag = `h${level}` as keyof JSX.IntrinsicElements;
+    
+    return (
+      <Tag
+        id={id}
+        className={className}
+        itemProp={level === 1 ? 'headline' : undefined}
+      >
+        {children}
+      </Tag>
+    );
+  }
+  
+  // Usage examples:
+  
+  export function ProviderPageSEO({ provider, organization }: {
+    provider: any;
+    organization: HealthcareOrganization;
+  }) {
+    const pageData: HealthcarePageData = {
+      title: `${provider.name} - ${provider.specialty}`,
+      description: `Book an appointment with ${provider.name}, ${provider.specialty} at ${organization.name}`,
+      type: 'provider',
+      providerName: provider.name,
+      specialty: provider.specialty,
+      organizationName: organization.name,
+      location: {
+        address: organization.address.streetAddress,
+        city: organization.address.addressLocality,
+        state: organization.address.addressRegion,
+        zipCode: organization.address.postalCode,
+      },
+    };
+    
+    const providerSchema = schemaGenerator.generateProviderSchema(provider, organization);
+    const breadcrumbs = [
+      { name: 'Home', url: '/' },
+      { name: 'Providers', url: '/providers' },
+      { name: provider.name, url: `/providers/${provider.id}` },
+    ];
+    
+    return (
+      <>
+        <SEOHead pageData={pageData} pathname={`/providers/${provider.id}`} />
+        <StructuredData schema={providerSchema} />
+        <BreadcrumbSchema breadcrumbs={breadcrumbs} />
+        <OrganizationSchema organization={organization} />
+      </>
+    );
+  }
+  
+  export function ServicePageSEO({ service, organization }: {
+    service: any;
+    organization: HealthcareOrganization;
+  }) {
+    const pageData: HealthcarePageData = {
+      title: service.name,
+      description: service.description,
+      type: 'service',
+      organizationName: organization.name,
+      services: [service.name],
+      location: {
+        address: organization.address.streetAddress,
+        city: organization.address.addressLocality,
+        state: organization.address.addressRegion,
+        zipCode: organization.address.postalCode,
+      },
+    };
+    
+    const serviceSchema = schemaGenerator.generateServiceSchema(service, organization);
+    const breadcrumbs = [
+      { name: 'Home', url: '/' },
+      { name: 'Services', url: '/services' },
+      { name: service.name, url: `/services/${service.slug}` },
+    ];
+    
+    return (
+      <>
+        <SEOHead pageData={pageData} pathname={`/services/${service.slug}`} />
+        <StructuredData schema={serviceSchema} />
+        <BreadcrumbSchema breadcrumbs={breadcrumbs} />
+        <OrganizationSchema organization={organization} />
+      </>
+    );
+  }
+  ```
+</Tab>
+</Tabs>
+
+## Performance SEO
+
+### Core Web Vitals
+
+<AccordionGroup>
+<Accordion title="Performance Monitoring">
+  ```typescript
+  // src/performance/web-vitals.ts
+  import { getCLS, getFID, getFCP, getLCP, getTTFB } from 'web-vitals';
+  
+  export interface WebVitalsMetric {
+    name: string;
+    value: number;
+    rating: 'good' | 'needs-improvement' | 'poor';
+    delta: number;
+    id: string;
+    navigationType: string;
+  }
+  
+  export class WebVitalsTracker {
+    private metrics: Map<string, WebVitalsMetric> = new Map();
+    private onMetric?: (metric: WebVitalsMetric) => void;
+    
+    constructor(onMetric?: (metric: WebVitalsMetric) => void) {
+      this.onMetric = onMetric;
+      this.initializeTracking();
+    }
+    
+    private initializeTracking() {
+      // Track Core Web Vitals
+      getCLS(this.handleMetric.bind(this));
+      getFID(this.handleMetric.bind(this));
+      getFCP(this.handleMetric.bind(this));
+      getLCP(this.handleMetric.bind(this));
+      getTTFB(this.handleMetric.bind(this));
+    }
+    
+    private handleMetric(metric: any) {
+      const webVitalsMetric: WebVitalsMetric = {
+        name: metric.name,
+        value: metric.value,
+        rating: this.getRating(metric.name, metric.value),
+        delta: metric.delta,
+        id: metric.id,
+        navigationType: metric.navigationType,
+      };
+      
+      this.metrics.set(metric.name, webVitalsMetric);
+      
+      if (this.onMetric) {
+        this.onMetric(webVitalsMetric);
+      }
+      
+      // Send to analytics
+      this.sendToAnalytics(webVitalsMetric);
+    }
+    
+    private getRating(name: string, value: number): 'good' | 'needs-improvement' | 'poor' {
+      const thresholds = {
+        CLS: { good: 0.1, poor: 0.25 },
+        FID: { good: 100, poor: 300 },
+        FCP: { good: 1800, poor: 3000 },
+        LCP: { good: 2500, poor: 4000 },
+        TTFB: { good: 800, poor: 1800 },
+      };
+      
+      const threshold = thresholds[name as keyof typeof thresholds];
+      if (!threshold) return 'good';
+      
+      if (value <= threshold.good) return 'good';
+      if (value <= threshold.poor) return 'needs-improvement';
+      return 'poor';
+    }
+    
+    private sendToAnalytics(metric: WebVitalsMetric) {
+      // Send to Google Analytics 4
+      if (typeof gtag !== 'undefined') {
+        gtag('event', metric.name, {
+          event_category: 'Web Vitals',
+          value: Math.round(metric.name === 'CLS' ? metric.value * 1000 : metric.value),
+          event_label: metric.id,
+          non_interaction: true,
+        });
+      }
+      
+      // Send to PostHog
+      if (typeof posthog !== 'undefined') {
+        posthog.capture('web_vital', {
+          metric_name: metric.name,
+          metric_value: metric.value,
+          metric_rating: metric.rating,
+          metric_id: metric.id,
+        });
+      }
+    }
+    
+    getMetrics(): WebVitalsMetric[] {
+      return Array.from(this.metrics.values());
+    }
+    
+    getMetric(name: string): WebVitalsMetric | undefined {
+      return this.metrics.get(name);
+    }
+    
+    getOverallScore(): number {
+      const metrics = this.getMetrics();
+      if (metrics.length === 0) return 0;
+      
+      const scores = metrics.map(metric => {
+        switch (metric.rating) {
+          case 'good': return 100;
+          case 'needs-improvement': return 50;
+          case 'poor': return 0;
+          default: return 0;
+        }
+      });
+      
+      return Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length);
+    }
+  }
+  
+  // Initialize web vitals tracking
+  export const webVitalsTracker = new WebVitalsTracker((metric) => {
+    console.log('Web Vital:', metric);
+  });
+  ```
+</Accordion>
+
+<Accordion title="Image Optimization">
+  ```typescript
+  // src/optimization/image-optimizer.ts
+  export interface ImageOptimizationConfig {
+    quality: number;
+    format: 'webp' | 'avif' | 'jpeg' | 'png';
+    sizes: string;
+    priority?: boolean;
+    placeholder?: 'blur' | 'empty';
+    blurDataURL?: string;
+  }
+  
+  export class ImageOptimizer {
+    static generateSrcSet(src: string, widths: number[]): string {
+      return widths
+        .map(width => `${src}?w=${width} ${width}w`)
+        .join(', ');
+    }
+    
+    static generateSizes(breakpoints: Array<{ breakpoint: string; size: string }>): string {
+      return breakpoints
+        .map(bp => `(${bp.breakpoint}) ${bp.size}`)
+        .join(', ');
+    }
+    
+    static getOptimalConfig(context: 'hero' | 'thumbnail' | 'content' | 'avatar'): ImageOptimizationConfig {
+      const configs = {
+        hero: {
+          quality: 85,
+          format: 'webp' as const,
+          sizes: '(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1200px',
+          priority: true,
+          placeholder: 'blur' as const,
+        },
+        thumbnail: {
+          quality: 75,
+          format: 'webp' as const,
+          sizes: '(max-width: 768px) 50vw, 300px',
+          priority: false,
+          placeholder: 'empty' as const,
+        },
+        content: {
+          quality: 80,
+          format: 'webp' as const,
+          sizes: '(max-width: 768px) 100vw, 800px',
+          priority: false,
+          placeholder: 'blur' as const,
+        },
+        avatar: {
+          quality: 75,
+          format: 'webp' as const,
+          sizes: '(max-width: 768px) 60px, 80px',
+          priority: false,
+          placeholder: 'empty' as const,
+        },
+      };
+      
+      return configs[context];
+    }
+  }
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Development
+
+### Setup and Configuration
+
+<Steps>
+<Step title="Environment Variables">
+  ```bash
+  # SEO configuration
+  NEXT_PUBLIC_SITE_URL="https://waylio.com"
+  GOOGLE_SITE_VERIFICATION="your-google-verification-code"
+  
+  # Analytics
+  NEXT_PUBLIC_GA_MEASUREMENT_ID="G-XXXXXXXXXX"
+  NEXT_PUBLIC_POSTHOG_KEY="your-posthog-key"
+  ```
+</Step>
+
+<Step title="Next.js Configuration">
+  ```typescript
+  // next.config.js
+  const nextConfig = {
+    images: {
+      domains: ['waylio.com'],
+      formats: ['image/webp', 'image/avif'],
+      deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+      imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    },
+    
+    async headers() {
+      return [
+        {
+          source: '/(.*)',
+          headers: [
+            {
+              key: 'X-Content-Type-Options',
+              value: 'nosniff',
+            },
+            {
+              key: 'X-Frame-Options',
+              value: 'DENY',
+            },
+            {
+              key: 'X-XSS-Protection',
+              value: '1; mode=block',
+            },
+          ],
+        },
+      ];
+    },
+  };
+  
+  module.exports = nextConfig;
+  ```
+</Step>
+
+<Step title="Sitemap Generation">
+  ```typescript
+  // app/sitemap.ts
+  import { MetadataRoute } from 'next';
+  
+  export default function sitemap(): MetadataRoute.Sitemap {
+    return [
+      {
+        url: 'https://waylio.com',
+        lastModified: new Date(),
+        changeFrequency: 'yearly',
+        priority: 1,
+      },
+      {
+        url: 'https://waylio.com/providers',
+        lastModified: new Date(),
+        changeFrequency: 'monthly',
+        priority: 0.8,
+      },
+      {
+        url: 'https://waylio.com/services',
+        lastModified: new Date(),
+        changeFrequency: 'monthly',
+        priority: 0.8,
+      },
+    ];
+  }
+  ```
+</Step>
+</Steps>
+
+## Best Practices
+
+### Healthcare SEO Guidelines
+
+<AccordionGroup>
+<Accordion title="Content Guidelines">
+  - Ensure medical accuracy and cite authoritative sources
+  - Include medical disclaimers and review dates
+  - Use clear, patient-friendly language
+  - Implement proper heading hierarchy (H1-H6)
+  - Optimize for local search with location-specific content
+</Accordion>
+
+<Accordion title="Technical SEO">
+  - Implement comprehensive structured data markup
+  - Optimize Core Web Vitals for better user experience
+  - Use semantic HTML and proper accessibility features
+  - Implement proper URL structure and internal linking
+  - Ensure mobile-first responsive design
+</Accordion>
+
+<Accordion title="Compliance Considerations">
+  - Follow medical advertising regulations (FDA, FTC)
+  - Implement proper privacy policies and HIPAA compliance
+  - Use appropriate medical disclaimers
+  - Ensure accessibility compliance (WCAG 2.1 AA)
+  - Regular content audits for accuracy and compliance
+</Accordion>
+</AccordionGroup>
+
+<Note>
+Healthcare SEO requires balancing search optimization with medical accuracy and regulatory compliance. Always prioritize patient safety and accurate medical information over search rankings.
+</Note>

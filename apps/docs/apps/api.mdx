@@ -1,0 +1,467 @@
+---
+title: "API Server"
+description: "Core backend API server providing healthcare services through Next.js serverless functions on Vercel."
+---
+
+# API Server
+
+The API server is the backbone of the Waylio platform, providing all core healthcare services through Next.js serverless functions deployed on Vercel. It handles business logic, data processing, and integrations with external services.
+
+<Info>
+The API application runs on port 3002 in development. We recommend deploying it to `api.{yourdomain}.com` in production.
+</Info>
+
+## Overview
+
+The API server is designed to run serverless functions and is optimized for scalability and performance. It provides a dedicated endpoint for all client applications including mobile apps, web dashboards, and external integrations.
+
+### Key Features
+
+<CardGroup cols={2}>
+<Card title="Serverless Architecture" icon="server">
+  Built on Next.js serverless functions for automatic scaling and cost efficiency.
+</Card>
+
+<Card title="Multi-Tenant Support" icon="building">
+  Supports multiple hospitals and healthcare organizations with data isolation.
+</Card>
+
+<Card title="Real-Time Processing" icon="bolt">
+  Handles real-time updates for appointments, queues, and notifications.
+</Card>
+
+<Card title="Secure by Design" icon="shield-check">
+  Enterprise-grade security with authentication, authorization, and audit logging.
+</Card>
+</CardGroup>
+
+## Core Service Domains
+
+The API server is organized into five core service domains, each handling specific aspects of healthcare operations:
+
+### P1: Appointment & Queue Service
+
+<AccordionGroup>
+<Accordion title="Appointment Management">
+  **Endpoints**: `/api/appointments/*`
+  
+  **Features**:
+  - Create, update, and cancel appointments
+  - Multi-provider scheduling
+  - Recurring appointment support
+  - Conflict detection and resolution
+  - Integration with external calendar systems
+  
+  **Key Operations**:
+  ```typescript
+  POST /api/appointments          // Create appointment
+  GET /api/appointments/:id       // Get appointment details
+  PUT /api/appointments/:id       // Update appointment
+  DELETE /api/appointments/:id    // Cancel appointment
+  GET /api/appointments/schedule  // Get provider schedule
+  ```
+</Accordion>
+
+<Accordion title="Queue Management">
+  **Endpoints**: `/api/queues/*`
+  
+  **Features**:
+  - Real-time queue status updates
+  - Intelligent wait time estimation
+  - Queue optimization algorithms
+  - Patient notification system
+  - Analytics and reporting
+  
+  **Key Operations**:
+  ```typescript
+  GET /api/queues/:providerId     // Get queue status
+  POST /api/queues/join           // Join queue
+  PUT /api/queues/:id/status      // Update queue position
+  GET /api/queues/analytics       // Queue analytics
+  ```
+</Accordion>
+</AccordionGroup>
+
+### P2: Prescription Service
+
+<AccordionGroup>
+<Accordion title="Digital Prescriptions">
+  **Endpoints**: `/api/prescriptions/*`
+  
+  **Features**:
+  - Electronic prescription creation
+  - Drug interaction checking
+  - Pharmacy integration
+  - Prescription history tracking
+  - Refill management
+  
+  **Key Operations**:
+  ```typescript
+  POST /api/prescriptions         // Create prescription
+  GET /api/prescriptions/:id      // Get prescription details
+  PUT /api/prescriptions/:id      // Update prescription
+  POST /api/prescriptions/refill  // Request refill
+  GET /api/prescriptions/history  // Get prescription history
+  ```
+</Accordion>
+
+<Accordion title="Medication Management">
+  **Endpoints**: `/api/medications/*`
+  
+  **Features**:
+  - Medication database
+  - Dosage calculations
+  - Allergy checking
+  - Generic substitutions
+  - Insurance verification
+  
+  **Key Operations**:
+  ```typescript
+  GET /api/medications/search     // Search medications
+  GET /api/medications/:id        // Get medication details
+  POST /api/medications/check     // Check interactions
+  GET /api/medications/formulary  // Get formulary info
+  ```
+</Accordion>
+</AccordionGroup>
+
+### P3: AR Navigation Service
+
+<AccordionGroup>
+<Accordion title="Indoor Navigation">
+  **Endpoints**: `/api/navigation/*`
+  
+  **Features**:
+  - AR-powered indoor navigation
+  - Real-time positioning
+  - Route optimization
+  - Accessibility routing
+  - Multi-floor navigation
+  
+  **Integration**: Powered by Multiset AI SDK
+  
+  **Key Operations**:
+  ```typescript
+  GET /api/navigation/maps         // Get facility maps
+  POST /api/navigation/route       // Calculate route
+  GET /api/navigation/locations    // Get location data
+  PUT /api/navigation/position     // Update user position
+  ```
+</Accordion>
+
+<Accordion title="Location Services">
+  **Endpoints**: `/api/locations/*`
+  
+  **Features**:
+  - Department and room mapping
+  - Service location directory
+  - Real-time availability
+  - Accessibility information
+  - Emergency routing
+  
+  **Key Operations**:
+  ```typescript
+  GET /api/locations/search       // Search locations
+  GET /api/locations/:id          // Get location details
+  GET /api/locations/nearby       // Find nearby services
+  POST /api/locations/checkin     // Check in to location
+  ```
+</Accordion>
+</AccordionGroup>
+
+### P4: Parking Service
+
+<AccordionGroup>
+<Accordion title="Parking Management">
+  **Endpoints**: `/api/parking/*`
+  
+  **Features**:
+  - Real-time space availability
+  - Reservation system
+  - Payment processing
+  - Violation management
+  - Analytics and reporting
+  
+  **Key Operations**:
+  ```typescript
+  GET /api/parking/availability   // Get available spaces
+  POST /api/parking/reserve       // Reserve parking space
+  POST /api/parking/payment       // Process parking payment
+  GET /api/parking/history        // Get parking history
+  ```
+</Accordion>
+
+<Accordion title="Payment Integration">
+  **Integration**: Stripe payment processing
+  
+  **Features**:
+  - Secure payment processing
+  - Multiple payment methods
+  - Automatic billing
+  - Refund processing
+  - Receipt generation
+  
+  **Key Operations**:
+  ```typescript
+  POST /api/parking/payments      // Process payment
+  GET /api/parking/receipts/:id   // Get receipt
+  POST /api/parking/refunds       // Process refund
+  ```
+</Accordion>
+</AccordionGroup>
+
+### User & Organization Management
+
+<AccordionGroup>
+<Accordion title="User Management">
+  **Endpoints**: `/api/users/*`
+  
+  **Features**:
+  - User profile management
+  - Role-based access control
+  - Multi-factor authentication
+  - Session management
+  - Audit logging
+  
+  **Integration**: Clerk authentication service
+  
+  **Key Operations**:
+  ```typescript
+  GET /api/users/profile          // Get user profile
+  PUT /api/users/profile          // Update profile
+  GET /api/users/permissions      // Get user permissions
+  POST /api/users/invite          // Invite new user
+  ```
+</Accordion>
+
+<Accordion title="Organization Management">
+  **Endpoints**: `/api/organizations/*`
+  
+  **Features**:
+  - Multi-tenant organization support
+  - Organization settings
+  - Member management
+  - Billing and subscriptions
+  - Custom branding
+  
+  **Key Operations**:
+  ```typescript
+  GET /api/organizations/:id      // Get organization details
+  PUT /api/organizations/:id      // Update organization
+  GET /api/organizations/members  // Get organization members
+  POST /api/organizations/invite  // Invite organization member
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Cron Jobs
+
+The API server handles scheduled tasks through Vercel's cron job functionality:
+
+<Tabs>
+<Tab title="Keep-Alive Job">
+  **Path**: `/api/cron/keep-alive`
+  **Schedule**: Every 10 minutes
+  **Purpose**: Prevents database from going to sleep during periods of inactivity
+  
+  ```typescript
+  // Example implementation
+  export const GET = async () => {
+    // Create and delete a temporary record
+    const temp = await database.page.create({ data: { title: 'temp' } });
+    await database.page.delete({ where: { id: temp.id } });
+    return new Response('OK', { status: 200 });
+  };
+  ```
+</Tab>
+
+<Tab title="Queue Optimization">
+  **Path**: `/api/cron/optimize-queues`
+  **Schedule**: Every 5 minutes
+  **Purpose**: Optimizes patient queues and updates wait time estimates
+  
+  ```typescript
+  export const GET = async () => {
+    // Update queue positions and wait times
+    await optimizeAllQueues();
+    await updateWaitTimeEstimates();
+    return new Response('Queue optimization complete', { status: 200 });
+  };
+  ```
+</Tab>
+
+<Tab title="Appointment Reminders">
+  **Path**: `/api/cron/appointment-reminders`
+  **Schedule**: Every hour
+  **Purpose**: Sends appointment reminders to patients
+  
+  ```typescript
+  export const GET = async () => {
+    const upcomingAppointments = await getUpcomingAppointments();
+    await sendAppointmentReminders(upcomingAppointments);
+    return new Response('Reminders sent', { status: 200 });
+  };
+  ```
+</Tab>
+</Tabs>
+
+## Webhooks
+
+The API server processes inbound webhooks from external services:
+
+<Tabs>
+<Tab title="Authentication Webhooks">
+  **Path**: `/api/webhooks/clerk`
+  **Source**: Clerk authentication service
+  **Events**: User creation, updates, deletions
+  
+  **Supported Events**:
+  - `user.created` - New user registration
+  - `user.updated` - User profile changes
+  - `user.deleted` - User account deletion
+  - `organization.created` - New organization
+  - `organization.updated` - Organization changes
+</Tab>
+
+<Tab title="Payment Webhooks">
+  **Path**: `/api/webhooks/stripe`
+  **Source**: Stripe payment service
+  **Events**: Payment processing, subscription changes
+  
+  **Supported Events**:
+  - `payment_intent.succeeded` - Successful payment
+  - `payment_intent.payment_failed` - Failed payment
+  - `invoice.payment_succeeded` - Subscription payment
+  - `customer.subscription.updated` - Subscription changes
+</Tab>
+
+<Tab title="Notification Webhooks">
+  **Path**: `/api/webhooks/knock`
+  **Source**: Knock notification service
+  **Events**: Delivery status, user interactions
+  
+  **Supported Events**:
+  - `message.delivered` - Message delivered
+  - `message.read` - Message read by user
+  - `message.clicked` - User clicked notification
+</Tab>
+</Tabs>
+
+## Development
+
+### Local Development
+
+<Steps>
+<Step title="Start the API Server">
+  ```bash
+  # Start only the API server
+  pnpm dev --filter api
+  
+  # Or start all services
+  pnpm dev
+  ```
+  
+  The API will be available at http://localhost:3002
+</Step>
+
+<Step title="Test API Endpoints">
+  ```bash
+  # Health check
+  curl http://localhost:3002/api/health
+  
+  # Test authentication (requires valid token)
+  curl -H "Authorization: Bearer YOUR_TOKEN" \
+       http://localhost:3002/api/users/profile
+  ```
+</Step>
+
+<Step title="View API Documentation">
+  Visit http://localhost:3002/api/docs for interactive API documentation
+</Step>
+</Steps>
+
+### Testing
+
+<Tabs>
+<Tab title="Unit Tests">
+  ```bash
+  # Run API unit tests
+  pnpm test --filter api
+  
+  # Run specific test file
+  pnpm test --filter api -- appointments.test.ts
+  
+  # Run tests in watch mode
+  pnpm test:watch --filter api
+  ```
+</Tab>
+
+<Tab title="Integration Tests">
+  ```bash
+  # Run integration tests
+  pnpm test:integration --filter api
+  
+  # Test specific service
+  pnpm test:integration --filter api -- prescription-service
+  ```
+</Tab>
+
+<Tab title="Load Testing">
+  ```bash
+  # Run load tests (requires k6)
+  pnpm test:load --filter api
+  
+  # Test specific endpoints
+  k6 run tests/load/appointments.js
+  ```
+</Tab>
+</Tabs>
+
+## Deployment
+
+### Vercel Configuration
+
+The API server is configured for deployment on Vercel with the following settings:
+
+```json
+{
+  "crons": [
+    {
+      "path": "/api/cron/keep-alive",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/optimize-queues", 
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/appointment-reminders",
+      "schedule": "0 * * * *"
+    }
+  ],
+  "functions": {
+    "app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  }
+}
+```
+
+### Environment Variables
+
+<Warning>
+Ensure all required environment variables are configured in your deployment environment. See the [Environment Setup Guide](/setup/environment) for details.
+</Warning>
+
+### Monitoring
+
+The API server includes comprehensive monitoring:
+
+- **Error Tracking**: Sentry integration for error monitoring
+- **Performance Monitoring**: Request timing and database query optimization
+- **Health Checks**: Automated health check endpoints
+- **Logging**: Structured logging with Better Stack integration
+
+<Note>
+For detailed API endpoint documentation, see our [API Reference](/api-reference) section.
+</Note>

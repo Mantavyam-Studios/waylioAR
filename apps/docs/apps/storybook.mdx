@@ -1,0 +1,847 @@
+---
+title: "Storybook"
+description: "Component workshop for developing, testing, and documenting UI components in isolation using Storybook."
+---
+
+# Storybook
+
+Storybook is the component workshop for Waylio, providing an isolated environment for developing, testing, and documenting UI components. It serves as the single source of truth for the design system and component library.
+
+<Info>
+Storybook runs on port 6006 in development. Access it at http://localhost:6006 to browse and interact with all components.
+</Info>
+
+## Overview
+
+Storybook enables component-driven development by allowing developers and designers to build components in isolation, test different states and variations, and document usage patterns. It's essential for maintaining consistency across the Waylio platform.
+
+### Key Features
+
+<CardGroup cols={2}>
+<Card title="Component Isolation" icon="cube">
+  Develop and test components independently without the complexity of the full application.
+</Card>
+
+<Card title="Interactive Documentation" icon="book">
+  Auto-generated documentation with interactive controls for exploring component variations.
+</Card>
+
+<Card title="Visual Testing" icon="eye">
+  Visual regression testing to catch UI changes and ensure design consistency.
+</Card>
+
+<Card title="Accessibility Testing" icon="universal-access">
+  Built-in accessibility testing tools to ensure components meet WCAG standards.
+</Card>
+</CardGroup>
+
+## Component Categories
+
+### Design System Components
+
+<Tabs>
+<Tab title="Form Components">
+  **Components**: Input, Button, Select, Checkbox, Radio, Switch, Textarea
+  
+  **Stories Include**:
+  - Default states
+  - Validation states (error, success, warning)
+  - Disabled states
+  - Size variations
+  - Interactive examples
+  
+  **Example Story**:
+  ```typescript
+  // Button.stories.tsx
+  import type { Meta, StoryObj } from '@storybook/react';
+  import { Button } from '@repo/design-system';
+  
+  const meta: Meta<typeof Button> = {
+    title: 'Design System/Button',
+    component: Button,
+    parameters: {
+      layout: 'centered',
+    },
+    tags: ['autodocs'],
+    argTypes: {
+      variant: {
+        control: { type: 'select' },
+        options: ['default', 'destructive', 'outline', 'secondary', 'ghost', 'link'],
+      },
+      size: {
+        control: { type: 'select' },
+        options: ['default', 'sm', 'lg', 'icon'],
+      },
+    },
+  };
+  
+  export default meta;
+  type Story = StoryObj<typeof meta>;
+  
+  export const Default: Story = {
+    args: {
+      children: 'Button',
+    },
+  };
+  
+  export const Variants: Story = {
+    render: () => (
+      <div className="flex gap-2 flex-wrap">
+        <Button variant="default">Default</Button>
+        <Button variant="destructive">Destructive</Button>
+        <Button variant="outline">Outline</Button>
+        <Button variant="secondary">Secondary</Button>
+        <Button variant="ghost">Ghost</Button>
+        <Button variant="link">Link</Button>
+      </div>
+    ),
+  };
+  
+  export const Sizes: Story = {
+    render: () => (
+      <div className="flex gap-2 items-center">
+        <Button size="sm">Small</Button>
+        <Button size="default">Default</Button>
+        <Button size="lg">Large</Button>
+        <Button size="icon">🔍</Button>
+      </div>
+    ),
+  };
+  
+  export const Loading: Story = {
+    args: {
+      children: 'Loading...',
+      disabled: true,
+    },
+    decorators: [
+      (Story) => (
+        <div className="flex items-center gap-2">
+          <Story />
+          <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
+        </div>
+      ),
+    ],
+  };
+  ```
+</Tab>
+
+<Tab title="Data Display">
+  **Components**: Table, Card, Badge, Avatar, Tooltip, Popover, Dialog
+  
+  **Stories Include**:
+  - Data variations
+  - Loading states
+  - Empty states
+  - Interactive behaviors
+  - Responsive layouts
+  
+  **Example Story**:
+  ```typescript
+  // Table.stories.tsx
+  import type { Meta, StoryObj } from '@storybook/react';
+  import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+  } from '@repo/design-system';
+  
+  const meta: Meta<typeof Table> = {
+    title: 'Design System/Table',
+    component: Table,
+    parameters: {
+      layout: 'padded',
+    },
+  };
+  
+  export default meta;
+  type Story = StoryObj<typeof meta>;
+  
+  const sampleData = [
+    { id: '1', name: 'John Doe', email: 'john@example.com', role: 'Patient' },
+    { id: '2', name: 'Dr. Smith', email: 'smith@example.com', role: 'Doctor' },
+    { id: '3', name: 'Nurse Johnson', email: 'johnson@example.com', role: 'Nurse' },
+  ];
+  
+  export const Default: Story = {
+    render: () => (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Email</TableHead>
+            <TableHead>Role</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {sampleData.map((user) => (
+            <TableRow key={user.id}>
+              <TableCell>{user.name}</TableCell>
+              <TableCell>{user.email}</TableCell>
+              <TableCell>{user.role}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    ),
+  };
+  ```
+</Tab>
+
+<Tab title="Navigation">
+  **Components**: Sidebar, Breadcrumb, Tabs, Pagination, Command
+  
+  **Stories Include**:
+  - Navigation states
+  - Active/inactive states
+  - Responsive behavior
+  - Keyboard navigation
+  - Accessibility features
+</Tab>
+
+<Tab title="Feedback">
+  **Components**: Alert, Toast, Progress, Skeleton, Spinner
+  
+  **Stories Include**:
+  - Different message types
+  - Animation states
+  - Duration variations
+  - Positioning options
+  - Dismissible behaviors
+</Tab>
+</Tabs>
+
+### Healthcare-Specific Components
+
+<Tabs>
+<Tab title="Patient Components">
+  **Components**: PatientCard, PatientSearch, PatientForm, MedicalHistory
+  
+  **Stories Include**:
+  - Patient data variations
+  - Privacy modes
+  - Edit/view modes
+  - Loading states
+  - Error handling
+  
+  **Example Story**:
+  ```typescript
+  // PatientCard.stories.tsx
+  import type { Meta, StoryObj } from '@storybook/react';
+  import { PatientCard } from '../components/PatientCard';
+  
+  const meta: Meta<typeof PatientCard> = {
+    title: 'Healthcare/PatientCard',
+    component: PatientCard,
+    parameters: {
+      layout: 'centered',
+    },
+  };
+  
+  export default meta;
+  type Story = StoryObj<typeof meta>;
+  
+  const samplePatient = {
+    id: '1',
+    name: 'John Doe',
+    age: 45,
+    gender: 'Male',
+    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e',
+    lastVisit: '2024-01-15',
+    nextAppointment: '2024-02-01',
+    status: 'active' as const,
+    conditions: ['Hypertension', 'Diabetes Type 2'],
+  };
+  
+  export const Default: Story = {
+    args: {
+      patient: samplePatient,
+    },
+  };
+  
+  export const WithoutAvatar: Story = {
+    args: {
+      patient: {
+        ...samplePatient,
+        avatar: undefined,
+      },
+    },
+  };
+  
+  export const Inactive: Story = {
+    args: {
+      patient: {
+        ...samplePatient,
+        status: 'inactive',
+      },
+    },
+  };
+  ```
+</Tab>
+
+<Tab title="Appointment Components">
+  **Components**: AppointmentCard, AppointmentCalendar, QueueStatus, TimeSlotPicker
+  
+  **Stories Include**:
+  - Different appointment types
+  - Time zone handling
+  - Availability states
+  - Booking flows
+  - Cancellation states
+</Tab>
+
+<Tab title="Prescription Components">
+  **Components**: PrescriptionCard, MedicationSearch, DosageCalculator, InteractionChecker
+  
+  **Stories Include**:
+  - Medication variations
+  - Dosage calculations
+  - Interaction warnings
+  - Refill statuses
+  - Pharmacy integration
+</Tab>
+
+<Tab title="Navigation Components">
+  **Components**: HospitalMap, RouteDisplay, LocationSearch, ARViewer
+  
+  **Stories Include**:
+  - Map variations
+  - Route states
+  - Accessibility options
+  - Loading states
+  - Error scenarios
+</Tab>
+</Tabs>
+
+## Addons and Configuration
+
+### Essential Addons
+
+<AccordionGroup>
+<Accordion title="Controls">
+  **Purpose**: Interactive controls for component props
+  
+  **Configuration**:
+  ```typescript
+  // .storybook/main.ts
+  export default {
+    addons: [
+      '@storybook/addon-controls',
+    ],
+  };
+  
+  // Usage in stories
+  export const Interactive: Story = {
+    args: {
+      variant: 'default',
+      size: 'default',
+      disabled: false,
+    },
+    argTypes: {
+      onClick: { action: 'clicked' },
+    },
+  };
+  ```
+</Accordion>
+
+<Accordion title="Accessibility">
+  **Purpose**: Automated accessibility testing
+  
+  **Configuration**:
+  ```typescript
+  // .storybook/main.ts
+  export default {
+    addons: [
+      '@storybook/addon-a11y',
+    ],
+  };
+  
+  // Global accessibility parameters
+  // .storybook/preview.ts
+  export const parameters = {
+    a11y: {
+      config: {
+        rules: [
+          {
+            id: 'color-contrast',
+            enabled: true,
+          },
+          {
+            id: 'focus-trap',
+            enabled: true,
+          },
+        ],
+      },
+    },
+  };
+  ```
+</Accordion>
+
+<Accordion title="Viewport">
+  **Purpose**: Responsive design testing
+  
+  **Configuration**:
+  ```typescript
+  // .storybook/preview.ts
+  export const parameters = {
+    viewport: {
+      viewports: {
+        mobile: {
+          name: 'Mobile',
+          styles: {
+            width: '375px',
+            height: '667px',
+          },
+        },
+        tablet: {
+          name: 'Tablet',
+          styles: {
+            width: '768px',
+            height: '1024px',
+          },
+        },
+        desktop: {
+          name: 'Desktop',
+          styles: {
+            width: '1440px',
+            height: '900px',
+          },
+        },
+      },
+    },
+  };
+  ```
+</Accordion>
+
+<Accordion title="Docs">
+  **Purpose**: Auto-generated documentation
+  
+  **Configuration**:
+  ```typescript
+  // .storybook/main.ts
+  export default {
+    addons: [
+      '@storybook/addon-docs',
+    ],
+    docs: {
+      autodocs: 'tag',
+    },
+  };
+  
+  // Custom documentation
+  // Button.mdx
+  import { Meta, Story, Canvas, ArgsTable } from '@storybook/addon-docs';
+  import { Button } from '@repo/design-system';
+  
+  <Meta title="Design System/Button" component={Button} />
+  
+  # Button
+  
+  Buttons are used to trigger actions and navigate between pages.
+  
+  ## Usage Guidelines
+  
+  - Use primary buttons for the main action on a page
+  - Use secondary buttons for less important actions
+  - Use destructive buttons for dangerous actions
+  
+  <Canvas>
+    <Story id="design-system-button--default" />
+  </Canvas>
+  
+  ## Props
+  
+  <ArgsTable of={Button} />
+  ```
+</Accordion>
+</AccordionGroup>
+
+### Visual Testing
+
+<Tabs>
+<Tab title="Chromatic Integration">
+  **Purpose**: Visual regression testing
+  
+  **Configuration**:
+  ```typescript
+  // .storybook/main.ts
+  export default {
+    addons: [
+      '@storybook/addon-essentials',
+    ],
+  };
+  
+  // chromatic.config.json
+  {
+    "projectToken": "your-project-token",
+    "buildScriptName": "build-storybook",
+    "exitZeroOnChanges": true,
+    "ignoreLastBuildOnBranch": "main"
+  }
+  ```
+  
+  **CI Integration**:
+  ```yaml
+  # .github/workflows/chromatic.yml
+  name: Chromatic
+  on: push
+  
+  jobs:
+    chromatic-deployment:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v3
+          with:
+            fetch-depth: 0
+        - uses: actions/setup-node@v3
+          with:
+            node-version: 18
+        - run: npm ci
+        - run: npx chromatic --project-token=${{ secrets.CHROMATIC_PROJECT_TOKEN }}
+  ```
+</Tab>
+
+<Tab title="Screenshot Testing">
+  **Purpose**: Automated screenshot comparison
+  
+  **Implementation**:
+  ```typescript
+  // .storybook/test-runner.ts
+  import type { TestRunnerConfig } from '@storybook/test-runner';
+  import { getStoryContext } from '@storybook/test-runner';
+  
+  const config: TestRunnerConfig = {
+    async postRender(page, context) {
+      const storyContext = await getStoryContext(page, context);
+      
+      if (storyContext.parameters?.screenshot) {
+        await page.screenshot({
+          path: `screenshots/${context.id}.png`,
+          fullPage: true,
+        });
+      }
+    },
+  };
+  
+  export default config;
+  ```
+</Tab>
+</Tabs>
+
+## Development Workflow
+
+### Creating New Stories
+
+<Steps>
+<Step title="Generate Story Template">
+  ```bash
+  # Generate new story file
+  pnpm storybook:generate-story --component="PatientCard"
+  
+  # This creates:
+  # - stories/PatientCard.stories.tsx
+  # - stories/PatientCard.mdx (optional)
+  ```
+</Step>
+
+<Step title="Write Component Story">
+  ```typescript
+  // Follow the story template
+  import type { Meta, StoryObj } from '@storybook/react';
+  import { YourComponent } from '../components/YourComponent';
+  
+  const meta: Meta<typeof YourComponent> = {
+    title: 'Category/YourComponent',
+    component: YourComponent,
+    parameters: {
+      layout: 'centered',
+      docs: {
+        description: {
+          component: 'Component description here',
+        },
+      },
+    },
+    tags: ['autodocs'],
+    argTypes: {
+      // Define controls for props
+    },
+  };
+  
+  export default meta;
+  type Story = StoryObj<typeof meta>;
+  
+  export const Default: Story = {
+    args: {
+      // Default props
+    },
+  };
+  ```
+</Step>
+
+<Step title="Test and Document">
+  ```bash
+  # Start Storybook
+  pnpm dev --filter storybook
+  
+  # Run visual tests
+  pnpm test:visual --filter storybook
+  
+  # Generate documentation
+  pnpm storybook:build-docs
+  ```
+</Step>
+</Steps>
+
+### Testing Components
+
+<Tabs>
+<Tab title="Interaction Testing">
+  ```typescript
+  // Button.stories.tsx
+  import { expect } from '@storybook/jest';
+  import { userEvent, within } from '@storybook/testing-library';
+  
+  export const ClickTest: Story = {
+    args: {
+      children: 'Click me',
+    },
+    play: async ({ canvasElement }) => {
+      const canvas = within(canvasElement);
+      const button = canvas.getByRole('button');
+      
+      await userEvent.click(button);
+      await expect(button).toHaveFocus();
+    },
+  };
+  ```
+</Tab>
+
+<Tab title="Accessibility Testing">
+  ```typescript
+  // Form.stories.tsx
+  export const AccessibilityTest: Story = {
+    args: {
+      // Form props
+    },
+    parameters: {
+      a11y: {
+        config: {
+          rules: [
+            {
+              id: 'label',
+              enabled: true,
+            },
+            {
+              id: 'color-contrast',
+              enabled: true,
+            },
+          ],
+        },
+      },
+    },
+  };
+  ```
+</Tab>
+
+<Tab title="Responsive Testing">
+  ```typescript
+  // Card.stories.tsx
+  export const ResponsiveTest: Story = {
+    parameters: {
+      viewport: {
+        viewports: {
+          mobile: { name: 'Mobile', styles: { width: '375px', height: '667px' } },
+          tablet: { name: 'Tablet', styles: { width: '768px', height: '1024px' } },
+        },
+      },
+    },
+    render: () => (
+      <div className="p-4">
+        <Card>Responsive content</Card>
+      </div>
+    ),
+  };
+  ```
+</Tab>
+</Tabs>
+
+## Design System Documentation
+
+### Component Guidelines
+
+<AccordionGroup>
+<Accordion title="Usage Guidelines">
+  Each component story includes comprehensive usage guidelines:
+  
+  - When to use the component
+  - When not to use the component
+  - Best practices and patterns
+  - Common mistakes to avoid
+  - Accessibility considerations
+</Accordion>
+
+<Accordion title="Design Tokens">
+  ```typescript
+  // Design tokens documentation
+  export const DesignTokens: Story = {
+    render: () => (
+      <div className="space-y-8">
+        <section>
+          <h3>Colors</h3>
+          <div className="grid grid-cols-4 gap-4">
+            {Object.entries(colors).map(([name, value]) => (
+              <div key={name} className="text-center">
+                <div 
+                  className="w-16 h-16 rounded-lg mx-auto mb-2"
+                  style={{ backgroundColor: value }}
+                />
+                <p className="text-sm font-medium">{name}</p>
+                <p className="text-xs text-gray-500">{value}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+        
+        <section>
+          <h3>Typography</h3>
+          <div className="space-y-4">
+            {Object.entries(typography).map(([name, styles]) => (
+              <div key={name} style={styles}>
+                {name}: The quick brown fox jumps over the lazy dog
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    ),
+  };
+  ```
+</Accordion>
+
+<Accordion title="Component Composition">
+  ```typescript
+  // Show how components work together
+  export const CompositionExample: Story = {
+    render: () => (
+      <Card>
+        <CardHeader>
+          <CardTitle>Patient Information</CardTitle>
+          <CardDescription>View and edit patient details</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="firstName">First Name</Label>
+                <Input id="firstName" placeholder="John" />
+              </div>
+              <div>
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input id="lastName" placeholder="Doe" />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" placeholder="john@example.com" />
+            </div>
+          </form>
+        </CardContent>
+        <CardFooter>
+          <Button>Save Changes</Button>
+          <Button variant="outline">Cancel</Button>
+        </CardFooter>
+      </Card>
+    ),
+  };
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Development
+
+### Local Development
+
+<Steps>
+<Step title="Start Storybook">
+  ```bash
+  # Start only Storybook
+  pnpm dev --filter storybook
+  
+  # Or start all services
+  pnpm dev
+  ```
+  
+  Storybook will be available at http://localhost:6006
+</Step>
+
+<Step title="Add New Components">
+  ```bash
+  # Create new component story
+  pnpm storybook:add-story --component="NewComponent"
+  
+  # Generate component documentation
+  pnpm storybook:generate-docs --component="NewComponent"
+  ```
+</Step>
+
+<Step title="Run Tests">
+  ```bash
+  # Run Storybook tests
+  pnpm test --filter storybook
+  
+  # Run visual regression tests
+  pnpm test:visual --filter storybook
+  
+  # Run accessibility tests
+  pnpm test:a11y --filter storybook
+  ```
+</Step>
+</Steps>
+
+### Building and Deployment
+
+<Tabs>
+<Tab title="Static Build">
+  ```bash
+  # Build static Storybook
+  pnpm build --filter storybook
+  
+  # Preview built Storybook
+  pnpm preview --filter storybook
+  ```
+</Tab>
+
+<Tab title="Chromatic Deployment">
+  ```bash
+  # Deploy to Chromatic for visual testing
+  pnpm chromatic --filter storybook
+  
+  # Deploy with specific branch
+  pnpm chromatic --branch-name=feature/new-component
+  ```
+</Tab>
+</Tabs>
+
+## Integration with Development
+
+### Component Development Workflow
+
+1. **Design**: Create component designs in Figma
+2. **Develop**: Build component in isolation in Storybook
+3. **Test**: Write interaction and accessibility tests
+4. **Document**: Add usage guidelines and examples
+5. **Review**: Visual review through Chromatic
+6. **Integrate**: Use component in applications
+
+### Design System Maintenance
+
+- **Regular Audits**: Review component usage across applications
+- **Version Management**: Track component changes and breaking updates
+- **Documentation Updates**: Keep usage guidelines current
+- **Accessibility Reviews**: Regular accessibility testing and improvements
+
+<Note>
+Storybook serves as the living documentation for Waylio's design system. All components should be documented here before being used in applications.
+</Note>

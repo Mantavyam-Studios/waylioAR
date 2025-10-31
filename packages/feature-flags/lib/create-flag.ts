@@ -1,4 +1,4 @@
-import { analytics } from "@repo/analytics/server";
+// import { analytics } from "@repo/analytics/server";
 import { auth } from "@repo/auth/server";
 import { flag } from "flags/next";
 
@@ -13,8 +13,8 @@ export const createFlag = (key: string) =>
         return this.defaultValue as boolean;
       }
 
-      const isEnabled = await analytics.isFeatureEnabled(key, userId);
+      // const isEnabled = await analytics.isFeatureEnabled(key, userId);
 
-      return isEnabled ?? (this.defaultValue as boolean);
+      // return isEnabled ?? (this.defaultValue as boolean);
     },
   });

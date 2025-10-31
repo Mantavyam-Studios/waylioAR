@@ -1,0 +1,1215 @@
+---
+title: "Analytics Package"
+description: "Comprehensive analytics and tracking system with PostHog, Google Analytics, and custom healthcare metrics for data-driven insights."
+---
+
+# Analytics Package
+
+The analytics package provides comprehensive tracking and insights across the Waylio platform, combining PostHog for product analytics, Google Analytics for web metrics, and custom healthcare-specific analytics for operational intelligence.
+
+## Installation
+
+```bash
+# Install the analytics package
+pnpm add @repo/analytics
+
+# Peer dependencies (automatically installed in monorepo)
+pnpm add posthog-js posthog-node gtag
+```
+
+## Overview
+
+The analytics package enables data-driven decision making by tracking user behavior, system performance, and healthcare-specific metrics. It provides privacy-compliant analytics while maintaining HIPAA compliance for sensitive healthcare data.
+
+### Key Features
+
+<CardGroup cols={2}>
+<Card title="Product Analytics" icon="chart-line">
+  PostHog integration for user behavior tracking, feature usage, and conversion analysis.
+</Card>
+
+<Card title="Healthcare Metrics" icon="heart-pulse">
+  Custom analytics for appointment flows, patient satisfaction, and clinical outcomes.
+</Card>
+
+<Card title="Performance Monitoring" icon="gauge">
+  Real-time performance tracking with alerts and automated reporting.
+</Card>
+
+<Card title="Privacy Compliant" icon="shield-check">
+  HIPAA-compliant analytics with data anonymization and consent management.
+</Card>
+</CardGroup>
+
+## Analytics Providers
+
+### PostHog Integration
+
+<Tabs>
+<Tab title="Provider Setup">
+  **Purpose**: Initialize PostHog for product analytics and feature flags
+  
+  ```typescript
+  // app/layout.tsx
+  import { AnalyticsProvider } from '@repo/analytics';
+  import { auth } from '@repo/auth';
+  
+  export default function RootLayout({
+    children,
+  }: {
+    children: React.ReactNode;
+  }) {
+    const { user } = auth();
+    
+    return (
+      <html lang="en">
+        <body>
+          <AnalyticsProvider
+            userId={user?.id}
+            userProperties={{
+              email: user?.primaryEmailAddress?.emailAddress,
+              role: user?.publicMetadata?.role,
+              organizationId: user?.organizationMemberships?.[0]?.organization?.id,
+              organizationName: user?.organizationMemberships?.[0]?.organization?.name,
+            }}
+            options={{
+              api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
+              loaded: (posthog) => {
+                if (process.env.NODE_ENV === 'development') {
+                  posthog.debug();
+                }
+              },
+            }}
+          >
+            {children}
+          </AnalyticsProvider>
+        </body>
+      </html>
+    );
+  }
+  ```
+</Tab>
+
+<Tab title="Event Tracking">
+  **Purpose**: Track user interactions and business events
+  
+  ```typescript
+  import { useAnalytics } from '@repo/analytics';
+  
+  export function AppointmentBooking() {
+    const { track, identify, capture } = useAnalytics();
+    
+    const handleAppointmentBooked = async (appointmentData: {
+      appointmentId: string;
+      patientId: string;
+      providerId: string;
+      appointmentType: string;
+      scheduledAt: Date;
+      source: string;
+    }) => {
+      // Track appointment booking event
+      track('appointment_booked', {
+        appointment_id: appointmentData.appointmentId,
+        appointment_type: appointmentData.appointmentType,
+        provider_specialization: appointmentData.provider?.specialization,
+        booking_source: appointmentData.source,
+        days_in_advance: Math.ceil(
+          (appointmentData.scheduledAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+        ),
+        time_of_day: appointmentData.scheduledAt.getHours() < 12 ? 'morning' : 
+                     appointmentData.scheduledAt.getHours() < 17 ? 'afternoon' : 'evening',
+      });
+      
+      // Update user properties
+      identify(appointmentData.patientId, {
+        last_appointment_booked: new Date().toISOString(),
+        total_appointments: '$increment',
+        preferred_appointment_type: appointmentData.appointmentType,
+      });
+    };
+    
+    const handleBookingError = (error: string, step: string) => {
+      track('appointment_booking_error', {
+        error_message: error,
+        booking_step: step,
+        timestamp: new Date().toISOString(),
+      });
+    };
+    
+    const handleBookingAbandoned = (step: string, timeSpent: number) => {
+      track('appointment_booking_abandoned', {
+        abandonment_step: step,
+        time_spent_seconds: timeSpent,
+        timestamp: new Date().toISOString(),
+      });
+    };
+    
+    return (
+      <div>
+        {/* Appointment booking form */}
+      </div>
+    );
+  }
+  ```
+</Tab>
+
+<Tab title="Feature Flags">
+  **Purpose**: Use PostHog feature flags for controlled feature rollouts
+  
+  ```typescript
+  import { useFeatureFlag, useFeatureFlags } from '@repo/analytics';
+  
+  export function PatientDashboard() {
+    const showNewNavigation = useFeatureFlag('new-navigation-ui');
+    const showARNavigation = useFeatureFlag('ar-navigation-beta');
+    const flags = useFeatureFlags();
+    
+    // Track feature flag exposure
+    const { track } = useAnalytics();
+    
+    useEffect(() => {
+      if (showNewNavigation) {
+        track('feature_flag_exposed', {
+          flag_name: 'new-navigation-ui',
+          flag_value: true,
+        });
+      }
+    }, [showNewNavigation]);
+    
+    return (
+      <div>
+        {showNewNavigation ? (
+          <NewNavigationComponent />
+        ) : (
+          <LegacyNavigationComponent />
+        )}
+        
+        {showARNavigation && (
+          <ARNavigationButton
+            onClick={() => {
+              track('ar_navigation_clicked', {
+                source: 'patient_dashboard',
+              });
+            }}
+          />
+        )}
+        
+        {/* Conditional features based on flags */}
+        {flags['prescription-refill-automation'] && (
+          <AutoRefillSettings />
+        )}
+        
+        {flags['telehealth-integration'] && (
+          <TelehealthOptions />
+        )}
+      </div>
+    );
+  }
+  
+  // Server-side feature flag usage
+  export async function getServerSideProps(context) {
+    const { user } = await auth(context);
+    const posthog = new PostHog(process.env.POSTHOG_API_KEY);
+    
+    const showBetaFeatures = await posthog.isFeatureEnabled(
+      'beta-features',
+      user.id,
+      {
+        groups: {
+          organization: user.organizationId,
+        },
+      }
+    );
+    
+    return {
+      props: {
+        showBetaFeatures,
+      },
+    };
+  }
+  ```
+</Tab>
+</Tabs>
+
+### Healthcare Analytics
+
+<AccordionGroup>
+<Accordion title="Patient Journey Tracking">
+  ```typescript
+  import { trackHealthcareEvent } from '@repo/analytics';
+  
+  export class PatientJourneyAnalytics {
+    static async trackPatientRegistration(patientData: {
+      patientId: string;
+      registrationSource: string;
+      completionTime: number;
+      organizationId: string;
+    }) {
+      await trackHealthcareEvent('patient_registered', {
+        patient_id: patientData.patientId,
+        registration_source: patientData.registrationSource,
+        completion_time_seconds: patientData.completionTime,
+        organization_id: patientData.organizationId,
+        timestamp: new Date().toISOString(),
+      });
+    }
+    
+    static async trackAppointmentFlow(flowData: {
+      patientId: string;
+      appointmentId: string;
+      steps: Array<{
+        step: string;
+        timestamp: Date;
+        duration: number;
+        success: boolean;
+      }>;
+    }) {
+      // Track overall flow completion
+      const totalDuration = flowData.steps.reduce((sum, step) => sum + step.duration, 0);
+      const completedSteps = flowData.steps.filter(step => step.success).length;
+      
+      await trackHealthcareEvent('appointment_flow_completed', {
+        patient_id: flowData.patientId,
+        appointment_id: flowData.appointmentId,
+        total_duration_seconds: totalDuration,
+        completed_steps: completedSteps,
+        total_steps: flowData.steps.length,
+        completion_rate: completedSteps / flowData.steps.length,
+        flow_steps: flowData.steps.map(step => ({
+          step_name: step.step,
+          duration: step.duration,
+          success: step.success,
+        })),
+      });
+      
+      // Track individual step performance
+      for (const step of flowData.steps) {
+        await trackHealthcareEvent('appointment_flow_step', {
+          patient_id: flowData.patientId,
+          appointment_id: flowData.appointmentId,
+          step_name: step.step,
+          step_duration: step.duration,
+          step_success: step.success,
+          timestamp: step.timestamp.toISOString(),
+        });
+      }
+    }
+    
+    static async trackPatientSatisfaction(satisfactionData: {
+      patientId: string;
+      appointmentId: string;
+      overallRating: number;
+      waitTimeRating: number;
+      providerRating: number;
+      facilityRating: number;
+      comments?: string;
+      npsScore: number;
+    }) {
+      await trackHealthcareEvent('patient_satisfaction_survey', {
+        patient_id: satisfactionData.patientId,
+        appointment_id: satisfactionData.appointmentId,
+        overall_rating: satisfactionData.overallRating,
+        wait_time_rating: satisfactionData.waitTimeRating,
+        provider_rating: satisfactionData.providerRating,
+        facility_rating: satisfactionData.facilityRating,
+        nps_score: satisfactionData.npsScore,
+        has_comments: !!satisfactionData.comments,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+  ```
+</Accordion>
+
+<Accordion title="Operational Metrics">
+  ```typescript
+  export class OperationalAnalytics {
+    static async trackQueueMetrics(queueData: {
+      providerId: string;
+      organizationId: string;
+      queueLength: number;
+      averageWaitTime: number;
+      maxWaitTime: number;
+      patientsServed: number;
+      noShows: number;
+      timeframe: string;
+    }) {
+      await trackHealthcareEvent('queue_metrics', {
+        provider_id: queueData.providerId,
+        organization_id: queueData.organizationId,
+        queue_length: queueData.queueLength,
+        average_wait_time_minutes: queueData.averageWaitTime,
+        max_wait_time_minutes: queueData.maxWaitTime,
+        patients_served: queueData.patientsServed,
+        no_shows: queueData.noShows,
+        no_show_rate: queueData.noShows / (queueData.patientsServed + queueData.noShows),
+        timeframe: queueData.timeframe,
+        timestamp: new Date().toISOString(),
+      });
+    }
+    
+    static async trackResourceUtilization(utilizationData: {
+      organizationId: string;
+      resourceType: 'room' | 'equipment' | 'staff';
+      resourceId: string;
+      utilizationRate: number;
+      capacity: number;
+      actualUsage: number;
+      timeframe: string;
+    }) {
+      await trackHealthcareEvent('resource_utilization', {
+        organization_id: utilizationData.organizationId,
+        resource_type: utilizationData.resourceType,
+        resource_id: utilizationData.resourceId,
+        utilization_rate: utilizationData.utilizationRate,
+        capacity: utilizationData.capacity,
+        actual_usage: utilizationData.actualUsage,
+        efficiency: utilizationData.actualUsage / utilizationData.capacity,
+        timeframe: utilizationData.timeframe,
+        timestamp: new Date().toISOString(),
+      });
+    }
+    
+    static async trackPrescriptionMetrics(prescriptionData: {
+      organizationId: string;
+      prescriptionsIssued: number;
+      prescriptionsFilled: number;
+      averageProcessingTime: number;
+      digitalPrescriptionRate: number;
+      timeframe: string;
+    }) {
+      await trackHealthcareEvent('prescription_metrics', {
+        organization_id: prescriptionData.organizationId,
+        prescriptions_issued: prescriptionData.prescriptionsIssued,
+        prescriptions_filled: prescriptionData.prescriptionsFilled,
+        fill_rate: prescriptionData.prescriptionsFilled / prescriptionData.prescriptionsIssued,
+        average_processing_time_minutes: prescriptionData.averageProcessingTime,
+        digital_prescription_rate: prescriptionData.digitalPrescriptionRate,
+        timeframe: prescriptionData.timeframe,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+  ```
+</Accordion>
+
+<Accordion title="Clinical Outcomes">
+  ```typescript
+  export class ClinicalAnalytics {
+    static async trackAppointmentOutcomes(outcomeData: {
+      appointmentId: string;
+      patientId: string;
+      providerId: string;
+      appointmentType: string;
+      duration: number;
+      outcome: 'completed' | 'referred' | 'follow_up_needed' | 'emergency';
+      diagnosisCount: number;
+      prescriptionsIssued: number;
+      followUpScheduled: boolean;
+      patientSatisfaction?: number;
+    }) {
+      await trackHealthcareEvent('appointment_outcome', {
+        appointment_id: outcomeData.appointmentId,
+        patient_id: outcomeData.patientId,
+        provider_id: outcomeData.providerId,
+        appointment_type: outcomeData.appointmentType,
+        duration_minutes: outcomeData.duration,
+        outcome: outcomeData.outcome,
+        diagnosis_count: outcomeData.diagnosisCount,
+        prescriptions_issued: outcomeData.prescriptionsIssued,
+        follow_up_scheduled: outcomeData.followUpScheduled,
+        patient_satisfaction: outcomeData.patientSatisfaction,
+        timestamp: new Date().toISOString(),
+      });
+    }
+    
+    static async trackTreatmentEffectiveness(treatmentData: {
+      patientId: string;
+      treatmentType: string;
+      startDate: Date;
+      endDate?: Date;
+      outcome: 'improved' | 'stable' | 'worsened' | 'ongoing';
+      adherenceRate: number;
+      sideEffects: string[];
+      followUpAppointments: number;
+    }) {
+      const treatmentDuration = treatmentData.endDate 
+        ? Math.ceil((treatmentData.endDate.getTime() - treatmentData.startDate.getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+      
+      await trackHealthcareEvent('treatment_effectiveness', {
+        patient_id: treatmentData.patientId,
+        treatment_type: treatmentData.treatmentType,
+        treatment_duration_days: treatmentDuration,
+        outcome: treatmentData.outcome,
+        adherence_rate: treatmentData.adherenceRate,
+        side_effects_count: treatmentData.sideEffects.length,
+        follow_up_appointments: treatmentData.followUpAppointments,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Custom Analytics Hooks
+
+### React Hooks
+
+<Tabs>
+<Tab title="useAnalytics Hook">
+  ```typescript
+  import { useContext, useCallback } from 'react';
+  import { AnalyticsContext } from '@repo/analytics';
+  
+  export function useAnalytics() {
+    const context = useContext(AnalyticsContext);
+    
+    if (!context) {
+      throw new Error('useAnalytics must be used within AnalyticsProvider');
+    }
+    
+    const track = useCallback((eventName: string, properties?: Record<string, any>) => {
+      context.posthog?.capture(eventName, {
+        ...properties,
+        timestamp: new Date().toISOString(),
+        page_url: window.location.href,
+        user_agent: navigator.userAgent,
+      });
+    }, [context.posthog]);
+    
+    const identify = useCallback((userId: string, properties?: Record<string, any>) => {
+      context.posthog?.identify(userId, properties);
+    }, [context.posthog]);
+    
+    const alias = useCallback((alias: string, userId?: string) => {
+      context.posthog?.alias(alias, userId);
+    }, [context.posthog]);
+    
+    const group = useCallback((groupType: string, groupKey: string, properties?: Record<string, any>) => {
+      context.posthog?.group(groupType, groupKey, properties);
+    }, [context.posthog]);
+    
+    const reset = useCallback(() => {
+      context.posthog?.reset();
+    }, [context.posthog]);
+    
+    return {
+      track,
+      identify,
+      alias,
+      group,
+      reset,
+      posthog: context.posthog,
+    };
+  }
+  ```
+</Tab>
+
+<Tab title="usePageTracking Hook">
+  ```typescript
+  import { useEffect } from 'react';
+  import { useRouter } from 'next/router';
+  import { useAnalytics } from '@repo/analytics';
+  
+  export function usePageTracking() {
+    const router = useRouter();
+    const { track } = useAnalytics();
+    
+    useEffect(() => {
+      const handleRouteChange = (url: string) => {
+        track('page_view', {
+          page_url: url,
+          page_title: document.title,
+          referrer: document.referrer,
+          timestamp: new Date().toISOString(),
+        });
+      };
+      
+      // Track initial page load
+      handleRouteChange(router.asPath);
+      
+      // Track route changes
+      router.events.on('routeChangeComplete', handleRouteChange);
+      
+      return () => {
+        router.events.off('routeChangeComplete', handleRouteChange);
+      };
+    }, [router, track]);
+  }
+  
+  // Usage in _app.tsx
+  export default function App({ Component, pageProps }) {
+    usePageTracking();
+    
+    return <Component {...pageProps} />;
+  }
+  ```
+</Tab>
+
+<Tab title="useConversion Hook">
+  ```typescript
+  import { useCallback } from 'react';
+  import { useAnalytics } from '@repo/analytics';
+  
+  export function useConversion() {
+    const { track, identify } = useAnalytics();
+    
+    const trackConversion = useCallback((
+      conversionType: string,
+      value?: number,
+      properties?: Record<string, any>
+    ) => {
+      track('conversion', {
+        conversion_type: conversionType,
+        conversion_value: value,
+        ...properties,
+        timestamp: new Date().toISOString(),
+      });
+    }, [track]);
+    
+    const trackAppointmentBooked = useCallback((appointmentData: {
+      appointmentId: string;
+      appointmentType: string;
+      providerId: string;
+      scheduledAt: Date;
+      value?: number;
+    }) => {
+      trackConversion('appointment_booked', appointmentData.value, {
+        appointment_id: appointmentData.appointmentId,
+        appointment_type: appointmentData.appointmentType,
+        provider_id: appointmentData.providerId,
+        scheduled_at: appointmentData.scheduledAt.toISOString(),
+      });
+    }, [trackConversion]);
+    
+    const trackPrescriptionFilled = useCallback((prescriptionData: {
+      prescriptionId: string;
+      medicationCount: number;
+      totalValue: number;
+    }) => {
+      trackConversion('prescription_filled', prescriptionData.totalValue, {
+        prescription_id: prescriptionData.prescriptionId,
+        medication_count: prescriptionData.medicationCount,
+      });
+    }, [trackConversion]);
+    
+    const trackPatientRegistration = useCallback((patientData: {
+      patientId: string;
+      registrationSource: string;
+    }) => {
+      trackConversion('patient_registration', undefined, {
+        patient_id: patientData.patientId,
+        registration_source: patientData.registrationSource,
+      });
+      
+      // Update user properties
+      identify(patientData.patientId, {
+        registration_date: new Date().toISOString(),
+        registration_source: patientData.registrationSource,
+      });
+    }, [trackConversion, identify]);
+    
+    return {
+      trackConversion,
+      trackAppointmentBooked,
+      trackPrescriptionFilled,
+      trackPatientRegistration,
+    };
+  }
+  ```
+</Tab>
+</Tabs>
+
+## Analytics Dashboard
+
+### Custom Dashboards
+
+<AccordionGroup>
+<Accordion title="Healthcare KPI Dashboard">
+  ```typescript
+  import { useAnalyticsDashboard } from '@repo/analytics';
+  import { Card, CardContent, CardHeader, CardTitle } from '@repo/design-system';
+  
+  export function HealthcareKPIDashboard({ organizationId, dateRange }) {
+    const {
+      data: kpiData,
+      loading,
+      error,
+      refresh,
+    } = useAnalyticsDashboard('healthcare-kpis', {
+      organizationId,
+      dateRange,
+    });
+    
+    if (loading) return <div>Loading analytics...</div>;
+    if (error) return <div>Error loading analytics: {error.message}</div>;
+    
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Patient Satisfaction */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium">Patient Satisfaction</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {kpiData.patientSatisfaction.average.toFixed(1)}/5.0
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {kpiData.patientSatisfaction.trend > 0 ? '+' : ''}
+              {kpiData.patientSatisfaction.trend.toFixed(1)}% from last period
+            </p>
+          </CardContent>
+        </Card>
+        
+        {/* Average Wait Time */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium">Avg Wait Time</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {kpiData.waitTime.average} min
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Target: {kpiData.waitTime.target} min
+            </p>
+          </CardContent>
+        </Card>
+        
+        {/* Appointment Completion Rate */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {(kpiData.completionRate * 100).toFixed(1)}%
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {kpiData.completedAppointments} of {kpiData.totalAppointments} appointments
+            </p>
+          </CardContent>
+        </Card>
+        
+        {/* No-Show Rate */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium">No-Show Rate</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {(kpiData.noShowRate * 100).toFixed(1)}%
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {kpiData.noShows} no-shows
+            </p>
+          </CardContent>
+        </Card>
+        
+        {/* Resource Utilization */}
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium">Resource Utilization</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {kpiData.resourceUtilization.map((resource) => (
+                <div key={resource.type} className="flex items-center justify-between">
+                  <span className="text-sm">{resource.type}</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-24 bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-blue-600 h-2 rounded-full"
+                        style={{ width: `${resource.utilization * 100}%` }}
+                      />
+                    </div>
+                    <span className="text-sm font-medium">
+                      {(resource.utilization * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+        
+        {/* Top Appointment Types */}
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium">Top Appointment Types</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {kpiData.topAppointmentTypes.map((type, index) => (
+                <div key={type.name} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">#{index + 1}</span>
+                    <span className="text-sm">{type.name}</span>
+                  </div>
+                  <span className="text-sm font-medium">{type.count}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  ```
+</Accordion>
+
+<Accordion title="Real-Time Analytics">
+  ```typescript
+  import { useRealtimeAnalytics } from '@repo/analytics';
+  import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+  
+  export function RealtimeAnalyticsDashboard() {
+    const {
+      currentMetrics,
+      historicalData,
+      alerts,
+      isConnected,
+    } = useRealtimeAnalytics({
+      metrics: ['queue_length', 'wait_time', 'patient_satisfaction'],
+      updateInterval: 30000, // 30 seconds
+    });
+    
+    return (
+      <div className="space-y-6">
+        {/* Connection Status */}
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+          <span className="text-sm">
+            {isConnected ? 'Connected' : 'Disconnected'}
+          </span>
+        </div>
+        
+        {/* Current Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Current Queue Length</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">
+                {currentMetrics.queueLength}
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>Average Wait Time</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">
+                {currentMetrics.waitTime} min
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>Patient Satisfaction</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">
+                {currentMetrics.patientSatisfaction.toFixed(1)}/5.0
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        
+        {/* Historical Trends */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Queue Length Trend (Last 24 Hours)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={historicalData.queueLength}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="timestamp" />
+                <YAxis />
+                <Tooltip />
+                <Line 
+                  type="monotone" 
+                  dataKey="value" 
+                  stroke="#2563eb" 
+                  strokeWidth={2}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+        
+        {/* Alerts */}
+        {alerts.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Active Alerts</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {alerts.map((alert) => (
+                  <div
+                    key={alert.id}
+                    className={`p-3 rounded-lg border ${
+                      alert.severity === 'high' ? 'border-red-200 bg-red-50' :
+                      alert.severity === 'medium' ? 'border-yellow-200 bg-yellow-50' :
+                      'border-blue-200 bg-blue-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium">{alert.title}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          {alert.description}
+                        </p>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(alert.timestamp))} ago
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  }
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Privacy and Compliance
+
+### HIPAA Compliance
+
+<Tabs>
+<Tab title="Data Anonymization">
+  ```typescript
+  import { anonymizeHealthcareData } from '@repo/analytics';
+  
+  export class PrivacyCompliantAnalytics {
+    static async trackPatientEvent(
+      eventName: string,
+      patientData: {
+        patientId: string;
+        age: number;
+        gender: string;
+        zipCode: string;
+        medicalConditions: string[];
+      },
+      eventProperties: Record<string, any>
+    ) {
+      // Anonymize patient data
+      const anonymizedData = anonymizeHealthcareData({
+        patient_age_group: this.getAgeGroup(patientData.age),
+        patient_gender: patientData.gender,
+        patient_region: patientData.zipCode.substring(0, 3), // First 3 digits only
+        condition_categories: this.categorizeConditions(patientData.medicalConditions),
+        // Remove direct patient identifier
+        session_id: generateSessionId(patientData.patientId),
+      });
+      
+      // Track with anonymized data
+      await trackHealthcareEvent(eventName, {
+        ...anonymizedData,
+        ...eventProperties,
+        timestamp: new Date().toISOString(),
+      });
+    }
+    
+    private static getAgeGroup(age: number): string {
+      if (age < 18) return '0-17';
+      if (age < 30) return '18-29';
+      if (age < 50) return '30-49';
+      if (age < 65) return '50-64';
+      return '65+';
+    }
+    
+    private static categorizeConditions(conditions: string[]): string[] {
+      const categories = new Set<string>();
+      
+      conditions.forEach(condition => {
+        // Map specific conditions to general categories
+        if (condition.toLowerCase().includes('diabetes')) {
+          categories.add('endocrine');
+        } else if (condition.toLowerCase().includes('hypertension')) {
+          categories.add('cardiovascular');
+        }
+        // Add more mappings as needed
+      });
+      
+      return Array.from(categories);
+    }
+  }
+  ```
+</Tab>
+
+<Tab title="Consent Management">
+  ```typescript
+  import { useConsentManagement } from '@repo/analytics';
+  
+  export function ConsentBanner() {
+    const {
+      hasConsent,
+      consentTypes,
+      updateConsent,
+      revokeConsent,
+    } = useConsentManagement();
+    
+    const [showBanner, setShowBanner] = useState(!hasConsent);
+    
+    const handleAcceptAll = () => {
+      updateConsent({
+        analytics: true,
+        marketing: true,
+        functional: true,
+        performance: true,
+      });
+      setShowBanner(false);
+    };
+    
+    const handleAcceptEssential = () => {
+      updateConsent({
+        analytics: false,
+        marketing: false,
+        functional: true,
+        performance: false,
+      });
+      setShowBanner(false);
+    };
+    
+    if (!showBanner) return null;
+    
+    return (
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 z-50">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center justify-between">
+            <div className="flex-1 mr-4">
+              <h3 className="font-semibold mb-2">Privacy & Analytics Consent</h3>
+              <p className="text-sm text-gray-600">
+                We use analytics to improve your healthcare experience. 
+                Your medical data is always protected and anonymized.
+              </p>
+            </div>
+            
+            <div className="flex gap-2">
+              <button
+                onClick={handleAcceptEssential}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm"
+              >
+                Essential Only
+              </button>
+              <button
+                onClick={handleAcceptAll}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm"
+              >
+                Accept All
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Privacy settings page
+  export function PrivacySettings() {
+    const { consentTypes, updateConsent, exportData, deleteData } = useConsentManagement();
+    
+    return (
+      <div className="space-y-6">
+        <h2 className="text-2xl font-bold">Privacy Settings</h2>
+        
+        <div className="space-y-4">
+          {Object.entries(consentTypes).map(([type, consent]) => (
+            <div key={type} className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <h3 className="font-medium capitalize">{type} Analytics</h3>
+                <p className="text-sm text-gray-600">
+                  {getConsentDescription(type)}
+                </p>
+              </div>
+              
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={consent.enabled}
+                  onChange={(e) => updateConsent({ [type]: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+          ))}
+        </div>
+        
+        <div className="border-t pt-6">
+          <h3 className="font-medium mb-4">Data Rights</h3>
+          <div className="flex gap-4">
+            <button
+              onClick={exportData}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm"
+            >
+              Export My Data
+            </button>
+            <button
+              onClick={deleteData}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm"
+            >
+              Delete My Data
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  ```
+</Tab>
+</Tabs>
+
+## Development
+
+### Setup and Configuration
+
+<Steps>
+<Step title="Environment Variables">
+  ```bash
+  # PostHog configuration
+  NEXT_PUBLIC_POSTHOG_KEY="phc_..."
+  NEXT_PUBLIC_POSTHOG_HOST="https://app.posthog.com"
+  POSTHOG_API_KEY="phx_..."
+  
+  # Google Analytics
+  NEXT_PUBLIC_GA_MEASUREMENT_ID="G-..."
+  
+  # Custom analytics
+  ANALYTICS_DATABASE_URL="postgresql://..."
+  ANALYTICS_WEBHOOK_SECRET="..."
+  ```
+</Step>
+
+<Step title="Analytics Configuration">
+  ```typescript
+  // lib/analytics-config.ts
+  export const analyticsConfig = {
+    posthog: {
+      apiKey: process.env.NEXT_PUBLIC_POSTHOG_KEY,
+      options: {
+        api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
+        autocapture: false, // Disable for HIPAA compliance
+        capture_pageview: false, // Manual page tracking
+        disable_session_recording: true, // Disable for privacy
+        opt_out_capturing_by_default: true, // Require explicit consent
+      },
+    },
+    
+    googleAnalytics: {
+      measurementId: process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID,
+      config: {
+        anonymize_ip: true,
+        allow_google_signals: false,
+        allow_ad_personalization_signals: false,
+      },
+    },
+    
+    healthcare: {
+      anonymizationLevel: 'high',
+      retentionPeriod: '2-years',
+      auditLogging: true,
+    },
+  };
+  ```
+</Step>
+
+<Step title="Testing Analytics">
+  ```typescript
+  // __tests__/analytics.test.ts
+  import { trackHealthcareEvent, useAnalytics } from '@repo/analytics';
+  import { renderHook } from '@testing-library/react';
+  
+  // Mock PostHog
+  jest.mock('posthog-js');
+  
+  describe('Analytics', () => {
+    test('tracks healthcare events with anonymization', async () => {
+      const eventData = {
+        patient_id: 'patient_123',
+        appointment_type: 'consultation',
+        provider_specialization: 'cardiology',
+      };
+      
+      await trackHealthcareEvent('appointment_booked', eventData);
+      
+      // Verify anonymization occurred
+      expect(mockPostHog.capture).toHaveBeenCalledWith(
+        'appointment_booked',
+        expect.objectContaining({
+          appointment_type: 'consultation',
+          provider_specialization: 'cardiology',
+          // patient_id should be anonymized
+          session_id: expect.any(String),
+        })
+      );
+    });
+    
+    test('respects consent preferences', () => {
+      const { result } = renderHook(() => useAnalytics(), {
+        wrapper: ({ children }) => (
+          <AnalyticsProvider consent={{ analytics: false }}>
+            {children}
+          </AnalyticsProvider>
+        ),
+      });
+      
+      result.current.track('test_event');
+      
+      // Should not track when consent is false
+      expect(mockPostHog.capture).not.toHaveBeenCalled();
+    });
+  });
+  ```
+</Step>
+</Steps>
+
+## Best Practices
+
+### Healthcare Analytics Guidelines
+
+<AccordionGroup>
+<Accordion title="Data Privacy">
+  - Always anonymize patient identifiers
+  - Use aggregate data for reporting
+  - Implement proper consent management
+  - Regular data retention policy enforcement
+  - Audit all data access and usage
+</Accordion>
+
+<Accordion title="Compliance Requirements">
+  - HIPAA compliance for all patient data
+  - SOC 2 compliance for analytics infrastructure
+  - Regular security assessments
+  - Data encryption in transit and at rest
+  - Proper access controls and authentication
+</Accordion>
+
+<Accordion title="Performance Optimization">
+  - Batch analytics events to reduce API calls
+  - Use sampling for high-volume events
+  - Implement proper error handling and retries
+  - Monitor analytics performance impact
+  - Cache frequently accessed analytics data
+</Accordion>
+</AccordionGroup>
+
+<Note>
+The analytics package provides powerful insights while maintaining strict healthcare privacy and compliance standards. Always prioritize patient privacy and data security when implementing analytics features.
+</Note>

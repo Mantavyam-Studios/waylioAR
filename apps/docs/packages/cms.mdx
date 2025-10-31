@@ -1,0 +1,1438 @@
+---
+title: "CMS Package"
+description: "Content management system integration with BaseHub for dynamic content, blog posts, and marketing materials across the Waylio platform."
+---
+
+# CMS Package
+
+The CMS package provides seamless integration with BaseHub, a modern headless CMS, enabling dynamic content management for the Waylio platform. It supports blog posts, marketing content, documentation, and other dynamic content needs with type-safe queries and real-time updates.
+
+## Installation
+
+```bash
+# Install the CMS package
+pnpm add @repo/cms
+
+# Peer dependencies (automatically installed in monorepo)
+pnpm add basehub graphql graphql-request
+```
+
+## Overview
+
+The CMS package centralizes content management across all Waylio applications, providing a unified interface for fetching, caching, and displaying dynamic content. It leverages BaseHub's GraphQL API for efficient content delivery and supports both static and dynamic rendering.
+
+### Key Features
+
+<CardGroup cols={2}>
+<Card title="Type-Safe Queries" icon="code">
+  Fully typed GraphQL queries with automatic TypeScript generation from BaseHub schema.
+</Card>
+
+<Card title="Real-Time Updates" icon="refresh-cw">
+  Live content updates with webhook integration and incremental static regeneration.
+</Card>
+
+<Card title="Rich Content" icon="file-text">
+  Support for rich text, images, videos, and custom content blocks with MDX rendering.
+</Card>
+
+<Card title="Multi-Language" icon="globe">
+  Internationalization support with locale-specific content management.
+</Card>
+</CardGroup>
+
+## Content Types
+
+### BaseHub Integration
+
+<Tabs>
+<Tab title="CMS Provider">
+  **Purpose**: Initialize BaseHub client and provide context
+  
+  ```typescript
+  // app/layout.tsx
+  import { CMSProvider } from '@repo/cms';
+  import { basehub } from 'basehub';
+  
+  const client = basehub({
+    token: process.env.BASEHUB_TOKEN,
+    draft: process.env.NODE_ENV === 'development',
+  });
+  
+  export default function RootLayout({
+    children,
+  }: {
+    children: React.ReactNode;
+  }) {
+    return (
+      <html lang="en">
+        <body>
+          <CMSProvider client={client}>
+            {children}
+          </CMSProvider>
+        </body>
+      </html>
+    );
+  }
+  ```
+</Tab>
+
+<Tab title="Content Queries">
+  **Purpose**: Fetch content with type-safe GraphQL queries
+  
+  ```typescript
+  import { useCMS, getCMSContent } from '@repo/cms';
+  import { BlogPost, Page, FAQ } from '@repo/cms/types';
+  
+  // React hook for client-side content fetching
+  export function BlogPostList() {
+    const {
+      data: posts,
+      loading,
+      error,
+      refetch,
+    } = useCMS<BlogPost[]>({
+      query: `
+        query GetBlogPosts($limit: Int, $offset: Int) {
+          blogPosts(limit: $limit, offset: $offset) {
+            id
+            title
+            slug
+            excerpt
+            publishedAt
+            author {
+              name
+              avatar
+              bio
+            }
+            featuredImage {
+              url
+              alt
+              width
+              height
+            }
+            tags {
+              name
+              slug
+            }
+            content {
+              markdown
+              html
+            }
+          }
+        }
+      `,
+      variables: { limit: 10, offset: 0 },
+      revalidate: 300, // 5 minutes
+    });
+    
+    if (loading) return <div>Loading blog posts...</div>;
+    if (error) return <div>Error loading posts: {error.message}</div>;
+    
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold">Latest Blog Posts</h1>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {posts.map((post) => (
+            <BlogPostCard key={post.id} post={post} />
+          ))}
+        </div>
+        
+        <button
+          onClick={() => refetch()}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+        >
+          Refresh Posts
+        </button>
+      </div>
+    );
+  }
+  
+  // Server-side content fetching for static generation
+  export async function getStaticProps() {
+    const posts = await getCMSContent<BlogPost[]>({
+      query: `
+        query GetBlogPosts {
+          blogPosts(limit: 10) {
+            id
+            title
+            slug
+            excerpt
+            publishedAt
+            author {
+              name
+              avatar
+            }
+            featuredImage {
+              url
+              alt
+            }
+            tags {
+              name
+              slug
+            }
+          }
+        }
+      `,
+    });
+    
+    return {
+      props: { posts },
+      revalidate: 300, // ISR: revalidate every 5 minutes
+    };
+  }
+  
+  // Dynamic content fetching with caching
+  export async function getBlogPost(slug: string): Promise<BlogPost | null> {
+    try {
+      const post = await getCMSContent<BlogPost>({
+        query: `
+          query GetBlogPost($slug: String!) {
+            blogPost(slug: $slug) {
+              id
+              title
+              slug
+              excerpt
+              publishedAt
+              updatedAt
+              author {
+                name
+                avatar
+                bio
+                socialLinks {
+                  twitter
+                  linkedin
+                }
+              }
+              featuredImage {
+                url
+                alt
+                width
+                height
+              }
+              tags {
+                name
+                slug
+                color
+              }
+              content {
+                markdown
+                html
+                readingTime
+                wordCount
+              }
+              seo {
+                title
+                description
+                keywords
+                ogImage {
+                  url
+                  alt
+                }
+              }
+              relatedPosts {
+                id
+                title
+                slug
+                excerpt
+                featuredImage {
+                  url
+                  alt
+                }
+              }
+            }
+          }
+        `,
+        variables: { slug },
+        cache: 'force-cache',
+        next: { revalidate: 3600 }, // 1 hour
+      });
+      
+      return post;
+    } catch (error) {
+      console.error('Failed to fetch blog post:', error);
+      return null;
+    }
+  }
+  ```
+</Tab>
+
+<Tab title="Rich Content Rendering">
+  **Purpose**: Render rich content with MDX and custom components
+  
+  ```typescript
+  import { RichContent, MDXRenderer } from '@repo/cms';
+  import { Image, Video, CodeBlock, Callout } from '@repo/design-system';
+  
+  interface BlogPostContentProps {
+    post: BlogPost;
+  }
+  
+  export function BlogPostContent({ post }: BlogPostContentProps) {
+    const customComponents = {
+      // Custom image component with optimization
+      img: ({ src, alt, ...props }) => (
+        <Image
+          src={src}
+          alt={alt}
+          width={800}
+          height={400}
+          className="rounded-lg shadow-lg my-6"
+          {...props}
+        />
+      ),
+      
+      // Custom video component
+      video: ({ src, poster, ...props }) => (
+        <Video
+          src={src}
+          poster={poster}
+          controls
+          className="w-full rounded-lg my-6"
+          {...props}
+        />
+      ),
+      
+      // Custom code block with syntax highlighting
+      pre: ({ children, ...props }) => (
+        <CodeBlock
+          language={props.className?.replace('language-', '') || 'text'}
+          className="my-6"
+          {...props}
+        >
+          {children}
+        </CodeBlock>
+      ),
+      
+      // Custom callout component
+      blockquote: ({ children, ...props }) => (
+        <Callout type="info" className="my-6" {...props}>
+          {children}
+        </Callout>
+      ),
+      
+      // Healthcare-specific components
+      MedicalDisclaimer: ({ children }) => (
+        <Callout type="warning" className="my-6">
+          <strong>Medical Disclaimer:</strong> {children}
+        </Callout>
+      ),
+      
+      AppointmentCTA: ({ specialty, location }) => (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 my-6">
+          <h3 className="font-semibold text-blue-900 mb-2">
+            Book an Appointment
+          </h3>
+          <p className="text-blue-700 mb-4">
+            Schedule a consultation with our {specialty} specialists.
+          </p>
+          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg">
+            Book Now - {location}
+          </button>
+        </div>
+      ),
+      
+      HealthTip: ({ title, children }) => (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-6 my-6">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-green-600">💡</span>
+            <h3 className="font-semibold text-green-900">{title}</h3>
+          </div>
+          <div className="text-green-700">{children}</div>
+        </div>
+      ),
+    };
+    
+    return (
+      <article className="max-w-4xl mx-auto">
+        {/* Article Header */}
+        <header className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            {post.tags.map((tag) => (
+              <span
+                key={tag.slug}
+                className="px-2 py-1 bg-gray-100 text-gray-700 text-sm rounded"
+                style={{ backgroundColor: tag.color }}
+              >
+                {tag.name}
+              </span>
+            ))}
+          </div>
+          
+          <h1 className="text-4xl font-bold mb-4">{post.title}</h1>
+          
+          <div className="flex items-center gap-4 text-gray-600 mb-6">
+            <div className="flex items-center gap-2">
+              <Image
+                src={post.author.avatar}
+                alt={post.author.name}
+                width={32}
+                height={32}
+                className="rounded-full"
+              />
+              <span>{post.author.name}</span>
+            </div>
+            
+            <span>•</span>
+            <time dateTime={post.publishedAt}>
+              {new Date(post.publishedAt).toLocaleDateString()}
+            </time>
+            
+            <span>•</span>
+            <span>{post.content.readingTime} min read</span>
+          </div>
+          
+          {post.featuredImage && (
+            <Image
+              src={post.featuredImage.url}
+              alt={post.featuredImage.alt}
+              width={post.featuredImage.width}
+              height={post.featuredImage.height}
+              className="w-full rounded-lg shadow-lg mb-8"
+            />
+          )}
+        </header>
+        
+        {/* Article Content */}
+        <div className="prose prose-lg max-w-none">
+          <RichContent
+            content={post.content.markdown}
+            components={customComponents}
+          />
+        </div>
+        
+        {/* Article Footer */}
+        <footer className="mt-12 pt-8 border-t">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Image
+                src={post.author.avatar}
+                alt={post.author.name}
+                width={48}
+                height={48}
+                className="rounded-full"
+              />
+              <div>
+                <h3 className="font-semibold">{post.author.name}</h3>
+                <p className="text-gray-600 text-sm">{post.author.bio}</p>
+              </div>
+            </div>
+            
+            <div className="flex gap-2">
+              {post.author.socialLinks?.twitter && (
+                <a
+                  href={`https://twitter.com/${post.author.socialLinks.twitter}`}
+                  className="text-blue-500 hover:text-blue-600"
+                >
+                  Twitter
+                </a>
+              )}
+              {post.author.socialLinks?.linkedin && (
+                <a
+                  href={post.author.socialLinks.linkedin}
+                  className="text-blue-700 hover:text-blue-800"
+                >
+                  LinkedIn
+                </a>
+              )}
+            </div>
+          </div>
+        </footer>
+        
+        {/* Related Posts */}
+        {post.relatedPosts && post.relatedPosts.length > 0 && (
+          <section className="mt-12">
+            <h2 className="text-2xl font-bold mb-6">Related Articles</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {post.relatedPosts.map((relatedPost) => (
+                <BlogPostCard key={relatedPost.id} post={relatedPost} />
+              ))}
+            </div>
+          </section>
+        )}
+      </article>
+    );
+  }
+  ```
+</Tab>
+</Tabs>
+
+## Content Management
+
+### Dynamic Pages
+
+<AccordionGroup>
+<Accordion title="Landing Pages">
+  ```typescript
+  import { getLandingPage, LandingPage } from '@repo/cms';
+  
+  export async function generateStaticParams() {
+    const pages = await getCMSContent<{ slug: string }[]>({
+      query: `
+        query GetLandingPageSlugs {
+          landingPages {
+            slug
+          }
+        }
+      `,
+    });
+    
+    return pages.map((page) => ({
+      slug: page.slug,
+    }));
+  }
+  
+  export default async function LandingPageComponent({
+    params,
+  }: {
+    params: { slug: string };
+  }) {
+    const page = await getLandingPage(params.slug);
+    
+    if (!page) {
+      return <div>Page not found</div>;
+    }
+    
+    return (
+      <div className="min-h-screen">
+        {/* Hero Section */}
+        <section className="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-20">
+          <div className="container mx-auto px-4">
+            <div className="max-w-4xl mx-auto text-center">
+              <h1 className="text-5xl font-bold mb-6">{page.hero.title}</h1>
+              <p className="text-xl mb-8 opacity-90">{page.hero.subtitle}</p>
+              
+              <div className="flex gap-4 justify-center">
+                {page.hero.primaryCTA && (
+                  <a
+                    href={page.hero.primaryCTA.url}
+                    className="bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100"
+                  >
+                    {page.hero.primaryCTA.text}
+                  </a>
+                )}
+                
+                {page.hero.secondaryCTA && (
+                  <a
+                    href={page.hero.secondaryCTA.url}
+                    className="border border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-blue-600"
+                  >
+                    {page.hero.secondaryCTA.text}
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+        
+        {/* Dynamic Content Sections */}
+        {page.sections.map((section, index) => (
+          <ContentSection key={section.id} section={section} index={index} />
+        ))}
+        
+        {/* CTA Section */}
+        {page.ctaSection && (
+          <section className="bg-gray-50 py-16">
+            <div className="container mx-auto px-4 text-center">
+              <h2 className="text-3xl font-bold mb-4">{page.ctaSection.title}</h2>
+              <p className="text-xl text-gray-600 mb-8">{page.ctaSection.description}</p>
+              
+              <a
+                href={page.ctaSection.cta.url}
+                className="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700"
+              >
+                {page.ctaSection.cta.text}
+              </a>
+            </div>
+          </section>
+        )}
+      </div>
+    );
+  }
+  
+  function ContentSection({ section, index }: { section: any; index: number }) {
+    const isEven = index % 2 === 0;
+    
+    switch (section.type) {
+      case 'features':
+        return (
+          <section className={`py-16 ${isEven ? 'bg-white' : 'bg-gray-50'}`}>
+            <div className="container mx-auto px-4">
+              <div className="text-center mb-12">
+                <h2 className="text-3xl font-bold mb-4">{section.title}</h2>
+                <p className="text-xl text-gray-600">{section.description}</p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {section.features.map((feature) => (
+                  <div key={feature.id} className="text-center">
+                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <span className="text-2xl">{feature.icon}</span>
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
+                    <p className="text-gray-600">{feature.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+        
+      case 'testimonials':
+        return (
+          <section className={`py-16 ${isEven ? 'bg-white' : 'bg-gray-50'}`}>
+            <div className="container mx-auto px-4">
+              <div className="text-center mb-12">
+                <h2 className="text-3xl font-bold mb-4">{section.title}</h2>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {section.testimonials.map((testimonial) => (
+                  <div key={testimonial.id} className="bg-white p-6 rounded-lg shadow-lg">
+                    <div className="flex items-center mb-4">
+                      <Image
+                        src={testimonial.author.avatar}
+                        alt={testimonial.author.name}
+                        width={48}
+                        height={48}
+                        className="rounded-full mr-4"
+                      />
+                      <div>
+                        <h4 className="font-semibold">{testimonial.author.name}</h4>
+                        <p className="text-sm text-gray-600">{testimonial.author.title}</p>
+                      </div>
+                    </div>
+                    <p className="text-gray-700 italic">"{testimonial.content}"</p>
+                    <div className="flex mt-4">
+                      {[...Array(testimonial.rating)].map((_, i) => (
+                        <span key={i} className="text-yellow-400">⭐</span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+        
+      case 'stats':
+        return (
+          <section className={`py-16 ${isEven ? 'bg-white' : 'bg-gray-50'}`}>
+            <div className="container mx-auto px-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+                {section.stats.map((stat) => (
+                  <div key={stat.id}>
+                    <div className="text-4xl font-bold text-blue-600 mb-2">
+                      {stat.value}
+                    </div>
+                    <div className="text-gray-600">{stat.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+        
+      default:
+        return null;
+    }
+  }
+  ```
+</Accordion>
+
+<Accordion title="FAQ Management">
+  ```typescript
+  import { getFAQs, FAQ } from '@repo/cms';
+  import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@repo/design-system';
+  
+  export async function FAQSection({ category }: { category?: string }) {
+    const faqs = await getFAQs(category);
+    
+    if (!faqs || faqs.length === 0) {
+      return (
+        <div className="text-center py-8 text-gray-500">
+          No FAQs found for this category.
+        </div>
+      );
+    }
+    
+    // Group FAQs by category
+    const groupedFAQs = faqs.reduce((acc, faq) => {
+      const category = faq.category || 'General';
+      if (!acc[category]) {
+        acc[category] = [];
+      }
+      acc[category].push(faq);
+      return acc;
+    }, {} as Record<string, FAQ[]>);
+    
+    return (
+      <div className="max-w-4xl mx-auto">
+        <h2 className="text-3xl font-bold text-center mb-8">
+          Frequently Asked Questions
+        </h2>
+        
+        {Object.entries(groupedFAQs).map(([categoryName, categoryFAQs]) => (
+          <div key={categoryName} className="mb-8">
+            <h3 className="text-xl font-semibold mb-4 text-blue-600">
+              {categoryName}
+            </h3>
+            
+            <Accordion type="single" collapsible className="space-y-2">
+              {categoryFAQs.map((faq, index) => (
+                <AccordionItem key={faq.id} value={`faq-${faq.id}`}>
+                  <AccordionTrigger className="text-left">
+                    {faq.question}
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="prose prose-sm max-w-none">
+                      <RichContent content={faq.answer} />
+                    </div>
+                    
+                    {faq.relatedLinks && faq.relatedLinks.length > 0 && (
+                      <div className="mt-4 pt-4 border-t">
+                        <p className="text-sm font-medium text-gray-700 mb-2">
+                          Related Resources:
+                        </p>
+                        <ul className="text-sm space-y-1">
+                          {faq.relatedLinks.map((link) => (
+                            <li key={link.url}>
+                              <a
+                                href={link.url}
+                                className="text-blue-600 hover:text-blue-800"
+                              >
+                                {link.title}
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </div>
+        ))}
+        
+        {/* Contact CTA */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+          <h3 className="font-semibold text-blue-900 mb-2">
+            Still have questions?
+          </h3>
+          <p className="text-blue-700 mb-4">
+            Our support team is here to help you with any additional questions.
+          </p>
+          <a
+            href="/contact"
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+          >
+            Contact Support
+          </a>
+        </div>
+      </div>
+    );
+  }
+  
+  // Server-side function to fetch FAQs
+  export async function getFAQs(category?: string): Promise<FAQ[]> {
+    const faqs = await getCMSContent<FAQ[]>({
+      query: `
+        query GetFAQs($category: String) {
+          faqs(category: $category, orderBy: { order: ASC }) {
+            id
+            question
+            answer
+            category
+            order
+            tags
+            relatedLinks {
+              title
+              url
+            }
+            updatedAt
+          }
+        }
+      `,
+      variables: category ? { category } : {},
+      cache: 'force-cache',
+      next: { revalidate: 3600 }, // 1 hour
+    });
+    
+    return faqs;
+  }
+  ```
+</Accordion>
+
+<Accordion title="Content Search">
+  ```typescript
+  import { searchContent, SearchResult } from '@repo/cms';
+  import { useState, useEffect, useMemo } from 'react';
+  import { debounce } from 'lodash';
+  
+  export function ContentSearch() {
+    const [query, setQuery] = useState('');
+    const [results, setResults] = useState<SearchResult[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [filters, setFilters] = useState({
+      contentType: 'all',
+      category: 'all',
+      dateRange: 'all',
+    });
+    
+    // Debounced search function
+    const debouncedSearch = useMemo(
+      () => debounce(async (searchQuery: string) => {
+        if (!searchQuery.trim()) {
+          setResults([]);
+          return;
+        }
+        
+        setLoading(true);
+        try {
+          const searchResults = await searchContent({
+            query: searchQuery,
+            filters: {
+              contentType: filters.contentType !== 'all' ? filters.contentType : undefined,
+              category: filters.category !== 'all' ? filters.category : undefined,
+              dateRange: filters.dateRange !== 'all' ? filters.dateRange : undefined,
+            },
+            limit: 20,
+          });
+          
+          setResults(searchResults);
+        } catch (error) {
+          console.error('Search failed:', error);
+          setResults([]);
+        } finally {
+          setLoading(false);
+        }
+      }, 300),
+      [filters]
+    );
+    
+    useEffect(() => {
+      debouncedSearch(query);
+      return () => {
+        debouncedSearch.cancel();
+      };
+    }, [query, debouncedSearch]);
+    
+    return (
+      <div className="max-w-4xl mx-auto">
+        {/* Search Input */}
+        <div className="relative mb-6">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search articles, pages, FAQs..."
+            className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
+            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+        </div>
+        
+        {/* Search Filters */}
+        <div className="flex gap-4 mb-6">
+          <select
+            value={filters.contentType}
+            onChange={(e) => setFilters(prev => ({ ...prev, contentType: e.target.value }))}
+            className="px-3 py-2 border border-gray-300 rounded-lg"
+          >
+            <option value="all">All Content</option>
+            <option value="blog">Blog Posts</option>
+            <option value="page">Pages</option>
+            <option value="faq">FAQs</option>
+            <option value="documentation">Documentation</option>
+          </select>
+          
+          <select
+            value={filters.category}
+            onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
+            className="px-3 py-2 border border-gray-300 rounded-lg"
+          >
+            <option value="all">All Categories</option>
+            <option value="healthcare">Healthcare</option>
+            <option value="technology">Technology</option>
+            <option value="patient-care">Patient Care</option>
+            <option value="billing">Billing</option>
+          </select>
+          
+          <select
+            value={filters.dateRange}
+            onChange={(e) => setFilters(prev => ({ ...prev, dateRange: e.target.value }))}
+            className="px-3 py-2 border border-gray-300 rounded-lg"
+          >
+            <option value="all">Any Time</option>
+            <option value="week">Past Week</option>
+            <option value="month">Past Month</option>
+            <option value="year">Past Year</option>
+          </select>
+        </div>
+        
+        {/* Search Results */}
+        <div className="space-y-4">
+          {loading && (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-2 text-gray-600">Searching...</p>
+            </div>
+          )}
+          
+          {!loading && query && results.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              No results found for "{query}"
+            </div>
+          )}
+          
+          {results.map((result) => (
+            <SearchResultCard key={result.id} result={result} query={query} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+  
+  function SearchResultCard({ result, query }: { result: SearchResult; query: string }) {
+    const highlightText = (text: string, query: string) => {
+      if (!query) return text;
+      
+      const regex = new RegExp(`(${query})`, 'gi');
+      const parts = text.split(regex);
+      
+      return parts.map((part, index) =>
+        regex.test(part) ? (
+          <mark key={index} className="bg-yellow-200 px-1 rounded">
+            {part}
+          </mark>
+        ) : (
+          part
+        )
+      );
+    };
+    
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+        <div className="flex items-start justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+              {result.contentType}
+            </span>
+            {result.category && (
+              <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
+                {result.category}
+              </span>
+            )}
+          </div>
+          
+          <time className="text-sm text-gray-500">
+            {new Date(result.publishedAt).toLocaleDateString()}
+          </time>
+        </div>
+        
+        <h3 className="text-lg font-semibold mb-2">
+          <a
+            href={result.url}
+            className="text-blue-600 hover:text-blue-800"
+          >
+            {highlightText(result.title, query)}
+          </a>
+        </h3>
+        
+        <p className="text-gray-600 mb-3">
+          {highlightText(result.excerpt, query)}
+        </p>
+        
+        <div className="flex items-center justify-between text-sm text-gray-500">
+          <div className="flex items-center gap-4">
+            {result.author && (
+              <span>By {result.author.name}</span>
+            )}
+            
+            {result.readingTime && (
+              <span>{result.readingTime} min read</span>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-1">
+            <span>Relevance:</span>
+            <div className="flex">
+              {[...Array(5)].map((_, i) => (
+                <span
+                  key={i}
+                  className={`w-2 h-2 rounded-full ${
+                    i < Math.round(result.relevanceScore * 5) ? 'bg-blue-500' : 'bg-gray-300'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Real-Time Updates
+
+### Webhook Integration
+
+<Tabs>
+<Tab title="Webhook Handler">
+  ```typescript
+  // app/api/webhooks/basehub/route.ts
+  import { NextRequest, NextResponse } from 'next/server';
+  import { revalidateTag, revalidatePath } from 'next/cache';
+  import { headers } from 'next/headers';
+  import crypto from 'crypto';
+  
+  export async function POST(req: NextRequest) {
+    const body = await req.text();
+    const signature = headers().get('x-basehub-signature');
+    
+    // Verify webhook signature
+    const expectedSignature = crypto
+      .createHmac('sha256', process.env.BASEHUB_WEBHOOK_SECRET)
+      .update(body)
+      .digest('hex');
+    
+    if (signature !== `sha256=${expectedSignature}`) {
+      return NextResponse.json(
+        { error: 'Invalid signature' },
+        { status: 401 }
+      );
+    }
+    
+    try {
+      const event = JSON.parse(body);
+      
+      switch (event.type) {
+        case 'content.published':
+          await handleContentPublished(event.data);
+          break;
+          
+        case 'content.updated':
+          await handleContentUpdated(event.data);
+          break;
+          
+        case 'content.deleted':
+          await handleContentDeleted(event.data);
+          break;
+          
+        case 'content.unpublished':
+          await handleContentUnpublished(event.data);
+          break;
+          
+        default:
+          console.log(`Unhandled webhook event: ${event.type}`);
+      }
+      
+      return NextResponse.json({ received: true });
+    } catch (error) {
+      console.error('Webhook processing error:', error);
+      return NextResponse.json(
+        { error: 'Webhook processing failed' },
+        { status: 500 }
+      );
+    }
+  }
+  
+  async function handleContentPublished(data: any) {
+    const { contentType, slug, id } = data;
+    
+    // Revalidate specific content
+    revalidateTag(`content-${id}`);
+    
+    // Revalidate content type listings
+    revalidateTag(`${contentType}-list`);
+    
+    // Revalidate specific paths
+    switch (contentType) {
+      case 'blogPost':
+        revalidatePath(`/blog/${slug}`);
+        revalidatePath('/blog');
+        break;
+        
+      case 'page':
+        revalidatePath(`/${slug}`);
+        break;
+        
+      case 'faq':
+        revalidatePath('/faq');
+        break;
+        
+      case 'landingPage':
+        revalidatePath(`/landing/${slug}`);
+        break;
+    }
+    
+    // Send notifications to relevant users
+    await notifyContentTeam('published', data);
+  }
+  
+  async function handleContentUpdated(data: any) {
+    const { contentType, slug, id } = data;
+    
+    // Similar to published, but also clear any cached content
+    revalidateTag(`content-${id}`);
+    revalidateTag(`${contentType}-list`);
+    
+    // Revalidate paths
+    switch (contentType) {
+      case 'blogPost':
+        revalidatePath(`/blog/${slug}`);
+        break;
+        
+      case 'page':
+        revalidatePath(`/${slug}`);
+        break;
+    }
+    
+    await notifyContentTeam('updated', data);
+  }
+  
+  async function handleContentDeleted(data: any) {
+    const { contentType, slug, id } = data;
+    
+    // Revalidate listings to remove deleted content
+    revalidateTag(`${contentType}-list`);
+    
+    // The specific content page will naturally 404
+    // but we can revalidate to ensure it's removed from cache
+    switch (contentType) {
+      case 'blogPost':
+        revalidatePath('/blog');
+        break;
+        
+      case 'page':
+        revalidatePath('/');
+        break;
+    }
+    
+    await notifyContentTeam('deleted', data);
+  }
+  
+  async function notifyContentTeam(action: string, data: any) {
+    // Send notification to content team about the change
+    // This could be via email, Slack, or internal notification system
+    console.log(`Content ${action}:`, data);
+  }
+  ```
+</Tab>
+
+<Tab title="Cache Management">
+  ```typescript
+  import { unstable_cache } from 'next/cache';
+  import { getCMSContent } from '@repo/cms';
+  
+  // Cached content fetching with tags for selective revalidation
+  export const getCachedBlogPosts = unstable_cache(
+    async (limit: number = 10, offset: number = 0) => {
+      return getCMSContent({
+        query: `
+          query GetBlogPosts($limit: Int, $offset: Int) {
+            blogPosts(limit: $limit, offset: $offset) {
+              id
+              title
+              slug
+              excerpt
+              publishedAt
+              author {
+                name
+                avatar
+              }
+              featuredImage {
+                url
+                alt
+              }
+              tags {
+                name
+                slug
+              }
+            }
+          }
+        `,
+        variables: { limit, offset },
+      });
+    },
+    ['blog-posts'],
+    {
+      tags: ['blogPost-list'],
+      revalidate: 3600, // 1 hour fallback
+    }
+  );
+  
+  export const getCachedBlogPost = unstable_cache(
+    async (slug: string) => {
+      return getCMSContent({
+        query: `
+          query GetBlogPost($slug: String!) {
+            blogPost(slug: $slug) {
+              id
+              title
+              slug
+              content {
+                markdown
+                html
+              }
+              # ... other fields
+            }
+          }
+        `,
+        variables: { slug },
+      });
+    },
+    ['blog-post'],
+    {
+      tags: (slug: string) => [`content-${slug}`, 'blogPost'],
+      revalidate: 3600,
+    }
+  );
+  
+  // Cache warming for popular content
+  export async function warmContentCache() {
+    try {
+      // Warm popular blog posts
+      const popularPosts = await getCMSContent({
+        query: `
+          query GetPopularPosts {
+            blogPosts(orderBy: { views: DESC }, limit: 10) {
+              slug
+            }
+          }
+        `,
+      });
+      
+      // Pre-fetch popular posts
+      await Promise.all(
+        popularPosts.map(post => getCachedBlogPost(post.slug))
+      );
+      
+      // Warm landing pages
+      const landingPages = await getCMSContent({
+        query: `
+          query GetLandingPages {
+            landingPages(limit: 5) {
+              slug
+            }
+          }
+        `,
+      });
+      
+      await Promise.all(
+        landingPages.map(page => getCachedLandingPage(page.slug))
+      );
+      
+      console.log('Content cache warmed successfully');
+    } catch (error) {
+      console.error('Failed to warm content cache:', error);
+    }
+  }
+  ```
+</Tab>
+</Tabs>
+
+## Development
+
+### Setup and Configuration
+
+<Steps>
+<Step title="Environment Variables">
+  ```bash
+  # BaseHub configuration
+  BASEHUB_TOKEN="bshb_..."
+  BASEHUB_WEBHOOK_SECRET="whsec_..."
+  
+  # Optional: Draft mode
+  BASEHUB_DRAFT_MODE="true"
+  
+  # Content CDN
+  NEXT_PUBLIC_BASEHUB_CDN="https://cdn.basehub.com"
+  ```
+</Step>
+
+<Step title="BaseHub Schema">
+  ```typescript
+  // lib/basehub-schema.ts
+  export interface BaseHubSchema {
+    blogPost: {
+      id: string;
+      title: string;
+      slug: string;
+      excerpt: string;
+      content: {
+        markdown: string;
+        html: string;
+        readingTime: number;
+        wordCount: number;
+      };
+      author: {
+        name: string;
+        avatar: string;
+        bio: string;
+        socialLinks?: {
+          twitter?: string;
+          linkedin?: string;
+        };
+      };
+      featuredImage?: {
+        url: string;
+        alt: string;
+        width: number;
+        height: number;
+      };
+      tags: Array<{
+        name: string;
+        slug: string;
+        color?: string;
+      }>;
+      publishedAt: string;
+      updatedAt: string;
+      seo: {
+        title: string;
+        description: string;
+        keywords: string[];
+        ogImage?: {
+          url: string;
+          alt: string;
+        };
+      };
+    };
+    
+    landingPage: {
+      id: string;
+      title: string;
+      slug: string;
+      hero: {
+        title: string;
+        subtitle: string;
+        primaryCTA?: {
+          text: string;
+          url: string;
+        };
+        secondaryCTA?: {
+          text: string;
+          url: string;
+        };
+      };
+      sections: Array<{
+        id: string;
+        type: 'features' | 'testimonials' | 'stats' | 'content';
+        title?: string;
+        description?: string;
+        [key: string]: any;
+      }>;
+      ctaSection?: {
+        title: string;
+        description: string;
+        cta: {
+          text: string;
+          url: string;
+        };
+      };
+      seo: {
+        title: string;
+        description: string;
+        keywords: string[];
+      };
+    };
+    
+    faq: {
+      id: string;
+      question: string;
+      answer: string;
+      category: string;
+      order: number;
+      tags: string[];
+      relatedLinks?: Array<{
+        title: string;
+        url: string;
+      }>;
+      updatedAt: string;
+    };
+  }
+  ```
+</Step>
+
+<Step title="Testing CMS Integration">
+  ```typescript
+  // __tests__/cms.test.ts
+  import { getCMSContent, searchContent } from '@repo/cms';
+  
+  // Mock BaseHub
+  jest.mock('basehub');
+  
+  describe('CMS Integration', () => {
+    test('fetches blog posts successfully', async () => {
+      const mockPosts = [
+        {
+          id: '1',
+          title: 'Test Post',
+          slug: 'test-post',
+          excerpt: 'Test excerpt',
+          publishedAt: '2024-01-01',
+        },
+      ];
+      
+      const posts = await getCMSContent({
+        query: 'query GetBlogPosts { blogPosts { id title slug } }',
+      });
+      
+      expect(posts).toEqual(mockPosts);
+    });
+    
+    test('searches content with filters', async () => {
+      const results = await searchContent({
+        query: 'healthcare',
+        filters: { contentType: 'blog' },
+        limit: 10,
+      });
+      
+      expect(results).toBeDefined();
+      expect(Array.isArray(results)).toBe(true);
+    });
+  });
+  ```
+</Step>
+</Steps>
+
+## Best Practices
+
+### Content Management Guidelines
+
+<AccordionGroup>
+<Accordion title="Content Structure">
+  - Use consistent content types and fields
+  - Implement proper SEO metadata for all content
+  - Maintain content hierarchy and relationships
+  - Use tags and categories for content organization
+  - Implement content versioning and approval workflows
+</Accordion>
+
+<Accordion title="Performance Optimization">
+  - Implement proper caching strategies
+  - Use ISR for frequently updated content
+  - Optimize images and media assets
+  - Implement content preloading for popular pages
+  - Monitor and optimize GraphQL query performance
+</Accordion>
+
+<Accordion title="SEO and Accessibility">
+  - Include proper meta tags and structured data
+  - Implement semantic HTML structure
+  - Provide alt text for all images
+  - Ensure content is accessible to screen readers
+  - Optimize for Core Web Vitals
+</Accordion>
+</AccordionGroup>
+
+<Note>
+The CMS package provides a powerful foundation for content management while maintaining performance and SEO best practices. Always consider caching strategies and content delivery optimization when implementing CMS features.
+</Note>

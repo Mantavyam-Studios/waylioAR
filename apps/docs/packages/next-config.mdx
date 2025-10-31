@@ -1,0 +1,976 @@
+---
+title: "Next.js Config Package"
+description: "Shared Next.js configuration package providing consistent build settings, optimizations, and development tools across all Waylio applications."
+---
+
+# Next.js Config Package
+
+The Next.js config package provides shared configuration for all Next.js applications in the Waylio monorepo. It ensures consistent build settings, performance optimizations, security configurations, and development tools across the platform.
+
+## Installation
+
+```bash
+# Install the Next.js config package
+pnpm add @repo/next-config
+
+# Peer dependencies (automatically installed in monorepo)
+pnpm add next @next/bundle-analyzer @next/mdx
+```
+
+## Overview
+
+The Next.js config package centralizes configuration management for all Next.js applications in the Waylio platform, including the main web dashboard, API server, marketing website, and documentation site. It provides optimized settings for healthcare applications with security, performance, and compliance considerations.
+
+### Key Features
+
+<CardGroup cols={2}>
+<Card title="Performance Optimization" icon="zap">
+  Advanced bundling, code splitting, and caching strategies for optimal performance.
+</Card>
+
+<Card title="Security Configuration" icon="shield">
+  Healthcare-compliant security headers, CSP policies, and HTTPS enforcement.
+</Card>
+
+<Card title="Development Tools" icon="wrench">
+  Enhanced development experience with hot reloading, debugging, and analysis tools.
+</Card>
+
+<Card title="Environment Management" icon="settings">
+  Consistent environment variable handling and configuration across deployments.
+</Card>
+</CardGroup>
+
+## Configuration Modules
+
+### Base Configuration
+
+<Tabs>
+<Tab title="Core Config">
+  **Purpose**: Base Next.js configuration with common settings
+  
+  ```typescript
+  // src/base.ts
+  import { NextConfig } from 'next';
+  import { BundleAnalyzerPlugin } from '@next/bundle-analyzer';
+  
+  export interface WaylioNextConfig extends NextConfig {
+    // Custom Waylio-specific options
+    enableHealthcareOptimizations?: boolean;
+    enableSecurityHeaders?: boolean;
+    enableAnalytics?: boolean;
+    enableI18n?: boolean;
+  }
+  
+  export function createBaseConfig(options: WaylioNextConfig = {}): NextConfig {
+    const {
+      enableHealthcareOptimizations = true,
+      enableSecurityHeaders = true,
+      enableAnalytics = false,
+      enableI18n = false,
+      ...nextOptions
+    } = options;
+    
+    const config: NextConfig = {
+      // Core Next.js settings
+      reactStrictMode: true,
+      swcMinify: true,
+      poweredByHeader: false,
+      
+      // Performance optimizations
+      compress: true,
+      generateEtags: true,
+      
+      // Image optimization
+      images: {
+        formats: ['image/webp', 'image/avif'],
+        deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+        imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+        domains: [
+          'images.unsplash.com',
+          'cdn.waylio.com',
+          'assets.waylio.com',
+          'basehub.com',
+        ],
+        dangerouslyAllowSVG: true,
+        contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+      },
+      
+      // Experimental features
+      experimental: {
+        optimizePackageImports: [
+          '@repo/design-system',
+          '@repo/database',
+          '@repo/auth',
+          'lucide-react',
+          '@radix-ui/react-icons',
+        ],
+        turbo: {
+          rules: {
+            '*.svg': {
+              loaders: ['@svgr/webpack'],
+              as: '*.js',
+            },
+          },
+        },
+        serverComponentsExternalPackages: [
+          'prisma',
+          '@prisma/client',
+          'bcryptjs',
+          'sharp',
+        ],
+      },
+      
+      // Webpack configuration
+      webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
+        // SVG handling
+        config.module.rules.push({
+          test: /\.svg$/,
+          use: ['@svgr/webpack'],
+        });
+        
+        // Bundle analyzer in development
+        if (dev && enableAnalytics) {
+          config.plugins.push(
+            new BundleAnalyzerPlugin({
+              analyzerMode: 'server',
+              openAnalyzer: false,
+              analyzerPort: isServer ? 8888 : 8889,
+            })
+          );
+        }
+        
+        // Healthcare-specific optimizations
+        if (enableHealthcareOptimizations) {
+          // Optimize medical libraries
+          config.resolve.alias = {
+            ...config.resolve.alias,
+            '@medical/terminology': require.resolve('@medical/terminology/optimized'),
+            '@healthcare/utils': require.resolve('@healthcare/utils/lite'),
+          };
+          
+          // Tree shake unused medical modules
+          config.optimization = {
+            ...config.optimization,
+            usedExports: true,
+            sideEffects: false,
+          };
+        }
+        
+        // Production optimizations
+        if (!dev) {
+          config.optimization = {
+            ...config.optimization,
+            splitChunks: {
+              chunks: 'all',
+              cacheGroups: {
+                vendor: {
+                  test: /[\\/]node_modules[\\/]/,
+                  name: 'vendors',
+                  chunks: 'all',
+                },
+                common: {
+                  name: 'common',
+                  minChunks: 2,
+                  chunks: 'all',
+                  enforce: true,
+                },
+                medical: {
+                  test: /[\\/]node_modules[\\/](@medical|@healthcare)[\\/]/,
+                  name: 'medical',
+                  chunks: 'all',
+                  priority: 10,
+                },
+              },
+            },
+          };
+        }
+        
+        return config;
+      },
+      
+      // Environment variables
+      env: {
+        CUSTOM_KEY: process.env.CUSTOM_KEY,
+        BUILD_ID: process.env.VERCEL_GIT_COMMIT_SHA || 'development',
+        BUILD_TIME: new Date().toISOString(),
+      },
+      
+      // Redirects and rewrites
+      async redirects() {
+        return [
+          // Legacy route redirects
+          {
+            source: '/dashboard',
+            destination: '/app/dashboard',
+            permanent: true,
+          },
+          {
+            source: '/login',
+            destination: '/sign-in',
+            permanent: true,
+          },
+          {
+            source: '/register',
+            destination: '/sign-up',
+            permanent: true,
+          },
+        ];
+      },
+      
+      async rewrites() {
+        return [
+          // API proxy rewrites
+          {
+            source: '/api/v1/:path*',
+            destination: '/api/:path*',
+          },
+          // Health check endpoint
+          {
+            source: '/health',
+            destination: '/api/health',
+          },
+        ];
+      },
+      
+      // Headers configuration
+      async headers() {
+        const headers = [];
+        
+        if (enableSecurityHeaders) {
+          headers.push({
+            source: '/(.*)',
+            headers: getSecurityHeaders(),
+          });
+        }
+        
+        // API headers
+        headers.push({
+          source: '/api/:path*',
+          headers: [
+            { key: 'Access-Control-Allow-Credentials', value: 'true' },
+            { key: 'Access-Control-Allow-Origin', value: '*' },
+            { key: 'Access-Control-Allow-Methods', value: 'GET,OPTIONS,PATCH,DELETE,POST,PUT' },
+            { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization' },
+          ],
+        });
+        
+        return headers;
+      },
+      
+      // Merge with custom options
+      ...nextOptions,
+    };
+    
+    return config;
+  }
+  
+  function getSecurityHeaders() {
+    return [
+      // HTTPS enforcement
+      {
+        key: 'Strict-Transport-Security',
+        value: 'max-age=31536000; includeSubDomains; preload',
+      },
+      // Prevent XSS attacks
+      {
+        key: 'X-XSS-Protection',
+        value: '1; mode=block',
+      },
+      // Prevent clickjacking
+      {
+        key: 'X-Frame-Options',
+        value: 'DENY',
+      },
+      // Prevent MIME type sniffing
+      {
+        key: 'X-Content-Type-Options',
+        value: 'nosniff',
+      },
+      // Referrer policy
+      {
+        key: 'Referrer-Policy',
+        value: 'strict-origin-when-cross-origin',
+      },
+      // Content Security Policy
+      {
+        key: 'Content-Security-Policy',
+        value: getContentSecurityPolicy(),
+      },
+      // Permissions policy
+      {
+        key: 'Permissions-Policy',
+        value: 'camera=(), microphone=(), geolocation=()',
+      },
+    ];
+  }
+  
+  function getContentSecurityPolicy() {
+    const csp = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://vercel.live https://va.vercel-scripts.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' https://fonts.gstatic.com",
+      "img-src 'self' data: blob: https://images.unsplash.com https://cdn.waylio.com https://assets.waylio.com",
+      "connect-src 'self' https://api.waylio.com https://vitals.vercel-insights.com",
+      "frame-src 'self' https://vercel.live",
+      "media-src 'self' blob:",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+      "upgrade-insecure-requests",
+    ];
+    
+    return csp.join('; ');
+  }
+  ```
+</Tab>
+
+<Tab title="App-Specific Configs">
+  **Purpose**: Specialized configurations for different application types
+  
+  ```typescript
+  // src/app-configs.ts
+  import { createBaseConfig, WaylioNextConfig } from './base';
+  import createMDXPlugin from '@next/mdx';
+  import createNextIntlPlugin from 'next-intl/plugin';
+  
+  // Configuration for the main web dashboard
+  export function createWebAppConfig(options: WaylioNextConfig = {}) {
+    return createBaseConfig({
+      ...options,
+      enableHealthcareOptimizations: true,
+      enableSecurityHeaders: true,
+      enableI18n: true,
+      
+      // Web app specific settings
+      experimental: {
+        ...options.experimental,
+        appDir: true,
+        serverActions: true,
+        serverComponentsExternalPackages: [
+          'prisma',
+          '@prisma/client',
+          'bcryptjs',
+          'sharp',
+          '@clerk/nextjs',
+        ],
+      },
+      
+      // Additional image domains for web app
+      images: {
+        ...options.images,
+        domains: [
+          ...(options.images?.domains || []),
+          'clerk.com',
+          'img.clerk.com',
+          'lh3.googleusercontent.com',
+        ],
+      },
+    });
+  }
+  
+  // Configuration for the API server
+  export function createAPIConfig(options: WaylioNextConfig = {}) {
+    return createBaseConfig({
+      ...options,
+      enableHealthcareOptimizations: true,
+      enableSecurityHeaders: true,
+      
+      // API specific settings
+      experimental: {
+        ...options.experimental,
+        appDir: true,
+        serverActions: false, // Disable server actions for API
+      },
+      
+      // API-specific webpack config
+      webpack: (config, context) => {
+        const baseConfig = createBaseConfig(options).webpack?.(config, context) || config;
+        
+        // Optimize for serverless functions
+        if (!context.dev && !context.isServer) {
+          config.optimization = {
+            ...config.optimization,
+            splitChunks: {
+              chunks: 'all',
+              cacheGroups: {
+                api: {
+                  test: /[\\/]src[\\/]app[\\/]api[\\/]/,
+                  name: 'api',
+                  chunks: 'all',
+                  priority: 10,
+                },
+              },
+            },
+          };
+        }
+        
+        return baseConfig;
+      },
+      
+      // API-specific headers
+      async headers() {
+        const baseHeaders = await createBaseConfig(options).headers?.() || [];
+        
+        return [
+          ...baseHeaders,
+          {
+            source: '/api/health',
+            headers: [
+              { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+            ],
+          },
+          {
+            source: '/api/webhooks/:path*',
+            headers: [
+              { key: 'Cache-Control', value: 'no-cache' },
+            ],
+          },
+        ];
+      },
+    });
+  }
+  
+  // Configuration for the marketing website
+  export function createMarketingConfig(options: WaylioNextConfig = {}) {
+    const withMDX = createMDXPlugin({
+      extension: /\.mdx?$/,
+      options: {
+        remarkPlugins: [],
+        rehypePlugins: [],
+      },
+    });
+    
+    const baseConfig = createBaseConfig({
+      ...options,
+      enableHealthcareOptimizations: false, // Not needed for marketing
+      enableSecurityHeaders: true,
+      enableI18n: true,
+      
+      // Marketing site specific settings
+      pageExtensions: ['ts', 'tsx', 'js', 'jsx', 'md', 'mdx'],
+      
+      // Static optimization
+      output: 'standalone',
+      
+      // Marketing-specific image domains
+      images: {
+        ...options.images,
+        domains: [
+          ...(options.images?.domains || []),
+          'basehub.com',
+          'cdn.basehub.com',
+        ],
+      },
+      
+      // Marketing-specific redirects
+      async redirects() {
+        const baseRedirects = await createBaseConfig(options).redirects?.() || [];
+        
+        return [
+          ...baseRedirects,
+          {
+            source: '/demo',
+            destination: '/request-demo',
+            permanent: true,
+          },
+          {
+            source: '/pricing',
+            destination: '/plans',
+            permanent: true,
+          },
+        ];
+      },
+    });
+    
+    return withMDX(baseConfig);
+  }
+  
+  // Configuration for the documentation site
+  export function createDocsConfig(options: WaylioNextConfig = {}) {
+    return createBaseConfig({
+      ...options,
+      enableHealthcareOptimizations: false,
+      enableSecurityHeaders: true,
+      enableI18n: false, // Docs are English-only for now
+      
+      // Docs specific settings
+      pageExtensions: ['ts', 'tsx', 'js', 'jsx', 'md', 'mdx'],
+      
+      // Static generation for docs
+      output: 'export',
+      trailingSlash: true,
+      
+      // Docs-specific webpack config
+      webpack: (config, context) => {
+        const baseConfig = createBaseConfig(options).webpack?.(config, context) || config;
+        
+        // Optimize for static generation
+        if (!context.dev) {
+          config.optimization = {
+            ...config.optimization,
+            splitChunks: {
+              chunks: 'all',
+              cacheGroups: {
+                docs: {
+                  test: /[\\/]src[\\/](pages|components)[\\/]/,
+                  name: 'docs',
+                  chunks: 'all',
+                  priority: 10,
+                },
+              },
+            },
+          };
+        }
+        
+        return baseConfig;
+      },
+    });
+  }
+  
+  // Configuration for Storybook integration
+  export function createStorybookConfig(options: WaylioNextConfig = {}) {
+    return createBaseConfig({
+      ...options,
+      enableHealthcareOptimizations: false,
+      enableSecurityHeaders: false, // Not needed for Storybook
+      
+      // Storybook specific settings
+      experimental: {
+        ...options.experimental,
+        appDir: false, // Storybook doesn't support app dir yet
+      },
+      
+      // Storybook-specific webpack config
+      webpack: (config, context) => {
+        const baseConfig = createBaseConfig(options).webpack?.(config, context) || config;
+        
+        // Storybook optimizations
+        config.resolve.alias = {
+          ...config.resolve.alias,
+          '@storybook/react': require.resolve('@storybook/react'),
+        };
+        
+        return baseConfig;
+      },
+    });
+  }
+  
+  // Configuration with internationalization
+  export function createI18nConfig(options: WaylioNextConfig = {}) {
+    const withNextIntl = createNextIntlPlugin('./src/i18n.ts');
+    
+    const baseConfig = createBaseConfig({
+      ...options,
+      enableI18n: true,
+    });
+    
+    return withNextIntl(baseConfig);
+  }
+  ```
+</Tab>
+
+<Tab title="Environment Configs">
+  **Purpose**: Environment-specific configuration overrides
+  
+  ```typescript
+  // src/environments.ts
+  import { WaylioNextConfig } from './base';
+  
+  export function getEnvironmentConfig(): Partial<WaylioNextConfig> {
+    const env = process.env.NODE_ENV;
+    const vercelEnv = process.env.VERCEL_ENV;
+    
+    switch (vercelEnv || env) {
+      case 'production':
+        return getProductionConfig();
+        
+      case 'preview':
+        return getPreviewConfig();
+        
+      case 'development':
+      default:
+        return getDevelopmentConfig();
+    }
+  }
+  
+  function getProductionConfig(): Partial<WaylioNextConfig> {
+    return {
+      // Production optimizations
+      compress: true,
+      poweredByHeader: false,
+      
+      // Strict security in production
+      enableSecurityHeaders: true,
+      
+      // Production-specific experimental features
+      experimental: {
+        optimizeCss: true,
+        gzipSize: true,
+      },
+      
+      // Production webpack optimizations
+      webpack: (config, { dev, isServer }) => {
+        if (!dev && !isServer) {
+          // Enable production optimizations
+          config.optimization = {
+            ...config.optimization,
+            minimize: true,
+            sideEffects: false,
+            usedExports: true,
+          };
+          
+          // Production-specific plugins
+          config.plugins = [
+            ...config.plugins,
+            // Add production-specific plugins here
+          ];
+        }
+        
+        return config;
+      },
+      
+      // Production headers
+      async headers() {
+        return [
+          {
+            source: '/(.*)',
+            headers: [
+              {
+                key: 'Cache-Control',
+                value: 'public, max-age=31536000, immutable',
+              },
+            ],
+          },
+          {
+            source: '/api/:path*',
+            headers: [
+              {
+                key: 'Cache-Control',
+                value: 'no-cache, no-store, must-revalidate',
+              },
+            ],
+          },
+        ];
+      },
+    };
+  }
+  
+  function getPreviewConfig(): Partial<WaylioNextConfig> {
+    return {
+      // Preview environment settings
+      enableSecurityHeaders: true,
+      
+      // Preview-specific optimizations
+      experimental: {
+        optimizeCss: false, // Faster builds for previews
+      },
+      
+      // Preview headers
+      async headers() {
+        return [
+          {
+            source: '/(.*)',
+            headers: [
+              {
+                key: 'X-Robots-Tag',
+                value: 'noindex, nofollow',
+              },
+            ],
+          },
+        ];
+      },
+    };
+  }
+  
+  function getDevelopmentConfig(): Partial<WaylioNextConfig> {
+    return {
+      // Development optimizations
+      compress: false,
+      enableAnalytics: true, // Enable bundle analyzer
+      
+      // Relaxed security for development
+      enableSecurityHeaders: false,
+      
+      // Development-specific experimental features
+      experimental: {
+        optimizeCss: false,
+        turbo: {
+          loaders: {
+            '.svg': ['@svgr/webpack'],
+          },
+        },
+      },
+      
+      // Development webpack config
+      webpack: (config, { dev }) => {
+        if (dev) {
+          // Development optimizations
+          config.optimization = {
+            ...config.optimization,
+            minimize: false,
+            splitChunks: {
+              chunks: 'all',
+              cacheGroups: {
+                default: false,
+                vendors: false,
+                // Only essential chunks in development
+                vendor: {
+                  test: /[\\/]node_modules[\\/]/,
+                  name: 'vendors',
+                  chunks: 'all',
+                },
+              },
+            },
+          };
+          
+          // Enable source maps
+          config.devtool = 'eval-source-map';
+        }
+        
+        return config;
+      },
+      
+      // Development headers (minimal)
+      async headers() {
+        return [
+          {
+            source: '/api/:path*',
+            headers: [
+              {
+                key: 'Access-Control-Allow-Origin',
+                value: '*',
+              },
+            ],
+          },
+        ];
+      },
+    };
+  }
+  
+  // Helper to merge environment config with base config
+  export function withEnvironmentConfig<T extends WaylioNextConfig>(
+    baseConfig: T
+  ): T {
+    const envConfig = getEnvironmentConfig();
+    
+    return {
+      ...baseConfig,
+      ...envConfig,
+      experimental: {
+        ...baseConfig.experimental,
+        ...envConfig.experimental,
+      },
+      images: {
+        ...baseConfig.images,
+        ...envConfig.images,
+      },
+    };
+  }
+  ```
+</Tab>
+</Tabs>
+
+## Usage Examples
+
+### Application Integration
+
+<AccordionGroup>
+<Accordion title="Web Dashboard Config">
+  ```typescript
+  // apps/web/next.config.js
+  const { createWebAppConfig, withEnvironmentConfig } = require('@repo/next-config');
+  
+  /** @type {import('@repo/next-config').WaylioNextConfig} */
+  const config = createWebAppConfig({
+    // Custom overrides for web app
+    experimental: {
+      serverActions: true,
+      appDir: true,
+    },
+    
+    // Custom redirects
+    async redirects() {
+      return [
+        {
+          source: '/old-dashboard',
+          destination: '/dashboard',
+          permanent: true,
+        },
+      ];
+    },
+    
+    // Custom environment variables
+    env: {
+      NEXT_PUBLIC_APP_NAME: 'Waylio Dashboard',
+      NEXT_PUBLIC_APP_VERSION: process.env.npm_package_version,
+    },
+  });
+  
+  module.exports = withEnvironmentConfig(config);
+  ```
+</Accordion>
+
+<Accordion title="API Server Config">
+  ```typescript
+  // apps/api/next.config.js
+  const { createAPIConfig, withEnvironmentConfig } = require('@repo/next-config');
+  
+  /** @type {import('@repo/next-config').WaylioNextConfig} */
+  const config = createAPIConfig({
+    // API-specific settings
+    experimental: {
+      appDir: true,
+      serverActions: false,
+    },
+    
+    // Custom rewrites for API versioning
+    async rewrites() {
+      return [
+        {
+          source: '/v1/:path*',
+          destination: '/api/v1/:path*',
+        },
+        {
+          source: '/v2/:path*',
+          destination: '/api/v2/:path*',
+        },
+      ];
+    },
+    
+    // API-specific environment variables
+    env: {
+      API_VERSION: 'v1',
+      MAX_REQUEST_SIZE: '10mb',
+    },
+  });
+  
+  module.exports = withEnvironmentConfig(config);
+  ```
+</Accordion>
+
+<Accordion title="Marketing Site Config">
+  ```typescript
+  // apps/marketing/next.config.js
+  const { createMarketingConfig, withEnvironmentConfig } = require('@repo/next-config');
+  
+  /** @type {import('@repo/next-config').WaylioNextConfig} */
+  const config = createMarketingConfig({
+    // Marketing site settings
+    output: 'standalone',
+    
+    // Custom image optimization for marketing
+    images: {
+      domains: [
+        'basehub.com',
+        'cdn.basehub.com',
+        'images.unsplash.com',
+      ],
+    },
+    
+    // Marketing-specific redirects
+    async redirects() {
+      return [
+        {
+          source: '/contact',
+          destination: '/contact-us',
+          permanent: true,
+        },
+      ];
+    },
+  });
+  
+  module.exports = withEnvironmentConfig(config);
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Development
+
+### Setup and Configuration
+
+<Steps>
+<Step title="Package Installation">
+  ```bash
+  # Install in your Next.js app
+  pnpm add @repo/next-config
+  
+  # Install peer dependencies
+  pnpm add next @next/bundle-analyzer @next/mdx
+  ```
+</Step>
+
+<Step title="Basic Usage">
+  ```typescript
+  // next.config.js
+  const { createBaseConfig } = require('@repo/next-config');
+  
+  module.exports = createBaseConfig({
+    // Your custom options
+    enableHealthcareOptimizations: true,
+    enableSecurityHeaders: true,
+  });
+  ```
+</Step>
+
+<Step title="Custom Configuration">
+  ```typescript
+  // next.config.js
+  const { createBaseConfig } = require('@repo/next-config');
+  
+  const config = createBaseConfig({
+    // Base options
+    enableSecurityHeaders: true,
+    
+    // Custom Next.js options
+    experimental: {
+      appDir: true,
+    },
+    
+    // Custom webpack config
+    webpack: (config, options) => {
+      // Your custom webpack modifications
+      return config;
+    },
+  });
+  
+  module.exports = config;
+  ```
+</Step>
+</Steps>
+
+## Best Practices
+
+### Configuration Guidelines
+
+<AccordionGroup>
+<Accordion title="Security Best Practices">
+  - Always enable security headers in production
+  - Use strict Content Security Policy rules
+  - Implement proper CORS configuration
+  - Enable HTTPS enforcement with HSTS
+  - Regularly update security configurations
+</Accordion>
+
+<Accordion title="Performance Optimization">
+  - Enable code splitting and tree shaking
+  - Optimize images with proper formats and sizes
+  - Use bundle analysis to identify optimization opportunities
+  - Implement proper caching strategies
+  - Monitor bundle sizes and performance metrics
+</Accordion>
+
+<Accordion title="Healthcare Compliance">
+  - Ensure HIPAA-compliant security headers
+  - Implement proper data handling configurations
+  - Use secure communication protocols
+  - Enable audit logging for configuration changes
+  - Regular security configuration reviews
+</Accordion>
+</AccordionGroup>
+
+<Note>
+The Next.js config package ensures consistent, secure, and optimized configurations across all Waylio applications. Always test configuration changes in development before deploying to production.
+</Note>

@@ -1,0 +1,59 @@
+{
+  "HOSPITAL_ORGANISATION": {
+    "ADMIN": {
+        "SERVICES": {
+          "MEDICAL": {
+            "CLINICAL": {
+              "DEPARTMENTS": [
+                "ORTHOPEDICS",
+                "CARDIOLOGY",
+                "NEUROLOGY",
+                "OPHTHALMOLOGY",
+                "DERMATOLOGY",
+                "GYNAECOLOGY",
+                "UROLOGY",
+                "PULMONOLOGY",
+                "GASTROENTEROLOGY",
+                "HEPATOLOGY",
+                "RHEUMATOLOGY",
+                "ENDOCRINOLOGY",
+                "DIABETES",
+                "HEMATOLOGY",
+                "ONCOLOGY",
+                "RADIOLOGY"
+              ]
+            },
+            "ANCILLARY": {
+              "DEPARTMENTS": [
+                "PHARMACY",
+                "DIAGNOSTICS",
+                "LABORATORY",
+                "BLOOD BANK"
+              ]
+            }
+          },
+          "NURSING": {
+            "DEPARTMENTS": [
+              "CLINICAL MANAGEMENT",
+              "SPECIALIZED HEALTHCARE",
+              "STERILIZATION"
+            ]
+          },
+          "OPERATIONS & SUPPORT": {
+            "DEPARTMENTS": [
+              "HUMAN RESOURCES",
+              "PROCUREMENT",
+              "ENGINEERING & FACILITIES MANAGEMENT",
+              "SECURITY",
+              "GENERAL SERVICES"
+            ]
+          },
+          "FINANCE": {
+            "DEPARTMENTS": [
+              "ACCOUNTING"
+            ]
+          }
+        }
+    }
+  }
+}

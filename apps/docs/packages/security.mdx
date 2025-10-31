@@ -1,0 +1,1205 @@
+---
+title: "Security Package"
+description: "Comprehensive security utilities and middleware for HIPAA-compliant healthcare applications with encryption, access control, and audit logging."
+---
+
+# Security Package
+
+The security package provides comprehensive security utilities, middleware, and compliance tools for the Waylio healthcare platform. It ensures HIPAA compliance, implements robust access controls, and provides encryption utilities for protecting sensitive healthcare data.
+
+## Installation
+
+```bash
+# Install the security package
+pnpm add @repo/security
+
+# Peer dependencies (automatically installed in monorepo)
+pnpm add bcryptjs crypto-js jose
+```
+
+## Overview
+
+The security package implements healthcare-grade security measures required for HIPAA compliance and patient data protection. It provides encryption utilities, access control mechanisms, audit logging, and security middleware for protecting sensitive healthcare information.
+
+### Key Features
+
+<CardGroup cols={2}>
+<Card title="HIPAA Compliance" icon="shield-check">
+  Built-in HIPAA compliance features including encryption, audit logging, and access controls.
+</Card>
+
+<Card title="Data Encryption" icon="lock">
+  Advanced encryption utilities for protecting PHI (Protected Health Information) at rest and in transit.
+</Card>
+
+<Card title="Access Control" icon="key">
+  Role-based access control (RBAC) with healthcare-specific permissions and policies.
+</Card>
+
+<Card title="Audit Logging" icon="file-text">
+  Comprehensive audit logging for all data access and security events.
+</Card>
+</CardGroup>
+
+## Encryption Utilities
+
+### Data Encryption
+
+<Tabs>
+<Tab title="Encryption Service">
+  **Purpose**: Encrypt and decrypt sensitive healthcare data
+  
+  ```typescript
+  // src/encryption/encryption-service.ts
+  import CryptoJS from 'crypto-js';
+  import { randomBytes, createCipher, createDecipher } from 'crypto';
+  
+  export interface EncryptionConfig {
+    algorithm: 'AES-256-GCM' | 'AES-256-CBC';
+    keyDerivation: 'PBKDF2' | 'scrypt';
+    iterations?: number;
+    saltLength?: number;
+  }
+  
+  export interface EncryptedData {
+    data: string;
+    iv: string;
+    salt: string;
+    tag?: string;
+    algorithm: string;
+    timestamp: string;
+  }
+  
+  export class HealthcareEncryptionService {
+    private masterKey: string;
+    private config: EncryptionConfig;
+    
+    constructor(masterKey: string, config: EncryptionConfig = {
+      algorithm: 'AES-256-GCM',
+      keyDerivation: 'PBKDF2',
+      iterations: 100000,
+      saltLength: 32,
+    }) {
+      this.masterKey = masterKey;
+      this.config = config;
+    }
+    
+    // Encrypt PHI (Protected Health Information)
+    async encryptPHI(data: string, context?: {
+      patientId?: string;
+      dataType?: 'medical_record' | 'prescription' | 'appointment' | 'billing';
+      userId?: string;
+    }): Promise<EncryptedData> {
+      try {
+        const salt = randomBytes(this.config.saltLength || 32);
+        const iv = randomBytes(16);
+        
+        // Derive key from master key and salt
+        const key = await this.deriveKey(this.masterKey, salt);
+        
+        // Add context to data for integrity
+        const dataWithContext = JSON.stringify({
+          data,
+          context,
+          timestamp: new Date().toISOString(),
+        });
+        
+        // Encrypt using AES-256-GCM for authenticated encryption
+        const cipher = CryptoJS.AES.encrypt(dataWithContext, key.toString(), {
+          iv: CryptoJS.enc.Hex.parse(iv.toString('hex')),
+          mode: CryptoJS.mode.GCM,
+          padding: CryptoJS.pad.NoPadding,
+        });
+        
+        const encrypted: EncryptedData = {
+          data: cipher.ciphertext.toString(),
+          iv: iv.toString('hex'),
+          salt: salt.toString('hex'),
+          tag: cipher.tag?.toString(),
+          algorithm: this.config.algorithm,
+          timestamp: new Date().toISOString(),
+        };
+        
+        // Log encryption event for audit
+        await this.logEncryptionEvent('encrypt', context);
+        
+        return encrypted;
+      } catch (error) {
+        console.error('PHI encryption failed:', error);
+        throw new Error('Failed to encrypt sensitive data');
+      }
+    }
+    
+    // Decrypt PHI
+    async decryptPHI(encryptedData: EncryptedData, context?: {
+      userId?: string;
+      purpose?: string;
+    }): Promise<string> {
+      try {
+        const salt = Buffer.from(encryptedData.salt, 'hex');
+        const iv = Buffer.from(encryptedData.iv, 'hex');
+        
+        // Derive key from master key and salt
+        const key = await this.deriveKey(this.masterKey, salt);
+        
+        // Decrypt data
+        const decrypted = CryptoJS.AES.decrypt(
+          {
+            ciphertext: CryptoJS.enc.Hex.parse(encryptedData.data),
+            tag: encryptedData.tag ? CryptoJS.enc.Hex.parse(encryptedData.tag) : undefined,
+          },
+          key.toString(),
+          {
+            iv: CryptoJS.enc.Hex.parse(encryptedData.iv),
+            mode: CryptoJS.mode.GCM,
+            padding: CryptoJS.pad.NoPadding,
+          }
+        );
+        
+        const decryptedString = decrypted.toString(CryptoJS.enc.Utf8);
+        const parsedData = JSON.parse(decryptedString);
+        
+        // Log decryption event for audit
+        await this.logEncryptionEvent('decrypt', {
+          ...parsedData.context,
+          ...context,
+        });
+        
+        return parsedData.data;
+      } catch (error) {
+        console.error('PHI decryption failed:', error);
+        throw new Error('Failed to decrypt sensitive data');
+      }
+    }
+    
+    // Encrypt database fields
+    async encryptField(value: string, fieldName: string): Promise<string> {
+      const encrypted = await this.encryptPHI(value, {
+        dataType: 'medical_record',
+        userId: 'system',
+      });
+      
+      return JSON.stringify(encrypted);
+    }
+    
+    // Decrypt database fields
+    async decryptField(encryptedValue: string, fieldName: string): Promise<string> {
+      try {
+        const encrypted = JSON.parse(encryptedValue) as EncryptedData;
+        return await this.decryptPHI(encrypted, {
+          userId: 'system',
+          purpose: 'database_read',
+        });
+      } catch (error) {
+        console.error(`Failed to decrypt field ${fieldName}:`, error);
+        throw error;
+      }
+    }
+    
+    // Generate secure hash for passwords
+    async hashPassword(password: string): Promise<string> {
+      const bcrypt = await import('bcryptjs');
+      const saltRounds = 12;
+      return bcrypt.hash(password, saltRounds);
+    }
+    
+    // Verify password hash
+    async verifyPassword(password: string, hash: string): Promise<boolean> {
+      const bcrypt = await import('bcryptjs');
+      return bcrypt.compare(password, hash);
+    }
+    
+    // Generate secure tokens
+    generateSecureToken(length: number = 32): string {
+      return randomBytes(length).toString('hex');
+    }
+    
+    // Generate API keys
+    generateAPIKey(): string {
+      const prefix = 'wyl_';
+      const key = this.generateSecureToken(32);
+      return `${prefix}${key}`;
+    }
+    
+    // Hash sensitive identifiers (for indexing without exposing data)
+    hashIdentifier(identifier: string, salt?: string): string {
+      const actualSalt = salt || this.masterKey;
+      return CryptoJS.SHA256(identifier + actualSalt).toString();
+    }
+    
+    private async deriveKey(masterKey: string, salt: Buffer): Promise<Buffer> {
+      if (this.config.keyDerivation === 'PBKDF2') {
+        return new Promise((resolve, reject) => {
+          const crypto = require('crypto');
+          crypto.pbkdf2(
+            masterKey,
+            salt,
+            this.config.iterations || 100000,
+            32,
+            'sha256',
+            (err: Error | null, derivedKey: Buffer) => {
+              if (err) reject(err);
+              else resolve(derivedKey);
+            }
+          );
+        });
+      } else {
+        // scrypt implementation
+        const crypto = require('crypto');
+        return new Promise((resolve, reject) => {
+          crypto.scrypt(
+            masterKey,
+            salt,
+            32,
+            (err: Error | null, derivedKey: Buffer) => {
+              if (err) reject(err);
+              else resolve(derivedKey);
+            }
+          );
+        });
+      }
+    }
+    
+    private async logEncryptionEvent(
+      operation: 'encrypt' | 'decrypt',
+      context?: any
+    ) {
+      try {
+        // Log to audit system
+        const auditLog = {
+          timestamp: new Date().toISOString(),
+          operation,
+          context: {
+            ...context,
+            // Remove sensitive data from logs
+            data: undefined,
+          },
+          algorithm: this.config.algorithm,
+        };
+        
+        // In production, this would go to a secure audit logging system
+        console.log('Encryption audit log:', auditLog);
+      } catch (error) {
+        console.error('Failed to log encryption event:', error);
+      }
+    }
+  }
+  
+  // Singleton instance
+  export const encryptionService = new HealthcareEncryptionService(
+    process.env.ENCRYPTION_MASTER_KEY || 'default-key-change-in-production'
+  );
+  
+  // Utility functions for common encryption tasks
+  export async function encryptPatientData(data: any, patientId: string): Promise<string> {
+    const serialized = JSON.stringify(data);
+    const encrypted = await encryptionService.encryptPHI(serialized, {
+      patientId,
+      dataType: 'medical_record',
+    });
+    return JSON.stringify(encrypted);
+  }
+  
+  export async function decryptPatientData(encryptedData: string, patientId: string): Promise<any> {
+    const encrypted = JSON.parse(encryptedData) as EncryptedData;
+    const decrypted = await encryptionService.decryptPHI(encrypted, {
+      purpose: 'patient_data_access',
+    });
+    return JSON.parse(decrypted);
+  }
+  
+  export async function encryptPrescriptionData(data: any, prescriptionId: string): Promise<string> {
+    const serialized = JSON.stringify(data);
+    const encrypted = await encryptionService.encryptPHI(serialized, {
+      dataType: 'prescription',
+    });
+    return JSON.stringify(encrypted);
+  }
+  
+  export async function decryptPrescriptionData(encryptedData: string): Promise<any> {
+    const encrypted = JSON.parse(encryptedData) as EncryptedData;
+    const decrypted = await encryptionService.decryptPHI(encrypted, {
+      purpose: 'prescription_access',
+    });
+    return JSON.parse(decrypted);
+  }
+  ```
+</Tab>
+
+<Tab title="Field-Level Encryption">
+  **Purpose**: Automatic encryption/decryption for database fields
+  
+  ```typescript
+  // src/encryption/field-encryption.ts
+  import { encryptionService } from './encryption-service';
+  
+  export interface EncryptedField {
+    value: string;
+    encrypted: boolean;
+    algorithm: string;
+    timestamp: string;
+  }
+  
+  export class FieldEncryption {
+    // Decorator for automatic field encryption
+    static encrypted(target: any, propertyKey: string) {
+      const privateKey = `_${propertyKey}`;
+      
+      Object.defineProperty(target, propertyKey, {
+        get() {
+          const encryptedValue = this[privateKey];
+          if (!encryptedValue) return null;
+          
+          // Decrypt on access
+          return this.decryptField(encryptedValue, propertyKey);
+        },
+        
+        set(value: string) {
+          if (value === null || value === undefined) {
+            this[privateKey] = null;
+            return;
+          }
+          
+          // Encrypt on assignment
+          this[privateKey] = this.encryptField(value, propertyKey);
+        },
+        
+        enumerable: true,
+        configurable: true,
+      });
+    }
+    
+    // Encrypt specific healthcare fields
+    static async encryptHealthcareFields(data: any): Promise<any> {
+      const sensitiveFields = [
+        'ssn',
+        'socialSecurityNumber',
+        'dateOfBirth',
+        'medicalRecordNumber',
+        'insuranceNumber',
+        'phoneNumber',
+        'email',
+        'address',
+        'diagnosis',
+        'medications',
+        'allergies',
+        'symptoms',
+        'treatmentNotes',
+      ];
+      
+      const encrypted = { ...data };
+      
+      for (const field of sensitiveFields) {
+        if (encrypted[field] && typeof encrypted[field] === 'string') {
+          encrypted[field] = await encryptionService.encryptField(
+            encrypted[field],
+            field
+          );
+        }
+      }
+      
+      return encrypted;
+    }
+    
+    // Decrypt healthcare fields
+    static async decryptHealthcareFields(data: any): Promise<any> {
+      const sensitiveFields = [
+        'ssn',
+        'socialSecurityNumber',
+        'dateOfBirth',
+        'medicalRecordNumber',
+        'insuranceNumber',
+        'phoneNumber',
+        'email',
+        'address',
+        'diagnosis',
+        'medications',
+        'allergies',
+        'symptoms',
+        'treatmentNotes',
+      ];
+      
+      const decrypted = { ...data };
+      
+      for (const field of sensitiveFields) {
+        if (decrypted[field] && typeof decrypted[field] === 'string') {
+          try {
+            // Check if field is encrypted (JSON format)
+            if (decrypted[field].startsWith('{')) {
+              decrypted[field] = await encryptionService.decryptField(
+                decrypted[field],
+                field
+              );
+            }
+          } catch (error) {
+            console.error(`Failed to decrypt field ${field}:`, error);
+            // Keep original value if decryption fails
+          }
+        }
+      }
+      
+      return decrypted;
+    }
+    
+    // Prisma middleware for automatic encryption/decryption
+    static createPrismaMiddleware() {
+      return async (params: any, next: any) => {
+        // Encrypt data before create/update operations
+        if (params.action === 'create' || params.action === 'update') {
+          if (params.args.data) {
+            params.args.data = await this.encryptHealthcareFields(params.args.data);
+          }
+        }
+        
+        // Execute the query
+        const result = await next(params);
+        
+        // Decrypt data after read operations
+        if (params.action === 'findUnique' || 
+            params.action === 'findFirst' || 
+            params.action === 'findMany') {
+          if (result) {
+            if (Array.isArray(result)) {
+              for (let i = 0; i < result.length; i++) {
+                result[i] = await this.decryptHealthcareFields(result[i]);
+              }
+            } else {
+              return await this.decryptHealthcareFields(result);
+            }
+          }
+        }
+        
+        return result;
+      };
+    }
+  }
+  
+  // Usage example with Prisma model
+  export class Patient {
+    id: string;
+    
+    @FieldEncryption.encrypted
+    ssn: string;
+    
+    @FieldEncryption.encrypted
+    dateOfBirth: string;
+    
+    @FieldEncryption.encrypted
+    phoneNumber: string;
+    
+    @FieldEncryption.encrypted
+    email: string;
+    
+    @FieldEncryption.encrypted
+    address: string;
+    
+    // Non-sensitive fields remain unencrypted
+    firstName: string;
+    lastName: string;
+    createdAt: Date;
+    updatedAt: Date;
+    
+    constructor(data: any) {
+      Object.assign(this, data);
+    }
+    
+    private async encryptField(value: string, fieldName: string): Promise<string> {
+      return encryptionService.encryptField(value, fieldName);
+    }
+    
+    private async decryptField(encryptedValue: string, fieldName: string): Promise<string> {
+      return encryptionService.decryptField(encryptedValue, fieldName);
+    }
+  }
+  ```
+</Tab>
+
+<Tab title="Token Management">
+  **Purpose**: Secure token generation and validation for API access
+  
+  ```typescript
+  // src/tokens/token-manager.ts
+  import { SignJWT, jwtVerify } from 'jose';
+  import { encryptionService } from '../encryption/encryption-service';
+  
+  export interface TokenPayload {
+    userId: string;
+    organizationId?: string;
+    role: string;
+    permissions: string[];
+    sessionId: string;
+    iat: number;
+    exp: number;
+    aud: string;
+    iss: string;
+  }
+  
+  export interface APIKeyData {
+    keyId: string;
+    userId: string;
+    organizationId?: string;
+    permissions: string[];
+    rateLimit: {
+      requests: number;
+      window: string;
+    };
+    createdAt: Date;
+    expiresAt?: Date;
+    lastUsed?: Date;
+  }
+  
+  export class TokenManager {
+    private jwtSecret: Uint8Array;
+    private issuer: string;
+    private audience: string;
+    
+    constructor() {
+      this.jwtSecret = new TextEncoder().encode(
+        process.env.JWT_SECRET || 'default-jwt-secret-change-in-production'
+      );
+      this.issuer = 'waylio-healthcare';
+      this.audience = 'waylio-api';
+    }
+    
+    // Generate JWT access token
+    async generateAccessToken(payload: Omit<TokenPayload, 'iat' | 'exp' | 'aud' | 'iss'>): Promise<string> {
+      const now = Math.floor(Date.now() / 1000);
+      
+      const token = await new SignJWT({
+        ...payload,
+        iat: now,
+        exp: now + (15 * 60), // 15 minutes
+        aud: this.audience,
+        iss: this.issuer,
+      })
+        .setProtectedHeader({ alg: 'HS256' })
+        .sign(this.jwtSecret);
+      
+      return token;
+    }
+    
+    // Generate JWT refresh token
+    async generateRefreshToken(payload: Omit<TokenPayload, 'iat' | 'exp' | 'aud' | 'iss'>): Promise<string> {
+      const now = Math.floor(Date.now() / 1000);
+      
+      const token = await new SignJWT({
+        ...payload,
+        iat: now,
+        exp: now + (7 * 24 * 60 * 60), // 7 days
+        aud: this.audience,
+        iss: this.issuer,
+      })
+        .setProtectedHeader({ alg: 'HS256' })
+        .sign(this.jwtSecret);
+      
+      return token;
+    }
+    
+    // Verify JWT token
+    async verifyToken(token: string): Promise<TokenPayload> {
+      try {
+        const { payload } = await jwtVerify(token, this.jwtSecret, {
+          issuer: this.issuer,
+          audience: this.audience,
+        });
+        
+        return payload as TokenPayload;
+      } catch (error) {
+        throw new Error('Invalid or expired token');
+      }
+    }
+    
+    // Generate API key
+    async generateAPIKey(data: Omit<APIKeyData, 'keyId' | 'createdAt'>): Promise<{
+      apiKey: string;
+      keyId: string;
+    }> {
+      const keyId = encryptionService.generateSecureToken(16);
+      const apiKey = encryptionService.generateAPIKey();
+      
+      // Store API key data (in production, this would go to database)
+      const apiKeyData: APIKeyData = {
+        ...data,
+        keyId,
+        createdAt: new Date(),
+      };
+      
+      // Hash the API key for storage
+      const hashedKey = await encryptionService.hashPassword(apiKey);
+      
+      // Store in database (pseudo-code)
+      // await database.apiKey.create({
+      //   data: {
+      //     ...apiKeyData,
+      //     hashedKey,
+      //   },
+      // });
+      
+      return { apiKey, keyId };
+    }
+    
+    // Verify API key
+    async verifyAPIKey(apiKey: string): Promise<APIKeyData | null> {
+      try {
+        // Extract key ID from API key format
+        if (!apiKey.startsWith('wyl_')) {
+          throw new Error('Invalid API key format');
+        }
+        
+        // In production, look up the API key in database
+        // const storedKey = await database.apiKey.findFirst({
+        //   where: { hashedKey: await encryptionService.hashPassword(apiKey) },
+        // });
+        
+        // For now, return mock data
+        return {
+          keyId: 'mock-key-id',
+          userId: 'mock-user-id',
+          organizationId: 'mock-org-id',
+          permissions: ['read:patients', 'write:appointments'],
+          rateLimit: {
+            requests: 1000,
+            window: '1h',
+          },
+          createdAt: new Date(),
+        };
+      } catch (error) {
+        console.error('API key verification failed:', error);
+        return null;
+      }
+    }
+    
+    // Generate session token
+    generateSessionToken(): string {
+      return encryptionService.generateSecureToken(32);
+    }
+    
+    // Generate CSRF token
+    generateCSRFToken(): string {
+      return encryptionService.generateSecureToken(24);
+    }
+    
+    // Generate password reset token
+    async generatePasswordResetToken(userId: string): Promise<{
+      token: string;
+      expiresAt: Date;
+    }> {
+      const token = encryptionService.generateSecureToken(32);
+      const expiresAt = new Date(Date.now() + (1 * 60 * 60 * 1000)); // 1 hour
+      
+      // Store token in database with expiration
+      // await database.passwordResetToken.create({
+      //   data: {
+      //     token: await encryptionService.hashPassword(token),
+      //     userId,
+      //     expiresAt,
+      //   },
+      // });
+      
+      return { token, expiresAt };
+    }
+    
+    // Verify password reset token
+    async verifyPasswordResetToken(token: string): Promise<{
+      valid: boolean;
+      userId?: string;
+    }> {
+      try {
+        // Look up token in database
+        // const storedToken = await database.passwordResetToken.findFirst({
+        //   where: {
+        //     token: await encryptionService.hashPassword(token),
+        //     expiresAt: { gt: new Date() },
+        //   },
+        // });
+        
+        // Mock response for now
+        return {
+          valid: true,
+          userId: 'mock-user-id',
+        };
+      } catch (error) {
+        console.error('Password reset token verification failed:', error);
+        return { valid: false };
+      }
+    }
+    
+    // Generate email verification token
+    async generateEmailVerificationToken(email: string): Promise<string> {
+      const payload = {
+        email,
+        purpose: 'email_verification',
+        exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60), // 24 hours
+      };
+      
+      const token = await new SignJWT(payload)
+        .setProtectedHeader({ alg: 'HS256' })
+        .sign(this.jwtSecret);
+      
+      return token;
+    }
+    
+    // Verify email verification token
+    async verifyEmailVerificationToken(token: string): Promise<{
+      valid: boolean;
+      email?: string;
+    }> {
+      try {
+        const { payload } = await jwtVerify(token, this.jwtSecret);
+        
+        if (payload.purpose !== 'email_verification') {
+          throw new Error('Invalid token purpose');
+        }
+        
+        return {
+          valid: true,
+          email: payload.email as string,
+        };
+      } catch (error) {
+        console.error('Email verification token verification failed:', error);
+        return { valid: false };
+      }
+    }
+  }
+  
+  // Singleton instance
+  export const tokenManager = new TokenManager();
+  ```
+</Tab>
+</Tabs>
+
+## Access Control
+
+### Role-Based Access Control
+
+<AccordionGroup>
+<Accordion title="RBAC System">
+  ```typescript
+  // src/access-control/rbac.ts
+  export interface Permission {
+    resource: string;
+    action: string;
+    conditions?: Record<string, any>;
+  }
+  
+  export interface Role {
+    id: string;
+    name: string;
+    description: string;
+    permissions: Permission[];
+    inherits?: string[]; // Role inheritance
+  }
+  
+  export interface User {
+    id: string;
+    roles: string[];
+    organizationId?: string;
+    departmentId?: string;
+    attributes?: Record<string, any>;
+  }
+  
+  export class HealthcareRBAC {
+    private roles: Map<string, Role> = new Map();
+    
+    constructor() {
+      this.initializeHealthcareRoles();
+    }
+    
+    private initializeHealthcareRoles() {
+      // Patient role
+      this.roles.set('patient', {
+        id: 'patient',
+        name: 'Patient',
+        description: 'Healthcare patient with access to own medical records',
+        permissions: [
+          { resource: 'patient', action: 'read', conditions: { ownRecord: true } },
+          { resource: 'appointment', action: 'read', conditions: { ownRecord: true } },
+          { resource: 'appointment', action: 'create', conditions: { ownRecord: true } },
+          { resource: 'appointment', action: 'update', conditions: { ownRecord: true } },
+          { resource: 'prescription', action: 'read', conditions: { ownRecord: true } },
+          { resource: 'billing', action: 'read', conditions: { ownRecord: true } },
+        ],
+      });
+      
+      // Provider role (doctors, nurses)
+      this.roles.set('provider', {
+        id: 'provider',
+        name: 'Healthcare Provider',
+        description: 'Healthcare professional with patient care responsibilities',
+        permissions: [
+          { resource: 'patient', action: 'read', conditions: { sameOrganization: true } },
+          { resource: 'patient', action: 'update', conditions: { assignedPatient: true } },
+          { resource: 'appointment', action: 'read', conditions: { sameOrganization: true } },
+          { resource: 'appointment', action: 'create' },
+          { resource: 'appointment', action: 'update', conditions: { assignedProvider: true } },
+          { resource: 'prescription', action: 'read', conditions: { sameOrganization: true } },
+          { resource: 'prescription', action: 'create' },
+          { resource: 'prescription', action: 'update', conditions: { prescribingProvider: true } },
+          { resource: 'medical_record', action: 'read', conditions: { assignedPatient: true } },
+          { resource: 'medical_record', action: 'create' },
+          { resource: 'medical_record', action: 'update', conditions: { createdBy: true } },
+        ],
+      });
+      
+      // Nurse role
+      this.roles.set('nurse', {
+        id: 'nurse',
+        name: 'Nurse',
+        description: 'Nursing staff with patient care responsibilities',
+        inherits: ['provider'],
+        permissions: [
+          { resource: 'vitals', action: 'create' },
+          { resource: 'vitals', action: 'update' },
+          { resource: 'medication_administration', action: 'create' },
+          { resource: 'medication_administration', action: 'update' },
+        ],
+      });
+      
+      // Admin role
+      this.roles.set('admin', {
+        id: 'admin',
+        name: 'Administrator',
+        description: 'System administrator with full access',
+        permissions: [
+          { resource: '*', action: '*' }, // Full access
+        ],
+      });
+      
+      // Reception role
+      this.roles.set('reception', {
+        id: 'reception',
+        name: 'Reception Staff',
+        description: 'Front desk staff with scheduling and basic patient info access',
+        permissions: [
+          { resource: 'patient', action: 'read', conditions: { basicInfo: true } },
+          { resource: 'patient', action: 'create' },
+          { resource: 'patient', action: 'update', conditions: { basicInfo: true } },
+          { resource: 'appointment', action: 'read' },
+          { resource: 'appointment', action: 'create' },
+          { resource: 'appointment', action: 'update' },
+          { resource: 'billing', action: 'read' },
+          { resource: 'billing', action: 'create' },
+        ],
+      });
+      
+      // Billing role
+      this.roles.set('billing', {
+        id: 'billing',
+        name: 'Billing Staff',
+        description: 'Billing department with financial record access',
+        permissions: [
+          { resource: 'patient', action: 'read', conditions: { basicInfo: true } },
+          { resource: 'billing', action: 'read' },
+          { resource: 'billing', action: 'create' },
+          { resource: 'billing', action: 'update' },
+          { resource: 'insurance', action: 'read' },
+          { resource: 'insurance', action: 'update' },
+          { resource: 'payment', action: 'read' },
+          { resource: 'payment', action: 'create' },
+        ],
+      });
+    }
+    
+    // Check if user has permission
+    hasPermission(
+      user: User,
+      resource: string,
+      action: string,
+      context?: Record<string, any>
+    ): boolean {
+      try {
+        // Get all permissions for user's roles
+        const permissions = this.getUserPermissions(user);
+        
+        // Check each permission
+        for (const permission of permissions) {
+          if (this.matchesPermission(permission, resource, action)) {
+            // Check conditions if present
+            if (permission.conditions) {
+              if (this.evaluateConditions(permission.conditions, user, context)) {
+                return true;
+              }
+            } else {
+              return true;
+            }
+          }
+        }
+        
+        return false;
+      } catch (error) {
+        console.error('Permission check failed:', error);
+        return false; // Fail closed
+      }
+    }
+    
+    // Get all permissions for a user
+    getUserPermissions(user: User): Permission[] {
+      const permissions: Permission[] = [];
+      
+      for (const roleId of user.roles) {
+        const role = this.roles.get(roleId);
+        if (role) {
+          permissions.push(...role.permissions);
+          
+          // Add inherited permissions
+          if (role.inherits) {
+            for (const inheritedRoleId of role.inherits) {
+              const inheritedRole = this.roles.get(inheritedRoleId);
+              if (inheritedRole) {
+                permissions.push(...inheritedRole.permissions);
+              }
+            }
+          }
+        }
+      }
+      
+      return permissions;
+    }
+    
+    // Check if permission matches resource and action
+    private matchesPermission(
+      permission: Permission,
+      resource: string,
+      action: string
+    ): boolean {
+      // Wildcard permissions
+      if (permission.resource === '*' && permission.action === '*') {
+        return true;
+      }
+      
+      if (permission.resource === '*' && permission.action === action) {
+        return true;
+      }
+      
+      if (permission.resource === resource && permission.action === '*') {
+        return true;
+      }
+      
+      // Exact match
+      return permission.resource === resource && permission.action === action;
+    }
+    
+    // Evaluate permission conditions
+    private evaluateConditions(
+      conditions: Record<string, any>,
+      user: User,
+      context?: Record<string, any>
+    ): boolean {
+      for (const [condition, value] of Object.entries(conditions)) {
+        switch (condition) {
+          case 'ownRecord':
+            if (value && context?.userId !== user.id) {
+              return false;
+            }
+            break;
+            
+          case 'sameOrganization':
+            if (value && context?.organizationId !== user.organizationId) {
+              return false;
+            }
+            break;
+            
+          case 'assignedPatient':
+            if (value && !context?.assignedProviders?.includes(user.id)) {
+              return false;
+            }
+            break;
+            
+          case 'assignedProvider':
+            if (value && context?.providerId !== user.id) {
+              return false;
+            }
+            break;
+            
+          case 'prescribingProvider':
+            if (value && context?.prescribingProviderId !== user.id) {
+              return false;
+            }
+            break;
+            
+          case 'createdBy':
+            if (value && context?.createdBy !== user.id) {
+              return false;
+            }
+            break;
+            
+          case 'basicInfo':
+            // This would limit access to non-sensitive patient info
+            if (value && context?.includesSensitiveData) {
+              return false;
+            }
+            break;
+            
+          default:
+            console.warn(`Unknown permission condition: ${condition}`);
+            return false;
+        }
+      }
+      
+      return true;
+    }
+    
+    // Add custom role
+    addRole(role: Role): void {
+      this.roles.set(role.id, role);
+    }
+    
+    // Get role by ID
+    getRole(roleId: string): Role | undefined {
+      return this.roles.get(roleId);
+    }
+    
+    // Get all roles
+    getAllRoles(): Role[] {
+      return Array.from(this.roles.values());
+    }
+    
+    // Check if user has role
+    hasRole(user: User, roleId: string): boolean {
+      return user.roles.includes(roleId);
+    }
+    
+    // Get effective roles (including inherited)
+    getEffectiveRoles(user: User): string[] {
+      const effectiveRoles = new Set<string>();
+      
+      for (const roleId of user.roles) {
+        effectiveRoles.add(roleId);
+        
+        const role = this.roles.get(roleId);
+        if (role?.inherits) {
+          for (const inheritedRoleId of role.inherits) {
+            effectiveRoles.add(inheritedRoleId);
+          }
+        }
+      }
+      
+      return Array.from(effectiveRoles);
+    }
+  }
+  
+  // Singleton instance
+  export const healthcareRBAC = new HealthcareRBAC();
+  
+  // Utility functions
+  export function requirePermission(
+    resource: string,
+    action: string,
+    conditions?: Record<string, any>
+  ) {
+    return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+      const originalMethod = descriptor.value;
+      
+      descriptor.value = async function (...args: any[]) {
+        const user = this.getCurrentUser(); // Implement this method
+        const context = this.getContext(); // Implement this method
+        
+        if (!healthcareRBAC.hasPermission(user, resource, action, { ...conditions, ...context })) {
+          throw new Error('Insufficient permissions');
+        }
+        
+        return originalMethod.apply(this, args);
+      };
+      
+      return descriptor;
+    };
+  }
+  
+  export function requireRole(roleId: string) {
+    return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+      const originalMethod = descriptor.value;
+      
+      descriptor.value = async function (...args: any[]) {
+        const user = this.getCurrentUser(); // Implement this method
+        
+        if (!healthcareRBAC.hasRole(user, roleId)) {
+          throw new Error(`Role ${roleId} required`);
+        }
+        
+        return originalMethod.apply(this, args);
+      };
+      
+      return descriptor;
+    };
+  }
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Development
+
+### Setup and Configuration
+
+<Steps>
+<Step title="Environment Variables">
+  ```bash
+  # Encryption configuration
+  ENCRYPTION_MASTER_KEY="your-256-bit-master-key-here"
+  
+  # JWT configuration
+  JWT_SECRET="your-jwt-secret-key-here"
+  
+  # Security settings
+  SECURITY_AUDIT_ENABLED="true"
+  SECURITY_ENCRYPTION_ENABLED="true"
+  ```
+</Step>
+
+<Step title="Database Middleware">
+  ```typescript
+  // prisma/middleware.ts
+  import { FieldEncryption } from '@repo/security';
+  
+  // Add encryption middleware to Prisma
+  prisma.$use(FieldEncryption.createPrismaMiddleware());
+  ```
+</Step>
+
+<Step title="API Protection">
+  ```typescript
+  // app/api/protected/route.ts
+  import { healthcareRBAC, requirePermission } from '@repo/security';
+  
+  export class ProtectedAPI {
+    @requirePermission('patient', 'read')
+    async getPatient(id: string) {
+      // API logic here
+    }
+  }
+  ```
+</Step>
+</Steps>
+
+## Best Practices
+
+### Security Guidelines
+
+<AccordionGroup>
+<Accordion title="HIPAA Compliance">
+  - Encrypt all PHI at rest and in transit
+  - Implement comprehensive audit logging
+  - Use role-based access controls
+  - Regular security assessments and penetration testing
+  - Maintain data integrity and availability
+</Accordion>
+
+<Accordion title="Encryption Best Practices">
+  - Use AES-256-GCM for authenticated encryption
+  - Implement proper key management and rotation
+  - Use strong key derivation functions (PBKDF2/scrypt)
+  - Never store encryption keys with encrypted data
+  - Regular security key audits and updates
+</Accordion>
+
+<Accordion title="Access Control">
+  - Implement principle of least privilege
+  - Use context-aware access controls
+  - Regular access reviews and audits
+  - Implement emergency access procedures
+  - Monitor and log all access attempts
+</Accordion>
+</AccordionGroup>
+
+<Note>
+Security in healthcare applications is critical for protecting patient privacy and maintaining HIPAA compliance. Always follow security best practices and conduct regular security audits.
+</Note>

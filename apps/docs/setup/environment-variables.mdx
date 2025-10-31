@@ -1,0 +1,479 @@
+---
+title: "Environment Variables"
+description: "Complete reference for all environment variables required to configure the Waylio healthcare platform across different environments and services."
+---
+
+# Environment Variables
+
+This guide provides a comprehensive reference for all environment variables required to configure the Waylio healthcare platform. Variables are organized by service and include descriptions, required values, and security considerations.
+
+## Environment Files
+
+### File Structure
+
+<CardGroup cols={2}>
+<Card title="Development" icon="code">
+  `.env.local` - Local development environment variables (not committed to git)
+</Card>
+
+<Card title="Production" icon="server">
+  Environment variables set in deployment platform (Vercel, AWS, etc.)
+</Card>
+
+<Card title="Testing" icon="flask">
+  `.env.test` - Test environment variables for automated testing
+</Card>
+
+<Card title="Example" icon="file-text">
+  `.env.example` - Template file with all required variables (committed to git)
+</Card>
+</CardGroup>
+
+### Setup Instructions
+
+<Steps>
+<Step title="Copy Template">
+  ```bash
+  # Copy the example environment file
+  cp .env.example .env.local
+  
+  # Edit with your actual values
+  nano .env.local
+  ```
+</Step>
+
+<Step title="Secure Storage">
+  ```bash
+  # Ensure environment files are not committed
+  echo ".env.local" >> .gitignore
+  echo ".env.production" >> .gitignore
+  
+  # Set appropriate file permissions
+  chmod 600 .env.local
+  ```
+</Step>
+
+<Step title="Validation">
+  ```bash
+  # Validate environment variables
+  pnpm env:check
+  
+  # Load and test configuration
+  pnpm dev:check
+  ```
+</Step>
+</Steps>
+
+## Core Application Variables
+
+### Database Configuration
+
+<Tabs>
+<Tab title="PostgreSQL (Required)">
+  ```bash
+  # Primary database connection
+  DATABASE_URL="postgresql://username:password@host:port/database?sslmode=require"
+  
+  # Example for local development
+  DATABASE_URL="postgresql://postgres:password@localhost:5432/waylio"
+  
+  # Example for Neon (production)
+  DATABASE_URL="postgresql://user:pass@ep-xxx.us-east-1.aws.neon.tech/waylio?sslmode=require"
+  
+  # Connection pool settings (optional)
+  DATABASE_POOL_SIZE="10"
+  DATABASE_TIMEOUT="30000"
+  ```
+  
+  <Note>
+  The database URL must include SSL mode for production environments to ensure HIPAA compliance.
+  </Note>
+</Tab>
+
+<Tab title="Redis (Optional)">
+  ```bash
+  # Redis for caching and rate limiting
+  REDIS_URL="redis://localhost:6379"
+  
+  # Upstash Redis (production)
+  UPSTASH_REDIS_REST_URL="https://xxx.upstash.io"
+  UPSTASH_REDIS_REST_TOKEN="your_upstash_token"
+  
+  # Redis configuration
+  REDIS_TTL="3600"
+  REDIS_MAX_CONNECTIONS="10"
+  ```
+</Tab>
+</Tabs>
+
+### Authentication (Clerk)
+
+```bash
+# Clerk authentication keys (Required)
+CLERK_SECRET_KEY="sk_test_your_clerk_secret_key_here"
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_your_clerk_publishable_key_here"
+
+# Clerk webhook endpoint secret
+CLERK_WEBHOOK_SECRET="whsec_your_webhook_secret"
+
+# JWT configuration
+JWT_SECRET="your-super-secure-jwt-secret-key-min-32-chars"
+JWT_EXPIRES_IN="7d"
+
+# Session configuration
+SESSION_TIMEOUT="24h"
+REFRESH_TOKEN_EXPIRES_IN="30d"
+```
+
+### Application Settings
+
+```bash
+# Application URLs
+NEXT_PUBLIC_SITE_URL="http://localhost:3000"
+NEXT_PUBLIC_API_URL="http://localhost:3000/api"
+
+# Environment
+NODE_ENV="development" # development | production | test
+
+# Application metadata
+NEXT_PUBLIC_APP_NAME="Waylio"
+NEXT_PUBLIC_APP_VERSION="1.0.0"
+NEXT_PUBLIC_APP_DESCRIPTION="Healthcare Platform"
+
+# Feature flags
+NEXT_PUBLIC_ENABLE_ANALYTICS="true"
+NEXT_PUBLIC_ENABLE_MONITORING="true"
+NEXT_PUBLIC_ENABLE_DEBUG="false"
+```
+
+## External Services
+
+### Email Service (Resend)
+
+```bash
+# Resend API configuration (Required for email)
+RESEND_API_KEY="re_your_resend_api_key_here"
+
+# Email settings
+FROM_EMAIL="noreply@waylio.com"
+SUPPORT_EMAIL="support@waylio.com"
+ADMIN_EMAIL="admin@waylio.com"
+
+# Email templates
+EMAIL_TEMPLATE_PATH="./emails"
+EMAIL_PREVIEW_MODE="false"
+```
+
+### File Storage
+
+<Tabs>
+<Tab title="AWS S3">
+  ```bash
+  # AWS S3 configuration
+  AWS_ACCESS_KEY_ID="your_aws_access_key_id"
+  AWS_SECRET_ACCESS_KEY="your_aws_secret_access_key"
+  AWS_REGION="us-east-1"
+  AWS_S3_BUCKET="waylio-files"
+  
+  # S3 settings
+  AWS_S3_FORCE_PATH_STYLE="false"
+  AWS_S3_ACCELERATE="true"
+  AWS_S3_PRESIGNED_URL_EXPIRES="3600"
+  ```
+</Tab>
+
+<Tab title="Vercel Blob">
+  ```bash
+  # Vercel Blob storage
+  BLOB_READ_WRITE_TOKEN="vercel_blob_token_here"
+  
+  # Blob settings
+  BLOB_STORE_ID="waylio-files"
+  BLOB_MAX_FILE_SIZE="10485760" # 10MB
+  ```
+</Tab>
+</Tabs>
+
+### Analytics and Monitoring
+
+```bash
+# PostHog analytics
+NEXT_PUBLIC_POSTHOG_KEY="phc_your_posthog_key"
+NEXT_PUBLIC_POSTHOG_HOST="https://app.posthog.com"
+
+# Google Analytics (optional)
+NEXT_PUBLIC_GA_MEASUREMENT_ID="G-XXXXXXXXXX"
+
+# Sentry error monitoring
+SENTRY_DSN="https://your-sentry-dsn@sentry.io/project-id"
+SENTRY_ORG="your-org"
+SENTRY_PROJECT="waylio"
+SENTRY_AUTH_TOKEN="your_sentry_auth_token"
+
+# Better Stack monitoring
+BETTER_STACK_TOKEN="your_better_stack_token"
+BETTER_STACK_URL="https://logs.betterstack.com"
+```
+
+### Payment Processing (Stripe)
+
+```bash
+# Stripe configuration
+STRIPE_SECRET_KEY="sk_test_your_stripe_secret_key"
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_your_stripe_publishable_key"
+
+# Stripe webhooks
+STRIPE_WEBHOOK_SECRET="whsec_your_stripe_webhook_secret"
+
+# Payment settings
+STRIPE_CURRENCY="usd"
+STRIPE_PAYMENT_METHODS="card,bank_transfer"
+```
+
+## Healthcare-Specific Services
+
+### AI and Navigation
+
+```bash
+# Multiset AI SDK for AR navigation
+MULTISET_API_KEY="your_multiset_api_key"
+MULTISET_PROJECT_ID="your_project_id"
+MULTISET_ENVIRONMENT="development" # development | production
+
+# AI configuration
+AI_MODEL_VERSION="v1.0"
+AI_CONFIDENCE_THRESHOLD="0.8"
+AI_MAX_REQUESTS_PER_MINUTE="100"
+```
+
+### Notifications (Knock)
+
+```bash
+# Knock notification service
+KNOCK_API_KEY="your_knock_api_key"
+KNOCK_SIGNING_KEY="your_knock_signing_key"
+
+# Notification settings
+KNOCK_ENVIRONMENT="development"
+KNOCK_DEFAULT_TENANT="waylio"
+```
+
+### Content Management (BaseHub)
+
+```bash
+# BaseHub CMS
+BASEHUB_TOKEN="your_basehub_token"
+BASEHUB_REF="main" # or specific branch/tag
+
+# CMS settings
+CMS_CACHE_TTL="3600"
+CMS_PREVIEW_MODE="false"
+```
+
+## Security and Encryption
+
+### Encryption Keys
+
+```bash
+# Master encryption key (Required - 32 characters minimum)
+ENCRYPTION_MASTER_KEY="your-32-character-master-encryption-key"
+
+# Field-level encryption keys
+PATIENT_DATA_ENCRYPTION_KEY="your-patient-data-encryption-key"
+MEDICAL_RECORD_ENCRYPTION_KEY="your-medical-record-key"
+
+# API security
+API_RATE_LIMIT_MAX="100"
+API_RATE_LIMIT_WINDOW="900000" # 15 minutes in ms
+API_CORS_ORIGINS="http://localhost:3000,https://waylio.com"
+```
+
+### HIPAA Compliance
+
+```bash
+# Audit logging
+AUDIT_LOG_ENABLED="true"
+AUDIT_LOG_RETENTION_DAYS="2555" # 7 years for HIPAA
+AUDIT_LOG_ENCRYPTION="true"
+
+# Data retention
+DATA_RETENTION_ENABLED="true"
+PATIENT_DATA_RETENTION_YEARS="7"
+LOG_RETENTION_DAYS="90"
+
+# Backup encryption
+BACKUP_ENCRYPTION_ENABLED="true"
+BACKUP_ENCRYPTION_KEY="your-backup-encryption-key"
+```
+
+## Development and Testing
+
+### Development Tools
+
+```bash
+# Development settings
+NEXT_TELEMETRY_DISABLED="1"
+TURBO_TELEMETRY_DISABLED="1"
+
+# Debug settings
+DEBUG="waylio:*"
+LOG_LEVEL="debug" # error | warn | info | debug
+
+# Hot reload
+FAST_REFRESH="true"
+WEBPACK_CACHE="true"
+```
+
+### Testing Configuration
+
+```bash
+# Test database
+TEST_DATABASE_URL="postgresql://postgres:password@localhost:5432/waylio_test"
+
+# Test settings
+TEST_TIMEOUT="30000"
+TEST_PARALLEL="true"
+TEST_COVERAGE_THRESHOLD="80"
+
+# Mock services
+MOCK_EXTERNAL_SERVICES="true"
+MOCK_EMAIL_DELIVERY="true"
+MOCK_FILE_UPLOADS="true"
+```
+
+## Environment-Specific Configurations
+
+### Development Environment
+
+<AccordionGroup>
+<Accordion title="Local Development">
+  ```bash
+  # .env.local
+  NODE_ENV="development"
+  NEXT_PUBLIC_SITE_URL="http://localhost:3000"
+  DATABASE_URL="postgresql://postgres:password@localhost:5432/waylio"
+  
+  # Enable debug features
+  NEXT_PUBLIC_ENABLE_DEBUG="true"
+  LOG_LEVEL="debug"
+  
+  # Mock external services
+  MOCK_EXTERNAL_SERVICES="true"
+  ```
+</Accordion>
+
+<Accordion title="Staging Environment">
+  ```bash
+  # Staging configuration
+  NODE_ENV="production"
+  NEXT_PUBLIC_SITE_URL="https://staging.waylio.com"
+  
+  # Use staging services
+  CLERK_SECRET_KEY="sk_test_staging_key"
+  STRIPE_SECRET_KEY="sk_test_staging_key"
+  
+  # Reduced security for testing
+  JWT_EXPIRES_IN="1h"
+  ```
+</Accordion>
+
+<Accordion title="Production Environment">
+  ```bash
+  # Production configuration
+  NODE_ENV="production"
+  NEXT_PUBLIC_SITE_URL="https://waylio.com"
+  
+  # Production services
+  CLERK_SECRET_KEY="sk_live_production_key"
+  STRIPE_SECRET_KEY="sk_live_production_key"
+  
+  # Enhanced security
+  JWT_EXPIRES_IN="15m"
+  SESSION_TIMEOUT="8h"
+  API_RATE_LIMIT_MAX="50"
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Validation and Security
+
+### Environment Validation
+
+<Steps>
+<Step title="Required Variables Check">
+  ```typescript
+  // lib/env-validation.ts
+  const requiredEnvVars = [
+    'DATABASE_URL',
+    'CLERK_SECRET_KEY',
+    'NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY',
+    'JWT_SECRET',
+    'ENCRYPTION_MASTER_KEY',
+  ];
+  
+  export function validateEnvironment() {
+    const missing = requiredEnvVars.filter(
+      (envVar) => !process.env[envVar]
+    );
+    
+    if (missing.length > 0) {
+      throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+    }
+  }
+  ```
+</Step>
+
+<Step title="Security Validation">
+  ```bash
+  # Check for weak secrets
+  pnpm env:security-check
+  
+  # Validate encryption keys
+  pnpm env:validate-encryption
+  
+  # Test database connection
+  pnpm env:test-db
+  ```
+</Step>
+
+<Step title="Production Readiness">
+  ```bash
+  # Production environment checklist
+  pnpm env:production-check
+  
+  # HIPAA compliance validation
+  pnpm env:hipaa-check
+  
+  # Security audit
+  pnpm env:security-audit
+  ```
+</Step>
+</Steps>
+
+### Best Practices
+
+<CardGroup cols={2}>
+<Card title="Secret Management" icon="key">
+  Use secure secret management services in production. Never commit secrets to version control.
+</Card>
+
+<Card title="Environment Isolation" icon="shield">
+  Maintain separate environments for development, staging, and production with different credentials.
+</Card>
+
+<Card title="Regular Rotation" icon="refresh">
+  Rotate API keys, secrets, and encryption keys regularly according to security policies.
+</Card>
+
+<Card title="Access Control" icon="lock">
+  Limit access to production environment variables to authorized personnel only.
+</Card>
+</CardGroup>
+
+<Warning>
+Never commit `.env.local` or any file containing actual secrets to version control. Always use `.env.example` as a template with placeholder values.
+</Warning>
+
+<Note>
+Healthcare applications require additional security measures. Ensure all encryption keys meet HIPAA requirements and are stored securely in production environments.
+</Note>

@@ -1,0 +1,1219 @@
+---
+title: "Rate Limit Package"
+description: "Advanced rate limiting system for API protection, abuse prevention, and healthcare-compliant request throttling across the Waylio platform."
+---
+
+# Rate Limit Package
+
+The rate limit package provides comprehensive rate limiting and request throttling for the Waylio healthcare platform. It protects APIs from abuse, ensures fair resource usage, and maintains system stability while accommodating healthcare-specific usage patterns.
+
+## Installation
+
+```bash
+# Install the rate limit package
+pnpm add @repo/rate-limit
+
+# Peer dependencies (automatically installed in monorepo)
+pnpm add @upstash/redis @upstash/ratelimit
+```
+
+## Overview
+
+The rate limit package implements sophisticated rate limiting strategies tailored for healthcare applications. It provides different limits for various user types, protects sensitive healthcare endpoints, and ensures critical medical workflows are not disrupted by rate limiting.
+
+### Key Features
+
+<CardGroup cols={2}>
+<Card title="Healthcare-Aware Limits" icon="heart-pulse">
+  Specialized rate limits for different healthcare workflows and user roles.
+</Card>
+
+<Card title="Redis-Powered" icon="database">
+  High-performance rate limiting using Redis with Upstash for global distribution.
+</Card>
+
+<Card title="Flexible Strategies" icon="settings">
+  Multiple rate limiting algorithms including sliding window, token bucket, and fixed window.
+</Card>
+
+<Card title="Emergency Bypass" icon="shield-alert">
+  Emergency override capabilities for critical healthcare situations.
+</Card>
+</CardGroup>
+
+## Rate Limiting Strategies
+
+### Core Rate Limiter
+
+<Tabs>
+<Tab title="Base Rate Limiter">
+  **Purpose**: Core rate limiting functionality with healthcare considerations
+  
+  ```typescript
+  // src/core/rate-limiter.ts
+  import { Ratelimit } from '@upstash/ratelimit';
+  import { Redis } from '@upstash/redis';
+  import { NextRequest } from 'next/server';
+  
+  export interface RateLimitConfig {
+    requests: number;
+    window: string; // e.g., '1m', '1h', '1d'
+    algorithm?: 'sliding-window' | 'fixed-window' | 'token-bucket';
+    skipSuccessfulRequests?: boolean;
+    skipFailedRequests?: boolean;
+    keyGenerator?: (req: NextRequest) => string;
+    onLimitReached?: (req: NextRequest, limit: RateLimitResult) => void;
+  }
+  
+  export interface RateLimitResult {
+    success: boolean;
+    limit: number;
+    remaining: number;
+    reset: Date;
+    retryAfter?: number;
+  }
+  
+  export interface HealthcareRateLimitContext {
+    userRole?: 'patient' | 'provider' | 'admin' | 'emergency';
+    organizationId?: string;
+    emergencyOverride?: boolean;
+    workflowType?: 'appointment' | 'prescription' | 'emergency' | 'general';
+    patientId?: string;
+    providerId?: string;
+  }
+  
+  export class HealthcareRateLimiter {
+    private redis: Redis;
+    private limiters: Map<string, Ratelimit>;
+    
+    constructor() {
+      this.redis = new Redis({
+        url: process.env.UPSTASH_REDIS_REST_URL!,
+        token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+      });
+      
+      this.limiters = new Map();
+      this.initializeHealthcareLimiters();
+    }
+    
+    private initializeHealthcareLimiters() {
+      // Patient rate limits - more restrictive for security
+      this.limiters.set('patient:general', new Ratelimit({
+        redis: this.redis,
+        limiter: Ratelimit.slidingWindow(100, '1h'), // 100 requests per hour
+        analytics: true,
+        prefix: 'waylio:ratelimit:patient:general',
+      }));
+      
+      this.limiters.set('patient:appointment', new Ratelimit({
+        redis: this.redis,
+        limiter: Ratelimit.slidingWindow(20, '1h'), // 20 appointment requests per hour
+        analytics: true,
+        prefix: 'waylio:ratelimit:patient:appointment',
+      }));
+      
+      // Provider rate limits - higher limits for healthcare professionals
+      this.limiters.set('provider:general', new Ratelimit({
+        redis: this.redis,
+        limiter: Ratelimit.slidingWindow(500, '1h'), // 500 requests per hour
+        analytics: true,
+        prefix: 'waylio:ratelimit:provider:general',
+      }));
+      
+      this.limiters.set('provider:patient-data', new Ratelimit({
+        redis: this.redis,
+        limiter: Ratelimit.slidingWindow(200, '1h'), // 200 patient data requests per hour
+        analytics: true,
+        prefix: 'waylio:ratelimit:provider:patient-data',
+      }));
+      
+      // Admin rate limits - highest limits
+      this.limiters.set('admin:general', new Ratelimit({
+        redis: this.redis,
+        limiter: Ratelimit.slidingWindow(1000, '1h'), // 1000 requests per hour
+        analytics: true,
+        prefix: 'waylio:ratelimit:admin:general',
+      }));
+      
+      // Emergency rate limits - very high limits with monitoring
+      this.limiters.set('emergency:override', new Ratelimit({
+        redis: this.redis,
+        limiter: Ratelimit.slidingWindow(2000, '1h'), // 2000 requests per hour
+        analytics: true,
+        prefix: 'waylio:ratelimit:emergency:override',
+      }));
+      
+      // API endpoint specific limits
+      this.limiters.set('api:auth', new Ratelimit({
+        redis: this.redis,
+        limiter: Ratelimit.slidingWindow(10, '15m'), // 10 auth attempts per 15 minutes
+        analytics: true,
+        prefix: 'waylio:ratelimit:api:auth',
+      }));
+      
+      this.limiters.set('api:password-reset', new Ratelimit({
+        redis: this.redis,
+        limiter: Ratelimit.slidingWindow(3, '1h'), // 3 password reset attempts per hour
+        analytics: true,
+        prefix: 'waylio:ratelimit:api:password-reset',
+      }));
+      
+      this.limiters.set('api:prescription', new Ratelimit({
+        redis: this.redis,
+        limiter: Ratelimit.slidingWindow(50, '1h'), // 50 prescription requests per hour
+        analytics: true,
+        prefix: 'waylio:ratelimit:api:prescription',
+      }));
+      
+      // Organization-level limits
+      this.limiters.set('organization:general', new Ratelimit({
+        redis: this.redis,
+        limiter: Ratelimit.slidingWindow(5000, '1h'), // 5000 requests per hour per organization
+        analytics: true,
+        prefix: 'waylio:ratelimit:organization:general',
+      }));
+    }
+    
+    async checkLimit(
+      request: NextRequest,
+      context: HealthcareRateLimitContext = {}
+    ): Promise<RateLimitResult> {
+      // Emergency override check
+      if (context.emergencyOverride && context.userRole === 'emergency') {
+        return this.checkEmergencyLimit(request, context);
+      }
+      
+      // Determine appropriate rate limiter
+      const limiterKey = this.selectLimiter(request, context);
+      const limiter = this.limiters.get(limiterKey);
+      
+      if (!limiter) {
+        throw new Error(`Rate limiter not found: ${limiterKey}`);
+      }
+      
+      // Generate rate limit key
+      const identifier = this.generateIdentifier(request, context);
+      
+      try {
+        const result = await limiter.limit(identifier);
+        
+        // Log rate limit events for healthcare compliance
+        await this.logRateLimitEvent(request, context, result, limiterKey);
+        
+        return {
+          success: result.success,
+          limit: result.limit,
+          remaining: result.remaining,
+          reset: new Date(result.reset),
+          retryAfter: result.success ? undefined : Math.ceil((result.reset - Date.now()) / 1000),
+        };
+      } catch (error) {
+        console.error('Rate limit check failed:', error);
+        
+        // Fail open for healthcare applications - don't block critical requests
+        return {
+          success: true,
+          limit: 1000,
+          remaining: 999,
+          reset: new Date(Date.now() + 3600000), // 1 hour from now
+        };
+      }
+    }
+    
+    private async checkEmergencyLimit(
+      request: NextRequest,
+      context: HealthcareRateLimitContext
+    ): Promise<RateLimitResult> {
+      const limiter = this.limiters.get('emergency:override')!;
+      const identifier = `emergency:${context.providerId || context.organizationId || 'unknown'}`;
+      
+      const result = await limiter.limit(identifier);
+      
+      // Log emergency override usage
+      await this.logEmergencyOverride(request, context, result);
+      
+      return {
+        success: result.success,
+        limit: result.limit,
+        remaining: result.remaining,
+        reset: new Date(result.reset),
+        retryAfter: result.success ? undefined : Math.ceil((result.reset - Date.now()) / 1000),
+      };
+    }
+    
+    private selectLimiter(
+      request: NextRequest,
+      context: HealthcareRateLimitContext
+    ): string {
+      const pathname = request.nextUrl.pathname;
+      
+      // API endpoint specific limits
+      if (pathname.includes('/api/auth')) {
+        return 'api:auth';
+      }
+      if (pathname.includes('/api/password-reset')) {
+        return 'api:password-reset';
+      }
+      if (pathname.includes('/api/prescriptions')) {
+        return 'api:prescription';
+      }
+      
+      // User role based limits
+      if (context.userRole) {
+        if (context.workflowType === 'appointment' && context.userRole === 'patient') {
+          return 'patient:appointment';
+        }
+        if (context.workflowType === 'patient-data' && context.userRole === 'provider') {
+          return 'provider:patient-data';
+        }
+        
+        return `${context.userRole}:general`;
+      }
+      
+      // Organization level limits
+      if (context.organizationId) {
+        return 'organization:general';
+      }
+      
+      // Default to patient limits for security
+      return 'patient:general';
+    }
+    
+    private generateIdentifier(
+      request: NextRequest,
+      context: HealthcareRateLimitContext
+    ): string {
+      // Priority order for identifier generation
+      if (context.providerId) {
+        return `provider:${context.providerId}`;
+      }
+      if (context.patientId) {
+        return `patient:${context.patientId}`;
+      }
+      if (context.organizationId) {
+        return `org:${context.organizationId}`;
+      }
+      
+      // Fallback to IP address
+      const ip = request.ip || 
+                 request.headers.get('x-forwarded-for') || 
+                 request.headers.get('x-real-ip') || 
+                 'unknown';
+      
+      return `ip:${ip}`;
+    }
+    
+    private async logRateLimitEvent(
+      request: NextRequest,
+      context: HealthcareRateLimitContext,
+      result: any,
+      limiterKey: string
+    ) {
+      try {
+        const logData = {
+          timestamp: new Date().toISOString(),
+          limiterKey,
+          success: result.success,
+          remaining: result.remaining,
+          limit: result.limit,
+          reset: result.reset,
+          userRole: context.userRole,
+          organizationId: context.organizationId,
+          workflowType: context.workflowType,
+          endpoint: request.nextUrl.pathname,
+          method: request.method,
+          userAgent: request.headers.get('user-agent'),
+          ip: request.ip || request.headers.get('x-forwarded-for'),
+        };
+        
+        // Store in Redis for analytics (expire after 7 days)
+        await this.redis.setex(
+          `waylio:ratelimit:log:${Date.now()}:${Math.random()}`,
+          7 * 24 * 60 * 60, // 7 days
+          JSON.stringify(logData)
+        );
+        
+        // If rate limit exceeded, also log to application logs
+        if (!result.success) {
+          console.warn('Rate limit exceeded:', logData);
+        }
+      } catch (error) {
+        console.error('Failed to log rate limit event:', error);
+      }
+    }
+    
+    private async logEmergencyOverride(
+      request: NextRequest,
+      context: HealthcareRateLimitContext,
+      result: any
+    ) {
+      try {
+        const logData = {
+          timestamp: new Date().toISOString(),
+          event: 'emergency_override_used',
+          success: result.success,
+          remaining: result.remaining,
+          limit: result.limit,
+          providerId: context.providerId,
+          organizationId: context.organizationId,
+          endpoint: request.nextUrl.pathname,
+          method: request.method,
+          ip: request.ip || request.headers.get('x-forwarded-for'),
+          userAgent: request.headers.get('user-agent'),
+        };
+        
+        // Store emergency override logs for compliance (expire after 30 days)
+        await this.redis.setex(
+          `waylio:emergency:log:${Date.now()}:${Math.random()}`,
+          30 * 24 * 60 * 60, // 30 days
+          JSON.stringify(logData)
+        );
+        
+        // Always log emergency overrides
+        console.info('Emergency rate limit override used:', logData);
+      } catch (error) {
+        console.error('Failed to log emergency override:', error);
+      }
+    }
+    
+    async getRateLimitStatus(identifier: string, limiterKey: string): Promise<RateLimitResult | null> {
+      try {
+        const limiter = this.limiters.get(limiterKey);
+        if (!limiter) return null;
+        
+        // This is a simplified status check - actual implementation would depend on the rate limiter
+        const key = `${limiterKey}:${identifier}`;
+        const data = await this.redis.get(key);
+        
+        if (!data) {
+          return null;
+        }
+        
+        // Parse rate limit data (implementation depends on rate limiter format)
+        return JSON.parse(data as string);
+      } catch (error) {
+        console.error('Failed to get rate limit status:', error);
+        return null;
+      }
+    }
+    
+    async resetRateLimit(identifier: string, limiterKey: string): Promise<boolean> {
+      try {
+        const key = `${limiterKey}:${identifier}`;
+        await this.redis.del(key);
+        
+        // Log rate limit reset for audit trail
+        console.info('Rate limit reset:', { identifier, limiterKey, timestamp: new Date().toISOString() });
+        
+        return true;
+      } catch (error) {
+        console.error('Failed to reset rate limit:', error);
+        return false;
+      }
+    }
+    
+    async getAnalytics(timeRange: '1h' | '24h' | '7d' = '24h'): Promise<any> {
+      try {
+        const now = Date.now();
+        const ranges = {
+          '1h': 60 * 60 * 1000,
+          '24h': 24 * 60 * 60 * 1000,
+          '7d': 7 * 24 * 60 * 60 * 1000,
+        };
+        
+        const startTime = now - ranges[timeRange];
+        
+        // Get rate limit logs from Redis
+        const keys = await this.redis.keys('waylio:ratelimit:log:*');
+        const logs = [];
+        
+        for (const key of keys) {
+          const data = await this.redis.get(key);
+          if (data) {
+            const log = JSON.parse(data as string);
+            const logTime = new Date(log.timestamp).getTime();
+            
+            if (logTime >= startTime) {
+              logs.push(log);
+            }
+          }
+        }
+        
+        // Aggregate analytics
+        const analytics = {
+          totalRequests: logs.length,
+          blockedRequests: logs.filter(log => !log.success).length,
+          topEndpoints: this.aggregateByField(logs, 'endpoint'),
+          topUserRoles: this.aggregateByField(logs, 'userRole'),
+          topOrganizations: this.aggregateByField(logs, 'organizationId'),
+          hourlyBreakdown: this.aggregateByHour(logs),
+        };
+        
+        return analytics;
+      } catch (error) {
+        console.error('Failed to get rate limit analytics:', error);
+        return null;
+      }
+    }
+    
+    private aggregateByField(logs: any[], field: string): Record<string, number> {
+      const aggregation: Record<string, number> = {};
+      
+      for (const log of logs) {
+        const value = log[field] || 'unknown';
+        aggregation[value] = (aggregation[value] || 0) + 1;
+      }
+      
+      return Object.fromEntries(
+        Object.entries(aggregation)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 10) // Top 10
+      );
+    }
+    
+    private aggregateByHour(logs: any[]): Record<string, number> {
+      const hourly: Record<string, number> = {};
+      
+      for (const log of logs) {
+        const hour = new Date(log.timestamp).toISOString().slice(0, 13); // YYYY-MM-DDTHH
+        hourly[hour] = (hourly[hour] || 0) + 1;
+      }
+      
+      return hourly;
+    }
+  }
+  
+  // Singleton instance
+  export const healthcareRateLimiter = new HealthcareRateLimiter();
+  ```
+</Tab>
+
+<Tab title="Middleware Integration">
+  **Purpose**: Next.js middleware integration for automatic rate limiting
+  
+  ```typescript
+  // src/middleware/rate-limit-middleware.ts
+  import { NextRequest, NextResponse } from 'next/server';
+  import { healthcareRateLimiter, HealthcareRateLimitContext } from '../core/rate-limiter';
+  import { auth } from '@repo/auth';
+  
+  export interface RateLimitMiddlewareConfig {
+    skipPaths?: string[];
+    emergencyBypassHeader?: string;
+    customContextExtractor?: (req: NextRequest) => Promise<HealthcareRateLimitContext>;
+  }
+  
+  export function createRateLimitMiddleware(config: RateLimitMiddlewareConfig = {}) {
+    return async function rateLimitMiddleware(request: NextRequest) {
+      const pathname = request.nextUrl.pathname;
+      
+      // Skip rate limiting for certain paths
+      const skipPaths = [
+        '/_next',
+        '/api/health',
+        '/favicon.ico',
+        '/robots.txt',
+        ...(config.skipPaths || []),
+      ];
+      
+      if (skipPaths.some(path => pathname.startsWith(path))) {
+        return NextResponse.next();
+      }
+      
+      try {
+        // Extract healthcare context
+        const context = config.customContextExtractor 
+          ? await config.customContextExtractor(request)
+          : await extractHealthcareContext(request);
+        
+        // Check emergency bypass
+        if (config.emergencyBypassHeader) {
+          const emergencyHeader = request.headers.get(config.emergencyBypassHeader);
+          if (emergencyHeader === 'true' && context.userRole === 'emergency') {
+            context.emergencyOverride = true;
+          }
+        }
+        
+        // Perform rate limit check
+        const result = await healthcareRateLimiter.checkLimit(request, context);
+        
+        if (!result.success) {
+          // Rate limit exceeded
+          const response = NextResponse.json(
+            {
+              error: 'Rate limit exceeded',
+              message: 'Too many requests. Please try again later.',
+              retryAfter: result.retryAfter,
+              limit: result.limit,
+              remaining: result.remaining,
+              reset: result.reset.toISOString(),
+            },
+            { status: 429 }
+          );
+          
+          // Add rate limit headers
+          response.headers.set('X-RateLimit-Limit', result.limit.toString());
+          response.headers.set('X-RateLimit-Remaining', result.remaining.toString());
+          response.headers.set('X-RateLimit-Reset', result.reset.getTime().toString());
+          
+          if (result.retryAfter) {
+            response.headers.set('Retry-After', result.retryAfter.toString());
+          }
+          
+          return response;
+        }
+        
+        // Rate limit passed - add headers and continue
+        const response = NextResponse.next();
+        response.headers.set('X-RateLimit-Limit', result.limit.toString());
+        response.headers.set('X-RateLimit-Remaining', result.remaining.toString());
+        response.headers.set('X-RateLimit-Reset', result.reset.getTime().toString());
+        
+        return response;
+      } catch (error) {
+        console.error('Rate limit middleware error:', error);
+        
+        // Fail open - don't block requests if rate limiting fails
+        return NextResponse.next();
+      }
+    };
+  }
+  
+  async function extractHealthcareContext(request: NextRequest): Promise<HealthcareRateLimitContext> {
+    const context: HealthcareRateLimitContext = {};
+    
+    try {
+      // Extract user information from authentication
+      const { user } = await auth();
+      
+      if (user) {
+        // Map Clerk roles to healthcare roles
+        const role = user.publicMetadata?.role as string;
+        context.userRole = mapToHealthcareRole(role);
+        
+        // Extract organization ID
+        const orgMembership = user.organizationMemberships?.[0];
+        if (orgMembership) {
+          context.organizationId = orgMembership.organization.id;
+        }
+        
+        // Extract provider/patient ID from user metadata
+        if (context.userRole === 'provider') {
+          context.providerId = user.publicMetadata?.providerId as string;
+        } else if (context.userRole === 'patient') {
+          context.patientId = user.id;
+        }
+      }
+      
+      // Determine workflow type from request path
+      const pathname = request.nextUrl.pathname;
+      context.workflowType = determineWorkflowType(pathname);
+      
+      // Check for emergency override header
+      const emergencyHeader = request.headers.get('X-Emergency-Override');
+      if (emergencyHeader === 'true') {
+        context.emergencyOverride = true;
+      }
+      
+    } catch (error) {
+      console.error('Failed to extract healthcare context:', error);
+    }
+    
+    return context;
+  }
+  
+  function mapToHealthcareRole(clerkRole?: string): HealthcareRateLimitContext['userRole'] {
+    switch (clerkRole) {
+      case 'doctor':
+      case 'nurse':
+      case 'provider':
+        return 'provider';
+      case 'patient':
+        return 'patient';
+      case 'admin':
+      case 'super_admin':
+        return 'admin';
+      case 'emergency':
+        return 'emergency';
+      default:
+        return 'patient'; // Default to most restrictive
+    }
+  }
+  
+  function determineWorkflowType(pathname: string): HealthcareRateLimitContext['workflowType'] {
+    if (pathname.includes('/appointment')) {
+      return 'appointment';
+    }
+    if (pathname.includes('/prescription')) {
+      return 'prescription';
+    }
+    if (pathname.includes('/emergency')) {
+      return 'emergency';
+    }
+    
+    return 'general';
+  }
+  
+  // Usage in middleware.ts
+  export const rateLimitMiddleware = createRateLimitMiddleware({
+    skipPaths: ['/api/webhooks'],
+    emergencyBypassHeader: 'X-Emergency-Override',
+  });
+  ```
+</Tab>
+
+<Tab title="API Route Protection">
+  **Purpose**: Protect specific API routes with custom rate limiting
+  
+  ```typescript
+  // src/api/rate-limit-wrapper.ts
+  import { NextRequest, NextResponse } from 'next/server';
+  import { healthcareRateLimiter, HealthcareRateLimitContext } from '../core/rate-limiter';
+  
+  export interface APIRateLimitConfig {
+    requests: number;
+    window: string;
+    keyGenerator?: (req: NextRequest) => string;
+    contextExtractor?: (req: NextRequest) => Promise<HealthcareRateLimitContext>;
+    onLimitExceeded?: (req: NextRequest, context: HealthcareRateLimitContext) => NextResponse;
+  }
+  
+  export function withRateLimit(
+    handler: (req: NextRequest) => Promise<NextResponse>,
+    config: APIRateLimitConfig
+  ) {
+    return async function rateLimitedHandler(req: NextRequest): Promise<NextResponse> {
+      try {
+        // Extract context
+        const context = config.contextExtractor 
+          ? await config.contextExtractor(req)
+          : {};
+        
+        // Check rate limit
+        const result = await healthcareRateLimiter.checkLimit(req, context);
+        
+        if (!result.success) {
+          // Rate limit exceeded
+          if (config.onLimitExceeded) {
+            return config.onLimitExceeded(req, context);
+          }
+          
+          return NextResponse.json(
+            {
+              error: 'Rate limit exceeded',
+              message: 'Too many requests. Please try again later.',
+              retryAfter: result.retryAfter,
+            },
+            { 
+              status: 429,
+              headers: {
+                'X-RateLimit-Limit': result.limit.toString(),
+                'X-RateLimit-Remaining': result.remaining.toString(),
+                'X-RateLimit-Reset': result.reset.getTime().toString(),
+                'Retry-After': result.retryAfter?.toString() || '60',
+              },
+            }
+          );
+        }
+        
+        // Rate limit passed - execute handler
+        const response = await handler(req);
+        
+        // Add rate limit headers to response
+        response.headers.set('X-RateLimit-Limit', result.limit.toString());
+        response.headers.set('X-RateLimit-Remaining', result.remaining.toString());
+        response.headers.set('X-RateLimit-Reset', result.reset.getTime().toString());
+        
+        return response;
+      } catch (error) {
+        console.error('Rate limit wrapper error:', error);
+        
+        // Fail open - execute handler without rate limiting
+        return handler(req);
+      }
+    };
+  }
+  
+  // Specialized wrappers for healthcare endpoints
+  export function withAuthRateLimit(handler: (req: NextRequest) => Promise<NextResponse>) {
+    return withRateLimit(handler, {
+      requests: 10,
+      window: '15m',
+      contextExtractor: async (req) => ({
+        workflowType: 'general',
+        userRole: 'patient', // Most restrictive for auth endpoints
+      }),
+      onLimitExceeded: (req, context) => {
+        // Log potential brute force attempt
+        console.warn('Authentication rate limit exceeded:', {
+          ip: req.ip || req.headers.get('x-forwarded-for'),
+          userAgent: req.headers.get('user-agent'),
+          timestamp: new Date().toISOString(),
+        });
+        
+        return NextResponse.json(
+          {
+            error: 'Too many authentication attempts',
+            message: 'Please wait before trying again.',
+          },
+          { status: 429 }
+        );
+      },
+    });
+  }
+  
+  export function withPrescriptionRateLimit(handler: (req: NextRequest) => Promise<NextResponse>) {
+    return withRateLimit(handler, {
+      requests: 50,
+      window: '1h',
+      contextExtractor: async (req) => {
+        // Extract provider/patient context from request
+        const body = await req.json().catch(() => ({}));
+        
+        return {
+          workflowType: 'prescription',
+          providerId: body.providerId,
+          patientId: body.patientId,
+          organizationId: body.organizationId,
+        };
+      },
+    });
+  }
+  
+  export function withAppointmentRateLimit(handler: (req: NextRequest) => Promise<NextResponse>) {
+    return withRateLimit(handler, {
+      requests: 20,
+      window: '1h',
+      contextExtractor: async (req) => {
+        const body = await req.json().catch(() => ({}));
+        
+        return {
+          workflowType: 'appointment',
+          patientId: body.patientId,
+          providerId: body.providerId,
+          organizationId: body.organizationId,
+        };
+      },
+    });
+  }
+  
+  // Usage examples:
+  
+  // app/api/auth/signin/route.ts
+  export const POST = withAuthRateLimit(async (req: NextRequest) => {
+    // Authentication logic here
+    return NextResponse.json({ success: true });
+  });
+  
+  // app/api/prescriptions/route.ts
+  export const POST = withPrescriptionRateLimit(async (req: NextRequest) => {
+    // Prescription creation logic here
+    return NextResponse.json({ success: true });
+  });
+  
+  // app/api/appointments/route.ts
+  export const POST = withAppointmentRateLimit(async (req: NextRequest) => {
+    // Appointment booking logic here
+    return NextResponse.json({ success: true });
+  });
+  ```
+</Tab>
+</Tabs>
+
+## React Hooks and Components
+
+### Client-Side Rate Limiting
+
+<AccordionGroup>
+<Accordion title="Rate Limit Hooks">
+  ```typescript
+  // src/hooks/use-rate-limit.ts
+  import { useState, useCallback, useEffect } from 'react';
+  
+  export interface ClientRateLimitConfig {
+    requests: number;
+    windowMs: number;
+    storageKey?: string;
+  }
+  
+  export interface RateLimitState {
+    remaining: number;
+    resetTime: number;
+    isLimited: boolean;
+  }
+  
+  export function useClientRateLimit(config: ClientRateLimitConfig) {
+    const [state, setState] = useState<RateLimitState>({
+      remaining: config.requests,
+      resetTime: Date.now() + config.windowMs,
+      isLimited: false,
+    });
+    
+    const storageKey = config.storageKey || 'waylio-rate-limit';
+    
+    // Load state from localStorage on mount
+    useEffect(() => {
+      try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+          const parsedState = JSON.parse(stored);
+          
+          // Check if window has expired
+          if (Date.now() > parsedState.resetTime) {
+            // Reset the rate limit
+            const newState = {
+              remaining: config.requests,
+              resetTime: Date.now() + config.windowMs,
+              isLimited: false,
+            };
+            setState(newState);
+            localStorage.setItem(storageKey, JSON.stringify(newState));
+          } else {
+            setState(parsedState);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load rate limit state:', error);
+      }
+    }, [config.requests, config.windowMs, storageKey]);
+    
+    const checkLimit = useCallback(() => {
+      const now = Date.now();
+      
+      // Check if window has expired
+      if (now > state.resetTime) {
+        const newState = {
+          remaining: config.requests - 1,
+          resetTime: now + config.windowMs,
+          isLimited: false,
+        };
+        setState(newState);
+        localStorage.setItem(storageKey, JSON.stringify(newState));
+        return true;
+      }
+      
+      // Check if we have remaining requests
+      if (state.remaining > 0) {
+        const newState = {
+          ...state,
+          remaining: state.remaining - 1,
+          isLimited: state.remaining - 1 <= 0,
+        };
+        setState(newState);
+        localStorage.setItem(storageKey, JSON.stringify(newState));
+        return true;
+      }
+      
+      return false;
+    }, [state, config.requests, config.windowMs, storageKey]);
+    
+    const reset = useCallback(() => {
+      const newState = {
+        remaining: config.requests,
+        resetTime: Date.now() + config.windowMs,
+        isLimited: false,
+      };
+      setState(newState);
+      localStorage.setItem(storageKey, JSON.stringify(newState));
+    }, [config.requests, config.windowMs, storageKey]);
+    
+    const timeUntilReset = Math.max(0, state.resetTime - Date.now());
+    
+    return {
+      ...state,
+      timeUntilReset,
+      checkLimit,
+      reset,
+    };
+  }
+  
+  // Hook for API request rate limiting
+  export function useAPIRateLimit(endpoint: string, config: ClientRateLimitConfig) {
+    const rateLimit = useClientRateLimit({
+      ...config,
+      storageKey: `waylio-rate-limit-${endpoint}`,
+    });
+    
+    const makeRequest = useCallback(async <T>(
+      requestFn: () => Promise<T>
+    ): Promise<T | null> => {
+      if (!rateLimit.checkLimit()) {
+        console.warn(`Rate limit exceeded for ${endpoint}`);
+        return null;
+      }
+      
+      try {
+        return await requestFn();
+      } catch (error) {
+        console.error(`API request failed for ${endpoint}:`, error);
+        throw error;
+      }
+    }, [rateLimit, endpoint]);
+    
+    return {
+      ...rateLimit,
+      makeRequest,
+    };
+  }
+  
+  // Hook for healthcare-specific rate limiting
+  export function useHealthcareRateLimit(workflowType: 'appointment' | 'prescription' | 'general') {
+    const configs = {
+      appointment: { requests: 5, windowMs: 60 * 60 * 1000 }, // 5 per hour
+      prescription: { requests: 10, windowMs: 60 * 60 * 1000 }, // 10 per hour
+      general: { requests: 50, windowMs: 60 * 60 * 1000 }, // 50 per hour
+    };
+    
+    return useClientRateLimit({
+      ...configs[workflowType],
+      storageKey: `waylio-healthcare-rate-limit-${workflowType}`,
+    });
+  }
+  ```
+</Accordion>
+
+<Accordion title="Rate Limit Components">
+  ```typescript
+  // src/components/rate-limit-components.tsx
+  import React from 'react';
+  import { useHealthcareRateLimit } from '../hooks/use-rate-limit';
+  
+  interface RateLimitGuardProps {
+    workflowType: 'appointment' | 'prescription' | 'general';
+    children: React.ReactNode;
+    fallback?: React.ReactNode;
+    onLimitExceeded?: () => void;
+  }
+  
+  export function RateLimitGuard({
+    workflowType,
+    children,
+    fallback,
+    onLimitExceeded,
+  }: RateLimitGuardProps) {
+    const rateLimit = useHealthcareRateLimit(workflowType);
+    
+    React.useEffect(() => {
+      if (rateLimit.isLimited && onLimitExceeded) {
+        onLimitExceeded();
+      }
+    }, [rateLimit.isLimited, onLimitExceeded]);
+    
+    if (rateLimit.isLimited) {
+      return (
+        fallback || (
+          <RateLimitExceededMessage
+            workflowType={workflowType}
+            timeUntilReset={rateLimit.timeUntilReset}
+          />
+        )
+      );
+    }
+    
+    return <>{children}</>;
+  }
+  
+  interface RateLimitExceededMessageProps {
+    workflowType: string;
+    timeUntilReset: number;
+  }
+  
+  function RateLimitExceededMessage({
+    workflowType,
+    timeUntilReset,
+  }: RateLimitExceededMessageProps) {
+    const minutes = Math.ceil(timeUntilReset / (1000 * 60));
+    
+    return (
+      <div className="rate-limit-exceeded">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg
+                className="h-5 w-5 text-yellow-400"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-yellow-800">
+                Rate Limit Exceeded
+              </h3>
+              <div className="mt-2 text-sm text-yellow-700">
+                <p>
+                  You've reached the limit for {workflowType} requests. 
+                  Please wait {minutes} minute{minutes !== 1 ? 's' : ''} before trying again.
+                </p>
+                <p className="mt-1">
+                  This limit helps us ensure system stability and security for all users.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  interface RateLimitStatusProps {
+    workflowType: 'appointment' | 'prescription' | 'general';
+    showDetails?: boolean;
+  }
+  
+  export function RateLimitStatus({ workflowType, showDetails = false }: RateLimitStatusProps) {
+    const rateLimit = useHealthcareRateLimit(workflowType);
+    
+    if (!showDetails && !rateLimit.isLimited) {
+      return null;
+    }
+    
+    const percentage = (rateLimit.remaining / (rateLimit.remaining + (5 - rateLimit.remaining))) * 100;
+    
+    return (
+      <div className="rate-limit-status">
+        <div className="flex items-center justify-between text-sm text-gray-600">
+          <span>Requests remaining</span>
+          <span>{rateLimit.remaining}</span>
+        </div>
+        
+        <div className="mt-1 bg-gray-200 rounded-full h-2">
+          <div
+            className={`h-2 rounded-full transition-all duration-300 ${
+              percentage > 50 ? 'bg-green-500' :
+              percentage > 25 ? 'bg-yellow-500' : 'bg-red-500'
+            }`}
+            style={{ width: `${percentage}%` }}
+          />
+        </div>
+        
+        {rateLimit.isLimited && (
+          <p className="mt-1 text-xs text-red-600">
+            Resets in {Math.ceil(rateLimit.timeUntilReset / (1000 * 60))} minutes
+          </p>
+        )}
+      </div>
+    );
+  }
+  
+  // Usage examples:
+  
+  export function AppointmentBookingForm() {
+    return (
+      <RateLimitGuard workflowType="appointment">
+        <form>
+          {/* Appointment booking form */}
+          <RateLimitStatus workflowType="appointment" showDetails />
+        </form>
+      </RateLimitGuard>
+    );
+  }
+  
+  export function PrescriptionRequestForm() {
+    return (
+      <RateLimitGuard 
+        workflowType="prescription"
+        onLimitExceeded={() => {
+          // Track rate limit exceeded event
+          console.log('Prescription rate limit exceeded');
+        }}
+      >
+        <form>
+          {/* Prescription request form */}
+        </form>
+      </RateLimitGuard>
+    );
+  }
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Development
+
+### Setup and Configuration
+
+<Steps>
+<Step title="Environment Variables">
+  ```bash
+  # Upstash Redis configuration
+  UPSTASH_REDIS_REST_URL="https://..."
+  UPSTASH_REDIS_REST_TOKEN="..."
+  
+  # Rate limiting configuration
+  RATE_LIMIT_ENABLED="true"
+  RATE_LIMIT_EMERGENCY_BYPASS_KEY="emergency-bypass-secret"
+  ```
+</Step>
+
+<Step title="Middleware Setup">
+  ```typescript
+  // middleware.ts
+  import { rateLimitMiddleware } from '@repo/rate-limit';
+  
+  export default rateLimitMiddleware;
+  
+  export const config = {
+    matcher: [
+      '/((?!_next/static|_next/image|favicon.ico).*)',
+    ],
+  };
+  ```
+</Step>
+
+<Step title="API Route Protection">
+  ```typescript
+  // app/api/example/route.ts
+  import { withRateLimit } from '@repo/rate-limit';
+  
+  export const POST = withRateLimit(
+    async (req) => {
+      // Your API logic here
+      return Response.json({ success: true });
+    },
+    {
+      requests: 10,
+      window: '1m',
+    }
+  );
+  ```
+</Step>
+</Steps>
+
+## Best Practices
+
+### Rate Limiting Guidelines
+
+<AccordionGroup>
+<Accordion title="Healthcare Considerations">
+  - Implement emergency bypass mechanisms for critical situations
+  - Use role-based rate limits appropriate for healthcare workflows
+  - Ensure rate limits don't interfere with patient care
+  - Log all rate limiting events for compliance and monitoring
+  - Provide clear error messages for rate limit exceeded scenarios
+</Accordion>
+
+<Accordion title="Security Best Practices">
+  - Use distributed rate limiting for multi-instance deployments
+  - Implement progressive penalties for repeated violations
+  - Monitor for potential abuse patterns
+  - Use IP-based limits as fallback for unauthenticated requests
+  - Regularly review and adjust rate limits based on usage patterns
+</Accordion>
+
+<Accordion title="Performance Optimization">
+  - Use Redis for high-performance rate limiting
+  - Implement efficient key generation strategies
+  - Cache rate limit status to reduce Redis calls
+  - Use sliding window algorithms for smoother rate limiting
+  - Monitor rate limiter performance and adjust as needed
+</Accordion>
+</AccordionGroup>
+
+<Note>
+Rate limiting in healthcare applications requires careful balance between security and accessibility. Always ensure critical healthcare workflows can function even under rate limiting constraints.
+</Note>

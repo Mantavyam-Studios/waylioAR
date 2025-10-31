@@ -1,0 +1,1156 @@
+---
+title: "Database Package"
+description: "Prisma-based database layer with PostgreSQL, providing type-safe database access, migrations, and healthcare-specific schema design."
+---
+
+# Database Package
+
+The database package provides a comprehensive data layer for the Waylio platform, built on Prisma ORM with PostgreSQL. It includes healthcare-specific schema design, type-safe database access, and robust migration management.
+
+## Installation
+
+```bash
+# Install the database package
+pnpm add @repo/database
+
+# Peer dependencies (automatically installed in monorepo)
+pnpm add prisma @prisma/client
+```
+
+## Overview
+
+The database package centralizes all data access patterns, schema definitions, and database utilities across the Waylio platform. It's designed with healthcare compliance, multi-tenancy, and performance in mind.
+
+### Key Features
+
+<CardGroup cols={2}>
+<Card title="Type-Safe Queries" icon="shield-check">
+  Full TypeScript support with auto-generated types from your database schema.
+</Card>
+
+<Card title="Healthcare Schema" icon="heart-pulse">
+  Purpose-built schema for healthcare operations including HIPAA compliance features.
+</Card>
+
+<Card title="Multi-Tenant Support" icon="building">
+  Organization-level data isolation with row-level security and tenant-aware queries.
+</Card>
+
+<Card title="Migration Management" icon="database">
+  Robust migration system with rollback support and environment-specific configurations.
+</Card>
+</CardGroup>
+
+## Database Client
+
+### Basic Usage
+
+<Tabs>
+<Tab title="Client Setup">
+  ```typescript
+  // lib/database.ts
+  import { PrismaClient } from '@prisma/client';
+  
+  const globalForPrisma = globalThis as unknown as {
+    prisma: PrismaClient | undefined;
+  };
+  
+  export const database = globalForPrisma.prisma ?? new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL,
+      },
+    },
+  });
+  
+  if (process.env.NODE_ENV !== 'production') {
+    globalForPrisma.prisma = database;
+  }
+  
+  // Export typed client
+  export type Database = typeof database;
+  export * from '@prisma/client';
+  ```
+</Tab>
+
+<Tab title="Query Examples">
+  ```typescript
+  import { database } from '@repo/database';
+  
+  // Create a patient
+  export async function createPatient(data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    organizationId: string;
+  }) {
+    return await database.patient.create({
+      data: {
+        ...data,
+        mrn: await generateMRN(data.organizationId),
+      },
+      include: {
+        organization: true,
+        medicalHistory: true,
+      },
+    });
+  }
+  
+  // Get patients with appointments
+  export async function getPatientsWithAppointments(organizationId: string) {
+    return await database.patient.findMany({
+      where: {
+        organizationId,
+      },
+      include: {
+        appointments: {
+          where: {
+            scheduledAt: {
+              gte: new Date(),
+            },
+          },
+          include: {
+            provider: {
+              select: {
+                firstName: true,
+                lastName: true,
+                specialization: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        lastName: 'asc',
+      },
+    });
+  }
+  
+  // Complex query with aggregations
+  export async function getQueueAnalytics(providerId: string, date: Date) {
+    return await database.queue.aggregate({
+      where: {
+        providerId,
+        createdAt: {
+          gte: startOfDay(date),
+          lte: endOfDay(date),
+        },
+      },
+      _avg: {
+        estimatedWaitTime: true,
+        actualWaitTime: true,
+      },
+      _count: {
+        id: true,
+      },
+      _max: {
+        estimatedWaitTime: true,
+      },
+    });
+  }
+  ```
+</Tab>
+
+<Tab title="Transaction Support">
+  ```typescript
+  import { database } from '@repo/database';
+  
+  // Atomic appointment booking
+  export async function bookAppointment(data: {
+    patientId: string;
+    providerId: string;
+    scheduledAt: Date;
+    duration: number;
+  }) {
+    return await database.$transaction(async (tx) => {
+      // Check for conflicts
+      const existingAppointment = await tx.appointment.findFirst({
+        where: {
+          providerId: data.providerId,
+          scheduledAt: {
+            gte: data.scheduledAt,
+            lt: new Date(data.scheduledAt.getTime() + data.duration * 60000),
+          },
+          status: {
+            not: 'cancelled',
+          },
+        },
+      });
+      
+      if (existingAppointment) {
+        throw new Error('Time slot is already booked');
+      }
+      
+      // Create appointment
+      const appointment = await tx.appointment.create({
+        data,
+        include: {
+          patient: true,
+          provider: true,
+        },
+      });
+      
+      // Add to queue
+      const queuePosition = await tx.queue.count({
+        where: {
+          providerId: data.providerId,
+          status: 'waiting',
+        },
+      });
+      
+      await tx.queue.create({
+        data: {
+          appointmentId: appointment.id,
+          providerId: data.providerId,
+          position: queuePosition + 1,
+          estimatedWaitTime: calculateWaitTime(queuePosition + 1),
+          status: 'waiting',
+        },
+      });
+      
+      return appointment;
+    });
+  }
+  ```
+</Tab>
+</Tabs>
+
+## Schema Design
+
+### Core Healthcare Entities
+
+<AccordionGroup>
+<Accordion title="User Management Schema">
+  ```prisma
+  // User and organization models
+  model User {
+    id        String   @id @default(cuid())
+    clerkId   String   @unique
+    email     String   @unique
+    firstName String
+    lastName  String
+    avatar    String?
+    
+    // Organization relationship
+    organizationId String
+    organization   Organization @relation(fields: [organizationId], references: [id])
+    
+    // Role and permissions
+    roleId String
+    role   Role   @relation(fields: [roleId], references: [id])
+    
+    // Healthcare provider specific fields
+    specialization String?
+    licenseNumber  String?
+    npiNumber      String?
+    
+    // Audit fields
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    // Relations
+    appointments     Appointment[]
+    prescriptions    Prescription[]
+    auditLogs        AuditLog[]
+    
+    @@map("users")
+  }
+  
+  model Organization {
+    id   String @id @default(cuid())
+    name String
+    slug String @unique
+    
+    // Branding
+    logo     String?
+    colors   Json?
+    settings Json?
+    
+    // Subscription
+    subscriptionTier   String @default("basic")
+    subscriptionStatus String @default("active")
+    
+    // Audit fields
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    // Relations
+    users        User[]
+    patients     Patient[]
+    appointments Appointment[]
+    locations    Location[]
+    
+    @@map("organizations")
+  }
+  
+  model Role {
+    id          String @id @default(cuid())
+    name        String
+    description String?
+    permissions Json   // Array of permission strings
+    
+    // Relations
+    users User[]
+    
+    @@map("roles")
+  }
+  ```
+</Accordion>
+
+<Accordion title="Patient Management Schema">
+  ```prisma
+  model Patient {
+    id  String @id @default(cuid())
+    mrn String @unique // Medical Record Number
+    
+    // Personal information
+    firstName   String
+    lastName    String
+    dateOfBirth DateTime
+    gender      String
+    phone       String
+    email       String?
+    
+    // Address (stored as JSON for flexibility)
+    address Json?
+    
+    // Emergency contact
+    emergencyContact Json?
+    
+    // Insurance information
+    insurance Json?
+    
+    // Organization relationship (multi-tenant)
+    organizationId String
+    organization   Organization @relation(fields: [organizationId], references: [id])
+    
+    // Audit fields
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    // Relations
+    appointments    Appointment[]
+    prescriptions   Prescription[]
+    medicalHistory  MedicalHistory[]
+    
+    @@map("patients")
+  }
+  
+  model MedicalHistory {
+    id String @id @default(cuid())
+    
+    // Patient relationship
+    patientId String
+    patient   Patient @relation(fields: [patientId], references: [id])
+    
+    // Medical information
+    condition     String
+    diagnosedDate DateTime
+    status        String // active, resolved, chronic
+    notes         String?
+    
+    // Provider who diagnosed
+    providerId String
+    provider   User   @relation(fields: [providerId], references: [id])
+    
+    // Audit fields
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    @@map("medical_history")
+  }
+  ```
+</Accordion>
+
+<Accordion title="Appointment & Queue Schema">
+  ```prisma
+  model Appointment {
+    id String @id @default(cuid())
+    
+    // Relationships
+    patientId String
+    patient   Patient @relation(fields: [patientId], references: [id])
+    
+    providerId String
+    provider   User   @relation(fields: [providerId], references: [id])
+    
+    appointmentTypeId String
+    appointmentType   AppointmentType @relation(fields: [appointmentTypeId], references: [id])
+    
+    // Scheduling
+    scheduledAt DateTime
+    duration    Int      // minutes
+    status      String   @default("scheduled") // scheduled, confirmed, in-progress, completed, cancelled
+    
+    // Additional information
+    notes              String?
+    confirmationNumber String  @unique
+    
+    // Organization (multi-tenant)
+    organizationId String
+    organization   Organization @relation(fields: [organizationId], references: [id])
+    
+    // Audit fields
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    // Relations
+    queue Queue?
+    
+    @@map("appointments")
+  }
+  
+  model Queue {
+    id String @id @default(cuid())
+    
+    // Appointment relationship
+    appointmentId String      @unique
+    appointment   Appointment @relation(fields: [appointmentId], references: [id])
+    
+    // Provider relationship
+    providerId String
+    provider   User   @relation(fields: [providerId], references: [id])
+    
+    // Queue information
+    position            Int
+    estimatedWaitTime   Int? // minutes
+    actualWaitTime      Int? // minutes (calculated after completion)
+    status              String @default("waiting") // waiting, called, in-progress, completed
+    
+    // Timestamps
+    checkedInAt DateTime?
+    calledAt    DateTime?
+    completedAt DateTime?
+    
+    // Audit fields
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    @@map("queue")
+  }
+  
+  model AppointmentType {
+    id          String @id @default(cuid())
+    name        String
+    description String?
+    duration    Int    // default duration in minutes
+    color       String @default("#3b82f6")
+    
+    // Relations
+    appointments Appointment[]
+    
+    @@map("appointment_types")
+  }
+  ```
+</Accordion>
+
+<Accordion title="Prescription Schema">
+  ```prisma
+  model Prescription {
+    id String @id @default(cuid())
+    
+    // Relationships
+    patientId String
+    patient   Patient @relation(fields: [patientId], references: [id])
+    
+    providerId String
+    provider   User   @relation(fields: [providerId], references: [id])
+    
+    pharmacyId String?
+    pharmacy   Pharmacy? @relation(fields: [pharmacyId], references: [id])
+    
+    // Prescription details
+    prescriptionNumber String   @unique
+    status             String   @default("pending") // pending, sent, filled, picked-up
+    issuedAt           DateTime @default(now())
+    expiresAt          DateTime
+    refillsRemaining   Int      @default(0)
+    
+    // Organization (multi-tenant)
+    organizationId String
+    organization   Organization @relation(fields: [organizationId], references: [id])
+    
+    // Audit fields
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    // Relations
+    items PrescriptionItem[]
+    
+    @@map("prescriptions")
+  }
+  
+  model PrescriptionItem {
+    id String @id @default(cuid())
+    
+    // Prescription relationship
+    prescriptionId String
+    prescription   Prescription @relation(fields: [prescriptionId], references: [id])
+    
+    // Medication relationship
+    medicationId String
+    medication   Medication @relation(fields: [medicationId], references: [id])
+    
+    // Dosage information
+    dosage       String
+    frequency    String
+    duration     String
+    quantity     Int
+    instructions String?
+    
+    // Audit fields
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    @@map("prescription_items")
+  }
+  
+  model Medication {
+    id          String @id @default(cuid())
+    name        String
+    genericName String?
+    strength    String
+    form        String // tablet, capsule, liquid, etc.
+    
+    // Drug information
+    ndcNumber   String? // National Drug Code
+    description String?
+    warnings    Json?   // Array of warning strings
+    
+    // Relations
+    prescriptionItems PrescriptionItem[]
+    
+    @@map("medications")
+  }
+  
+  model Pharmacy {
+    id      String @id @default(cuid())
+    name    String
+    address Json
+    phone   String
+    email   String?
+    
+    // Relations
+    prescriptions Prescription[]
+    
+    @@map("pharmacies")
+  }
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Database Utilities
+
+### Query Helpers
+
+<Tabs>
+<Tab title="Multi-Tenant Queries">
+  ```typescript
+  // utils/tenant-queries.ts
+  import { database } from '@repo/database';
+  
+  export class TenantQueries {
+    constructor(private organizationId: string) {}
+    
+    // Patient queries with automatic tenant filtering
+    async getPatients(filters?: {
+      search?: string;
+      status?: string;
+      limit?: number;
+      offset?: number;
+    }) {
+      const where = {
+        organizationId: this.organizationId,
+        ...(filters?.search && {
+          OR: [
+            { firstName: { contains: filters.search, mode: 'insensitive' } },
+            { lastName: { contains: filters.search, mode: 'insensitive' } },
+            { email: { contains: filters.search, mode: 'insensitive' } },
+            { mrn: { contains: filters.search, mode: 'insensitive' } },
+          ],
+        }),
+      };
+      
+      return await database.patient.findMany({
+        where,
+        take: filters?.limit || 50,
+        skip: filters?.offset || 0,
+        include: {
+          appointments: {
+            where: {
+              scheduledAt: { gte: new Date() },
+            },
+            take: 1,
+            orderBy: { scheduledAt: 'asc' },
+          },
+        },
+        orderBy: { lastName: 'asc' },
+      });
+    }
+    
+    // Appointment queries with tenant filtering
+    async getAppointments(filters?: {
+      providerId?: string;
+      date?: Date;
+      status?: string;
+    }) {
+      return await database.appointment.findMany({
+        where: {
+          organizationId: this.organizationId,
+          ...(filters?.providerId && { providerId: filters.providerId }),
+          ...(filters?.date && {
+            scheduledAt: {
+              gte: startOfDay(filters.date),
+              lte: endOfDay(filters.date),
+            },
+          }),
+          ...(filters?.status && { status: filters.status }),
+        },
+        include: {
+          patient: true,
+          provider: {
+            select: {
+              firstName: true,
+              lastName: true,
+              specialization: true,
+            },
+          },
+          queue: true,
+        },
+        orderBy: { scheduledAt: 'asc' },
+      });
+    }
+  }
+  
+  // Usage
+  export function useTenantQueries(organizationId: string) {
+    return new TenantQueries(organizationId);
+  }
+  ```
+</Tab>
+
+<Tab title="Audit Logging">
+  ```typescript
+  // utils/audit-logger.ts
+  import { database } from '@repo/database';
+  
+  export interface AuditLogData {
+    userId: string;
+    action: string;
+    resource: string;
+    resourceId?: string;
+    organizationId: string;
+    details?: any;
+    ipAddress?: string;
+    userAgent?: string;
+  }
+  
+  export class AuditLogger {
+    static async log(data: AuditLogData) {
+      return await database.auditLog.create({
+        data: {
+          ...data,
+          timestamp: new Date(),
+          details: data.details ? JSON.stringify(data.details) : null,
+        },
+      });
+    }
+    
+    static async logPatientAccess(
+      userId: string,
+      patientId: string,
+      action: 'VIEW' | 'EDIT' | 'CREATE' | 'DELETE',
+      organizationId: string,
+      details?: any
+    ) {
+      return await this.log({
+        userId,
+        action,
+        resource: 'PATIENT',
+        resourceId: patientId,
+        organizationId,
+        details,
+      });
+    }
+    
+    static async logPrescriptionAction(
+      userId: string,
+      prescriptionId: string,
+      action: 'CREATE' | 'APPROVE' | 'FILL' | 'CANCEL',
+      organizationId: string,
+      details?: any
+    ) {
+      return await this.log({
+        userId,
+        action,
+        resource: 'PRESCRIPTION',
+        resourceId: prescriptionId,
+        organizationId,
+        details,
+      });
+    }
+    
+    static async getAuditTrail(
+      resourceType: string,
+      resourceId: string,
+      organizationId: string
+    ) {
+      return await database.auditLog.findMany({
+        where: {
+          resource: resourceType,
+          resourceId,
+          organizationId,
+        },
+        include: {
+          user: {
+            select: {
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: { timestamp: 'desc' },
+      });
+    }
+  }
+  ```
+</Tab>
+
+<Tab title="Data Validation">
+  ```typescript
+  // utils/validators.ts
+  import { z } from 'zod';
+  
+  // Patient validation schema
+  export const PatientSchema = z.object({
+    firstName: z.string().min(1, 'First name is required'),
+    lastName: z.string().min(1, 'Last name is required'),
+    dateOfBirth: z.date().max(new Date(), 'Date of birth cannot be in the future'),
+    gender: z.enum(['Male', 'Female', 'Other', 'Prefer not to say']),
+    phone: z.string().regex(/^\+?[\d\s\-\(\)]+$/, 'Invalid phone number'),
+    email: z.string().email().optional().or(z.literal('')),
+    organizationId: z.string().cuid(),
+  });
+  
+  // Appointment validation schema
+  export const AppointmentSchema = z.object({
+    patientId: z.string().cuid(),
+    providerId: z.string().cuid(),
+    appointmentTypeId: z.string().cuid(),
+    scheduledAt: z.date().min(new Date(), 'Appointment must be in the future'),
+    duration: z.number().min(15).max(480), // 15 minutes to 8 hours
+    notes: z.string().optional(),
+    organizationId: z.string().cuid(),
+  });
+  
+  // Prescription validation schema
+  export const PrescriptionSchema = z.object({
+    patientId: z.string().cuid(),
+    providerId: z.string().cuid(),
+    pharmacyId: z.string().cuid().optional(),
+    expiresAt: z.date().min(new Date(), 'Expiration must be in the future'),
+    refillsRemaining: z.number().min(0).max(12),
+    organizationId: z.string().cuid(),
+    items: z.array(z.object({
+      medicationId: z.string().cuid(),
+      dosage: z.string().min(1),
+      frequency: z.string().min(1),
+      duration: z.string().min(1),
+      quantity: z.number().min(1),
+      instructions: z.string().optional(),
+    })).min(1, 'At least one medication is required'),
+  });
+  
+  // Validation helper
+  export function validateData<T>(schema: z.ZodSchema<T>, data: unknown): T {
+    const result = schema.safeParse(data);
+    
+    if (!result.success) {
+      throw new Error(`Validation failed: ${result.error.message}`);
+    }
+    
+    return result.data;
+  }
+  ```
+</Tab>
+</Tabs>
+
+## Migration Management
+
+### Migration Workflow
+
+<Steps>
+<Step title="Create Migration">
+  ```bash
+  # Create a new migration
+  pnpm db:migrate dev --name add_patient_allergies
+  
+  # This creates a new migration file in prisma/migrations/
+  ```
+</Step>
+
+<Step title="Review Migration">
+  ```sql
+  -- Example migration file: 20240201000000_add_patient_allergies/migration.sql
+  
+  -- CreateTable
+  CREATE TABLE "patient_allergies" (
+      "id" TEXT NOT NULL,
+      "patient_id" TEXT NOT NULL,
+      "allergen" TEXT NOT NULL,
+      "severity" TEXT NOT NULL,
+      "reaction" TEXT,
+      "notes" TEXT,
+      "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updated_at" TIMESTAMP(3) NOT NULL,
+  
+      CONSTRAINT "patient_allergies_pkey" PRIMARY KEY ("id")
+  );
+  
+  -- CreateIndex
+  CREATE INDEX "patient_allergies_patient_id_idx" ON "patient_allergies"("patient_id");
+  
+  -- AddForeignKey
+  ALTER TABLE "patient_allergies" ADD CONSTRAINT "patient_allergies_patient_id_fkey" 
+  FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  ```
+</Step>
+
+<Step title="Apply Migration">
+  ```bash
+  # Apply migration to development
+  pnpm db:migrate dev
+  
+  # Apply migration to production
+  pnpm db:migrate deploy
+  
+  # Check migration status
+  pnpm db:migrate status
+  ```
+</Step>
+</Steps>
+
+### Migration Best Practices
+
+<AccordionGroup>
+<Accordion title="Safe Migration Patterns">
+  ```sql
+  -- ✅ Safe: Adding nullable columns
+  ALTER TABLE "patients" ADD COLUMN "middle_name" TEXT;
+  
+  -- ✅ Safe: Adding indexes
+  CREATE INDEX CONCURRENTLY "patients_email_idx" ON "patients"("email");
+  
+  -- ✅ Safe: Adding new tables
+  CREATE TABLE "patient_notes" (
+    "id" TEXT NOT NULL,
+    "patient_id" TEXT NOT NULL,
+    "content" TEXT NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "patient_notes_pkey" PRIMARY KEY ("id")
+  );
+  
+  -- ⚠️ Careful: Adding non-nullable columns (requires default or data migration)
+  ALTER TABLE "patients" ADD COLUMN "status" TEXT NOT NULL DEFAULT 'active';
+  
+  -- ❌ Dangerous: Dropping columns (can cause downtime)
+  -- ALTER TABLE "patients" DROP COLUMN "old_field";
+  ```
+</Accordion>
+
+<Accordion title="Data Migration Scripts">
+  ```typescript
+  // scripts/migrate-patient-data.ts
+  import { database } from '@repo/database';
+  
+  async function migratePatientData() {
+    console.log('Starting patient data migration...');
+    
+    const patients = await database.patient.findMany({
+      where: {
+        status: null, // Find patients without status
+      },
+    });
+    
+    console.log(`Found ${patients.length} patients to migrate`);
+    
+    for (const patient of patients) {
+      await database.patient.update({
+        where: { id: patient.id },
+        data: {
+          status: 'active', // Set default status
+        },
+      });
+    }
+    
+    console.log('Migration completed successfully');
+  }
+  
+  // Run migration
+  migratePatientData()
+    .catch(console.error)
+    .finally(() => database.$disconnect());
+  ```
+</Accordion>
+
+<Accordion title="Rollback Strategies">
+  ```bash
+  # Reset to specific migration (development only)
+  pnpm db:migrate reset --to 20240201000000_add_patient_allergies
+  
+  # Create rollback migration
+  pnpm db:migrate dev --name rollback_patient_allergies
+  ```
+  
+  ```sql
+  -- Rollback migration example
+  -- This reverses the changes from add_patient_allergies migration
+  
+  -- DropForeignKey
+  ALTER TABLE "patient_allergies" DROP CONSTRAINT "patient_allergies_patient_id_fkey";
+  
+  -- DropIndex
+  DROP INDEX "patient_allergies_patient_id_idx";
+  
+  -- DropTable
+  DROP TABLE "patient_allergies";
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Performance Optimization
+
+### Query Optimization
+
+<Tabs>
+<Tab title="Indexing Strategy">
+  ```prisma
+  // Optimized indexes for common queries
+  model Patient {
+    id             String @id @default(cuid())
+    mrn            String @unique
+    firstName      String
+    lastName       String
+    email          String?
+    organizationId String
+    
+    // Composite indexes for common query patterns
+    @@index([organizationId, lastName]) // List patients by organization
+    @@index([organizationId, email])    // Search by email within org
+    @@index([organizationId, mrn])      // Search by MRN within org
+    @@map("patients")
+  }
+  
+  model Appointment {
+    id             String   @id @default(cuid())
+    patientId      String
+    providerId     String
+    scheduledAt    DateTime
+    status         String
+    organizationId String
+    
+    // Indexes for appointment queries
+    @@index([organizationId, scheduledAt])           // Appointments by date
+    @@index([providerId, scheduledAt])               // Provider schedule
+    @@index([patientId, scheduledAt])                // Patient appointments
+    @@index([organizationId, status, scheduledAt])   // Status-based queries
+    @@map("appointments")
+  }
+  ```
+</Tab>
+
+<Tab title="Connection Pooling">
+  ```typescript
+  // lib/database.ts
+  import { PrismaClient } from '@prisma/client';
+  
+  const database = new PrismaClient({
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL,
+      },
+    },
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  });
+  
+  // Connection pool configuration (in DATABASE_URL)
+  // postgresql://user:password@host:5432/db?connection_limit=20&pool_timeout=20
+  
+  export { database };
+  ```
+</Tab>
+
+<Tab title="Query Optimization">
+  ```typescript
+  // Optimized queries with proper includes and selects
+  
+  // ❌ Bad: Over-fetching data
+  const patients = await database.patient.findMany({
+    include: {
+      appointments: true,
+      prescriptions: true,
+      medicalHistory: true,
+    },
+  });
+  
+  // ✅ Good: Selective includes with limits
+  const patients = await database.patient.findMany({
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      appointments: {
+        where: {
+          scheduledAt: { gte: new Date() },
+        },
+        take: 3,
+        select: {
+          id: true,
+          scheduledAt: true,
+          status: true,
+          provider: {
+            select: {
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+      },
+    },
+    take: 50,
+  });
+  
+  // ✅ Good: Use aggregations for counts
+  const appointmentStats = await database.appointment.aggregate({
+    where: {
+      organizationId,
+      scheduledAt: {
+        gte: startOfMonth(new Date()),
+        lte: endOfMonth(new Date()),
+      },
+    },
+    _count: {
+      id: true,
+    },
+    _avg: {
+      duration: true,
+    },
+  });
+  ```
+</Tab>
+</Tabs>
+
+## Development
+
+### Setup and Configuration
+
+<Steps>
+<Step title="Environment Setup">
+  ```bash
+  # Database configuration
+  DATABASE_URL="postgresql://user:password@localhost:5432/waylio_dev"
+  
+  # Optional: Direct database URL for migrations
+  DIRECT_URL="postgresql://user:password@localhost:5432/waylio_dev"
+  
+  # Shadow database for development (Prisma Cloud)
+  SHADOW_DATABASE_URL="postgresql://user:password@localhost:5432/waylio_shadow"
+  ```
+</Step>
+
+<Step title="Initial Setup">
+  ```bash
+  # Generate Prisma client
+  pnpm db:generate
+  
+  # Run migrations
+  pnpm db:migrate dev
+  
+  # Seed database with sample data
+  pnpm db:seed
+  
+  # Open Prisma Studio
+  pnpm db:studio
+  ```
+</Step>
+
+<Step title="Development Commands">
+  ```bash
+  # Database operations
+  pnpm db:migrate dev          # Create and apply migration
+  pnpm db:migrate deploy       # Apply migrations (production)
+  pnpm db:migrate status       # Check migration status
+  pnpm db:migrate reset        # Reset database (dev only)
+  
+  # Schema operations
+  pnpm db:generate             # Generate Prisma client
+  pnpm db:push                 # Push schema changes (dev only)
+  pnpm db:pull                 # Pull schema from database
+  
+  # Data operations
+  pnpm db:seed                 # Seed database
+  pnpm db:studio               # Open Prisma Studio
+  
+  # Utilities
+  pnpm db:format               # Format schema file
+  pnpm db:validate             # Validate schema
+  ```
+</Step>
+</Steps>
+
+## Best Practices
+
+### Schema Design
+
+<AccordionGroup>
+<Accordion title="Naming Conventions">
+  - Use snake_case for database table and column names
+  - Use PascalCase for Prisma model names
+  - Use camelCase for Prisma field names
+  - Use descriptive names that reflect business concepts
+  - Prefix foreign keys with the related table name
+</Accordion>
+
+<Accordion title="Data Types">
+  - Use `String @id @default(cuid())` for primary keys
+  - Use `DateTime @default(now())` for timestamps
+  - Use `Json` for flexible data structures
+  - Use enums for fixed value sets
+  - Use appropriate field lengths for strings
+</Accordion>
+
+<Accordion title="Relationships">
+  - Always define both sides of relationships
+  - Use appropriate cascade behaviors
+  - Consider performance implications of deep includes
+  - Use composite indexes for foreign key combinations
+  - Implement soft deletes for important data
+</Accordion>
+</AccordionGroup>
+
+### Security Considerations
+
+<AccordionGroup>
+<Accordion title="Data Protection">
+  - Implement row-level security for multi-tenancy
+  - Use parameterized queries (Prisma handles this)
+  - Validate all input data before database operations
+  - Implement proper audit logging
+  - Use encryption for sensitive fields
+</Accordion>
+
+<Accordion title="Access Control">
+  - Never expose database credentials in client code
+  - Use connection pooling in production
+  - Implement proper backup and recovery procedures
+  - Monitor database performance and security
+  - Regular security updates and patches
+</Accordion>
+</AccordionGroup>
+
+<Note>
+The database package is the foundation of data integrity and security for the Waylio platform. Always follow healthcare compliance requirements and best practices for sensitive data handling.
+</Note>

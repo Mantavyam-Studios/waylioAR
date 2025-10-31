@@ -1,0 +1,735 @@
+---
+title: "Database Setup"
+description: "Complete guide for setting up and managing the PostgreSQL database for the Waylio healthcare platform with HIPAA-compliant configurations and best practices."
+---
+
+# Database Setup
+
+This guide covers the complete setup and management of the PostgreSQL database for the Waylio healthcare platform, including HIPAA-compliant configurations, security best practices, and operational procedures.
+
+## Database Overview
+
+### Architecture
+
+<CardGroup cols={2}>
+<Card title="Primary Database" icon="database">
+  PostgreSQL 14+ with healthcare-optimized schema and HIPAA-compliant encryption
+</Card>
+
+<Card title="ORM Framework" icon="code">
+  Prisma ORM for type-safe database operations and automated migrations
+</Card>
+
+<Card title="Connection Pooling" icon="network">
+  Built-in connection pooling for optimal performance and resource management
+</Card>
+
+<Card title="Backup Strategy" icon="shield">
+  Automated backups with encryption and point-in-time recovery capabilities
+</Card>
+</CardGroup>
+
+### Healthcare Data Compliance
+
+The database is designed to handle Protected Health Information (PHI) with:
+- Field-level encryption for sensitive data
+- Comprehensive audit logging
+- Role-based access controls
+- Data retention policies
+- Automated compliance reporting
+
+## Local Development Setup
+
+### PostgreSQL Installation
+
+<Tabs>
+<Tab title="macOS (Homebrew)">
+  ```bash
+  # Install PostgreSQL
+  brew install postgresql@14
+  
+  # Start PostgreSQL service
+  brew services start postgresql@14
+  
+  # Create database user
+  createuser -s postgres
+  
+  # Create database
+  createdb waylio
+  
+  # Verify installation
+  psql -U postgres -d waylio -c "SELECT version();"
+  ```
+</Tab>
+
+<Tab title="Docker (All Platforms)">
+  ```bash
+  # Create Docker Compose file
+  cat > docker-compose.yml << EOF
+  version: '3.8'
+  services:
+    postgres:
+      image: postgres:14
+      container_name: waylio-postgres
+      environment:
+        POSTGRES_DB: waylio
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: password
+      ports:
+        - "5432:5432"
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+        - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+  
+  volumes:
+    postgres_data:
+  EOF
+  
+  # Start PostgreSQL container
+  docker-compose up -d postgres
+  
+  # Verify connection
+  docker exec -it waylio-postgres psql -U postgres -d waylio
+  ```
+</Tab>
+
+<Tab title="Ubuntu/Debian">
+  ```bash
+  # Update package list
+  sudo apt update
+  
+  # Install PostgreSQL
+  sudo apt install postgresql-14 postgresql-contrib
+  
+  # Start PostgreSQL service
+  sudo systemctl start postgresql
+  sudo systemctl enable postgresql
+  
+  # Create database and user
+  sudo -u postgres createdb waylio
+  sudo -u postgres createuser --superuser $USER
+  
+  # Set password
+  sudo -u postgres psql -c "ALTER USER $USER PASSWORD 'password';"
+  ```
+</Tab>
+</Tabs>
+
+### Database Configuration
+
+<Steps>
+<Step title="Environment Variables">
+  Configure database connection in `.env.local`:
+  
+  ```bash
+  # Local development database
+  DATABASE_URL="postgresql://postgres:password@localhost:5432/waylio"
+  
+  # Connection pool settings
+  DATABASE_POOL_SIZE="10"
+  DATABASE_TIMEOUT="30000"
+  DATABASE_IDLE_TIMEOUT="600000"
+  
+  # SSL settings (required for production)
+  DATABASE_SSL_MODE="prefer"
+  DATABASE_SSL_CERT_PATH=""
+  DATABASE_SSL_KEY_PATH=""
+  DATABASE_SSL_CA_PATH=""
+  ```
+</Step>
+
+<Step title="Prisma Configuration">
+  Verify Prisma schema configuration:
+  
+  ```prisma
+  // prisma/schema.prisma
+  generator client {
+    provider = "prisma-client-js"
+    previewFeatures = ["fieldReference", "fullTextSearch"]
+  }
+  
+  datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+  }
+  ```
+</Step>
+
+<Step title="Database Initialization">
+  Set up the database schema and initial data:
+  
+  ```bash
+  # Generate Prisma client
+  pnpm db:generate
+  
+  # Run database migrations
+  pnpm db:migrate
+  
+  # Seed database with initial data
+  pnpm db:seed
+  
+  # Verify setup
+  pnpm db:status
+  ```
+</Step>
+</Steps>
+
+## Production Database Setup
+
+### Cloud Database Providers
+
+<Tabs>
+<Tab title="Neon (Recommended)">
+  **Serverless PostgreSQL with automatic scaling:**
+  
+  1. Create account at [neon.tech](https://neon.tech)
+  2. Create new project with PostgreSQL 14+
+  3. Configure database settings:
+     - Enable connection pooling
+     - Set up read replicas for scaling
+     - Configure backup retention (7+ years for HIPAA)
+  4. Copy connection string
+  
+  ```bash
+  # Production database URL
+  DATABASE_URL="postgresql://user:pass@ep-xxx.us-east-1.aws.neon.tech/waylio?sslmode=require&pgbouncer=true"
+  
+  # Enable SSL for HIPAA compliance
+  DATABASE_SSL_MODE="require"
+  ```
+</Tab>
+
+<Tab title="AWS RDS">
+  **Managed PostgreSQL with enterprise features:**
+  
+  ```bash
+  # Create RDS instance with AWS CLI
+  aws rds create-db-instance \
+    --db-instance-identifier waylio-prod \
+    --db-instance-class db.t3.medium \
+    --engine postgres \
+    --engine-version 14.9 \
+    --master-username waylio_admin \
+    --master-user-password "SecurePassword123!" \
+    --allocated-storage 100 \
+    --storage-type gp2 \
+    --storage-encrypted \
+    --vpc-security-group-ids sg-xxxxxxxxx \
+    --backup-retention-period 35 \
+    --multi-az \
+    --publicly-accessible false
+  
+  # Connection string format
+  DATABASE_URL="postgresql://waylio_admin:password@waylio-prod.xxx.us-east-1.rds.amazonaws.com:5432/waylio?sslmode=require"
+  ```
+</Tab>
+
+<Tab title="Google Cloud SQL">
+  **Fully managed PostgreSQL with automatic backups:**
+  
+  ```bash
+  # Create Cloud SQL instance
+  gcloud sql instances create waylio-prod \
+    --database-version=POSTGRES_14 \
+    --tier=db-custom-2-4096 \
+    --region=us-central1 \
+    --storage-type=SSD \
+    --storage-size=100GB \
+    --storage-auto-increase \
+    --backup-start-time=03:00 \
+    --retained-backups-count=365 \
+    --enable-bin-log
+  
+  # Create database
+  gcloud sql databases create waylio --instance=waylio-prod
+  
+  # Create user
+  gcloud sql users create waylio_user --instance=waylio-prod --password=SecurePassword123!
+  ```
+</Tab>
+</Tabs>
+
+### Security Configuration
+
+<Steps>
+<Step title="SSL/TLS Configuration">
+  ```sql
+  -- Enable SSL connections only
+  ALTER SYSTEM SET ssl = on;
+  ALTER SYSTEM SET ssl_cert_file = 'server.crt';
+  ALTER SYSTEM SET ssl_key_file = 'server.key';
+  ALTER SYSTEM SET ssl_ca_file = 'ca.crt';
+  
+  -- Require SSL for all connections
+  ALTER SYSTEM SET ssl_min_protocol_version = 'TLSv1.2';
+  
+  -- Reload configuration
+  SELECT pg_reload_conf();
+  ```
+</Step>
+
+<Step title="User Access Control">
+  ```sql
+  -- Create application user with limited privileges
+  CREATE USER waylio_app WITH PASSWORD 'secure_app_password';
+  
+  -- Create read-only user for reporting
+  CREATE USER waylio_readonly WITH PASSWORD 'secure_readonly_password';
+  
+  -- Grant appropriate permissions
+  GRANT CONNECT ON DATABASE waylio TO waylio_app;
+  GRANT USAGE ON SCHEMA public TO waylio_app;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO waylio_app;
+  GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO waylio_app;
+  
+  -- Read-only permissions
+  GRANT CONNECT ON DATABASE waylio TO waylio_readonly;
+  GRANT USAGE ON SCHEMA public TO waylio_readonly;
+  GRANT SELECT ON ALL TABLES IN SCHEMA public TO waylio_readonly;
+  ```
+</Step>
+
+<Step title="Audit Logging">
+  ```sql
+  -- Enable audit logging for HIPAA compliance
+  ALTER SYSTEM SET log_statement = 'all';
+  ALTER SYSTEM SET log_min_duration_statement = 0;
+  ALTER SYSTEM SET log_connections = on;
+  ALTER SYSTEM SET log_disconnections = on;
+  ALTER SYSTEM SET log_line_prefix = '%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h ';
+  
+  -- Create audit table
+  CREATE TABLE audit_log (
+    id SERIAL PRIMARY KEY,
+    table_name VARCHAR(255) NOT NULL,
+    operation VARCHAR(10) NOT NULL,
+    old_values JSONB,
+    new_values JSONB,
+    user_id VARCHAR(255),
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ip_address INET,
+    user_agent TEXT
+  );
+  
+  -- Create audit trigger function
+  CREATE OR REPLACE FUNCTION audit_trigger_function()
+  RETURNS TRIGGER AS $$
+  BEGIN
+    IF TG_OP = 'DELETE' THEN
+      INSERT INTO audit_log (table_name, operation, old_values, user_id, ip_address)
+      VALUES (TG_TABLE_NAME, TG_OP, row_to_json(OLD), current_setting('app.user_id', true), inet_client_addr());
+      RETURN OLD;
+    ELSIF TG_OP = 'UPDATE' THEN
+      INSERT INTO audit_log (table_name, operation, old_values, new_values, user_id, ip_address)
+      VALUES (TG_TABLE_NAME, TG_OP, row_to_json(OLD), row_to_json(NEW), current_setting('app.user_id', true), inet_client_addr());
+      RETURN NEW;
+    ELSIF TG_OP = 'INSERT' THEN
+      INSERT INTO audit_log (table_name, operation, new_values, user_id, ip_address)
+      VALUES (TG_TABLE_NAME, TG_OP, row_to_json(NEW), current_setting('app.user_id', true), inet_client_addr());
+      RETURN NEW;
+    END IF;
+    RETURN NULL;
+  END;
+  $$ LANGUAGE plpgsql;
+  ```
+</Step>
+</Steps>
+
+## Schema Management
+
+### Prisma Migrations
+
+<Steps>
+<Step title="Create Migration">
+  ```bash
+  # Create a new migration
+  pnpm db:migrate:create --name add_patient_table
+  
+  # Apply pending migrations
+  pnpm db:migrate
+  
+  # Reset database (development only)
+  pnpm db:migrate:reset
+  
+  # Check migration status
+  pnpm db:migrate:status
+  ```
+</Step>
+
+<Step title="Schema Updates">
+  ```prisma
+  // Example: Adding a new patient table
+  model Patient {
+    id                String   @id @default(cuid())
+    createdAt         DateTime @default(now())
+    updatedAt         DateTime @updatedAt
+    
+    // Personal Information (encrypted)
+    firstName         String
+    lastName          String
+    middleName        String?
+    dateOfBirth       DateTime
+    gender            Gender
+    
+    // Contact Information (encrypted)
+    email             String?  @unique
+    phoneNumber       String?
+    address           Json?
+    
+    // Medical Information
+    medicalRecordNumber String @unique
+    bloodType         BloodType?
+    allergies         Allergy[]
+    medications       Medication[]
+    
+    // System Information
+    organizationId    String
+    isActive          Boolean  @default(true)
+    
+    // Relationships
+    appointments      Appointment[]
+    medicalRecords    MedicalRecord[]
+    
+    @@map("patients")
+    @@index([organizationId])
+    @@index([medicalRecordNumber])
+    @@index([email])
+  }
+  ```
+</Step>
+
+<Step title="Data Seeding">
+  ```typescript
+  // prisma/seed.ts
+  import { PrismaClient } from '@prisma/client';
+  import { hash } from 'bcryptjs';
+  
+  const prisma = new PrismaClient();
+  
+  async function main() {
+    // Create default organization
+    const organization = await prisma.organization.create({
+      data: {
+        name: 'Waylio Healthcare',
+        slug: 'waylio-healthcare',
+        type: 'HOSPITAL',
+        settings: {
+          timezone: 'America/New_York',
+          currency: 'USD',
+          language: 'en',
+        },
+      },
+    });
+    
+    // Create admin user
+    const adminUser = await prisma.user.create({
+      data: {
+        email: 'admin@waylio.com',
+        firstName: 'System',
+        lastName: 'Administrator',
+        role: 'ADMIN',
+        organizationId: organization.id,
+        isActive: true,
+      },
+    });
+    
+    // Create sample departments
+    const departments = await Promise.all([
+      prisma.department.create({
+        data: {
+          name: 'Emergency Medicine',
+          code: 'EM',
+          organizationId: organization.id,
+        },
+      }),
+      prisma.department.create({
+        data: {
+          name: 'Cardiology',
+          code: 'CARD',
+          organizationId: organization.id,
+        },
+      }),
+    ]);
+    
+    console.log('Database seeded successfully');
+  }
+  
+  main()
+    .catch((e) => {
+      console.error(e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+  ```
+</Step>
+</Steps>
+
+## Database Operations
+
+### Backup and Recovery
+
+<Tabs>
+<Tab title="Automated Backups">
+  ```bash
+  # Create backup script
+  cat > scripts/backup-db.sh << 'EOF'
+  #!/bin/bash
+  
+  # Configuration
+  DB_NAME="waylio"
+  DB_USER="postgres"
+  BACKUP_DIR="/backups"
+  DATE=$(date +%Y%m%d_%H%M%S)
+  
+  # Create backup directory
+  mkdir -p $BACKUP_DIR
+  
+  # Create encrypted backup
+  pg_dump -h localhost -U $DB_USER -d $DB_NAME \
+    --format=custom \
+    --compress=9 \
+    --verbose \
+    --file="$BACKUP_DIR/waylio_backup_$DATE.dump"
+  
+  # Encrypt backup file
+  gpg --cipher-algo AES256 --compress-algo 1 --s2k-mode 3 \
+    --s2k-digest-algo SHA512 --s2k-count 65536 --force-mdc \
+    --quiet --no-greeting --batch --yes \
+    --passphrase-file /etc/backup-passphrase \
+    --output "$BACKUP_DIR/waylio_backup_$DATE.dump.gpg" \
+    --symmetric "$BACKUP_DIR/waylio_backup_$DATE.dump"
+  
+  # Remove unencrypted backup
+  rm "$BACKUP_DIR/waylio_backup_$DATE.dump"
+  
+  # Clean old backups (keep 30 days)
+  find $BACKUP_DIR -name "waylio_backup_*.dump.gpg" -mtime +30 -delete
+  
+  echo "Backup completed: waylio_backup_$DATE.dump.gpg"
+  EOF
+  
+  chmod +x scripts/backup-db.sh
+  
+  # Schedule daily backups
+  echo "0 2 * * * /path/to/scripts/backup-db.sh" | crontab -
+  ```
+</Tab>
+
+<Tab title="Point-in-Time Recovery">
+  ```bash
+  # Enable WAL archiving for point-in-time recovery
+  # Add to postgresql.conf:
+  wal_level = replica
+  archive_mode = on
+  archive_command = 'cp %p /var/lib/postgresql/wal_archive/%f'
+  max_wal_senders = 3
+  
+  # Create base backup
+  pg_basebackup -h localhost -U postgres -D /backups/base_backup -Ft -z -P
+  
+  # Restore to specific point in time
+  # 1. Stop PostgreSQL
+  # 2. Replace data directory with base backup
+  # 3. Create recovery.conf:
+  cat > recovery.conf << EOF
+  restore_command = 'cp /var/lib/postgresql/wal_archive/%f %p'
+  recovery_target_time = '2024-01-15 14:30:00'
+  recovery_target_action = 'promote'
+  EOF
+  
+  # 4. Start PostgreSQL
+  ```
+</Tab>
+
+<Tab title="Disaster Recovery">
+  ```bash
+  # Create disaster recovery script
+  cat > scripts/disaster-recovery.sh << 'EOF'
+  #!/bin/bash
+  
+  # Configuration
+  PRIMARY_DB="waylio-primary"
+  REPLICA_DB="waylio-replica"
+  BACKUP_LOCATION="s3://waylio-backups"
+  
+  # Check primary database health
+  if ! pg_isready -h $PRIMARY_DB; then
+    echo "Primary database is down, initiating failover..."
+    
+    # Promote replica to primary
+    pg_ctl promote -D /var/lib/postgresql/data
+    
+    # Update application configuration
+    kubectl patch configmap db-config \
+      --patch '{"data":{"DATABASE_URL":"postgresql://user:pass@'$REPLICA_DB':5432/waylio"}}'
+    
+    # Restart application pods
+    kubectl rollout restart deployment waylio-api
+    kubectl rollout restart deployment waylio-web
+    
+    echo "Failover completed successfully"
+  fi
+  EOF
+  
+  chmod +x scripts/disaster-recovery.sh
+  ```
+</Tab>
+</Tabs>
+
+### Performance Monitoring
+
+<Steps>
+<Step title="Query Performance">
+  ```sql
+  -- Enable query statistics
+  CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+  
+  -- Monitor slow queries
+  SELECT 
+    query,
+    calls,
+    total_time,
+    mean_time,
+    rows
+  FROM pg_stat_statements 
+  WHERE mean_time > 1000  -- queries taking more than 1 second
+  ORDER BY mean_time DESC
+  LIMIT 10;
+  
+  -- Monitor table sizes
+  SELECT 
+    schemaname,
+    tablename,
+    pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size
+  FROM pg_tables 
+  WHERE schemaname = 'public'
+  ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
+  ```
+</Step>
+
+<Step title="Index Optimization">
+  ```sql
+  -- Find missing indexes
+  SELECT 
+    schemaname,
+    tablename,
+    attname,
+    n_distinct,
+    correlation
+  FROM pg_stats
+  WHERE schemaname = 'public'
+    AND n_distinct > 100
+    AND correlation < 0.1;
+  
+  -- Monitor index usage
+  SELECT 
+    schemaname,
+    tablename,
+    indexname,
+    idx_scan,
+    idx_tup_read,
+    idx_tup_fetch
+  FROM pg_stat_user_indexes
+  WHERE idx_scan = 0;  -- unused indexes
+  ```
+</Step>
+
+<Step title="Connection Monitoring">
+  ```sql
+  -- Monitor active connections
+  SELECT 
+    datname,
+    usename,
+    application_name,
+    client_addr,
+    state,
+    query_start,
+    query
+  FROM pg_stat_activity
+  WHERE state = 'active';
+  
+  -- Check connection limits
+  SELECT 
+    setting as max_connections,
+    (SELECT count(*) FROM pg_stat_activity) as current_connections,
+    (SELECT count(*) FROM pg_stat_activity WHERE state = 'active') as active_connections
+  FROM pg_settings 
+  WHERE name = 'max_connections';
+  ```
+</Step>
+</Steps>
+
+## Troubleshooting
+
+### Common Issues
+
+<AccordionGroup>
+<Accordion title="Connection Issues">
+  **Problem**: Cannot connect to database
+  
+  **Solutions**:
+  ```bash
+  # Check if PostgreSQL is running
+  brew services list | grep postgresql
+  sudo systemctl status postgresql
+  
+  # Test connection
+  psql -h localhost -U postgres -d waylio
+  
+  # Check connection string format
+  echo $DATABASE_URL
+  
+  # Verify network connectivity
+  telnet localhost 5432
+  ```
+</Accordion>
+
+<Accordion title="Migration Failures">
+  **Problem**: Database migration fails
+  
+  **Solutions**:
+  ```bash
+  # Check migration status
+  pnpm db:migrate:status
+  
+  # Resolve migration conflicts
+  pnpm db:migrate:resolve --rolled-back 20240115000000_migration_name
+  
+  # Reset database (development only)
+  pnpm db:migrate:reset
+  
+  # Manual migration rollback
+  pnpm db:migrate:rollback
+  ```
+</Accordion>
+
+<Accordion title="Performance Issues">
+  **Problem**: Slow database queries
+  
+  **Solutions**:
+  ```sql
+  -- Analyze query performance
+  EXPLAIN ANALYZE SELECT * FROM patients WHERE organization_id = 'org_123';
+  
+  -- Update table statistics
+  ANALYZE patients;
+  
+  -- Rebuild indexes
+  REINDEX TABLE patients;
+  
+  -- Check for table bloat
+  SELECT schemaname, tablename, pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size
+  FROM pg_tables WHERE schemaname = 'public';
+  ```
+</Accordion>
+</AccordionGroup>
+
+<Warning>
+Always test database changes in a development environment before applying to production. Healthcare data requires special handling and cannot be easily recovered if corrupted.
+</Warning>
+
+<Note>
+For HIPAA compliance, ensure all database backups are encrypted and stored securely. Maintain audit logs for at least 7 years and implement proper access controls for all database operations.
+</Note>

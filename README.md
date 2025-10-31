@@ -1,140 +1,84 @@
-# ▲ / next-forge
+# Overview
 
-**Production-grade Turborepo template for Next.js apps.**
+Waylio is a complete SAAS Solution for Hospitals redefining experiences with AR navigation and seamless digital organisation management.
 
-<div>
-  <img src="https://img.shields.io/npm/dy/next-forge" alt="" />
-  <img src="https://img.shields.io/npm/v/next-forge" alt="" />
-  <img src="https://img.shields.io/github/license/vercel/next-forge" alt="" />
-</div>
+# Structure (/docs/structure)
 
-## Overview
+This Project is a monorepo, which means it contains multiple packages in a single repository. This is a common pattern for modern web applications, as it allows you to share code between different parts of the application, and manage them all together. It is created using a production-grade turborepo template for Next.js apps. It is designed to be a comprehensive starting point for new apps, providing a solid, opinionated foundation with a minimal amount of configuration.
 
-[next-forge](https://github.com/vercel/next-forge) is a production-grade [Turborepo](https://turborepo.com) template for [Next.js](https://nextjs.org/) apps. It's designed to be a comprehensive starting point for building SaaS applications, providing a solid, opinionated foundation with minimal configuration required.
-
-Built on a decade of experience building web applications, next-forge balances speed and quality to help you ship thoroughly-built products faster.
-
-### Philosophy
-
-next-forge is built around five core principles:
-
-- **Fast** — Quick to build, run, deploy, and iterate on
-- **Cheap** — Free to start with services that scale with you
-- **Opinionated** — Integrated tooling designed to work together
-- **Modern** — Latest stable features with healthy community support
-- **Safe** — End-to-end type safety and robust security posture
-
-## Demo
-
-Experience next-forge in action:
-
-- [Web](https://demo.next-forge.com) — Marketing website
-- [App](https://app.demo.next-forge.com) — Main application
-- [Storybook](https://storybook.demo.next-forge.com) — Component library
-- [API](https://api.demo.next-forge.com/health) — API health check
-
-## Features
-
-next-forge comes with batteries included:
-
-### Apps
-
-- **Web** — Marketing site built with Tailwind CSS and TWBlocks
-- **App** — Main application with authentication and database integration
-- **API** — RESTful API with health checks and monitoring
-- **Docs** — Documentation site powered by Mintlify
-- **Email** — Email templates with React Email
-- **Storybook** — Component development environment
-
-### Packages
-
-- **Authentication** — Powered by [Clerk](https://clerk.com)
-- **Database** — Type-safe ORM with migrations
-- **Design System** — Comprehensive component library with dark mode
-- **Payments** — Subscription management via [Stripe](https://stripe.com)
-- **Email** — Transactional emails via [Resend](https://resend.com)
-- **Analytics** — Web ([Google Analytics](https://developers.google.com/analytics)) and product ([Posthog](https://posthog.com))
-- **Observability** — Error tracking ([Sentry](https://sentry.io)), logging, and uptime monitoring ([BetterStack](https://betterstack.com))
-- **Security** — Application security ([Arcjet](https://arcjet.com)), rate limiting, and secure headers
-- **CMS** — Type-safe content management for blogs and documentation
-- **SEO** — Metadata management, sitemaps, and JSON-LD
-- **AI** — AI integration utilities
-- **Webhooks** — Inbound and outbound webhook handling
-- **Collaboration** — Real-time features with avatars and live cursors
-- **Feature Flags** — Feature flag management
-- **Cron** — Scheduled job management
-- **Storage** — File upload and management
-- **Internationalization** — Multi-language support
-- **Notifications** — In-app notification system
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 20+
-- [pnpm](https://pnpm.io) (or npm/yarn/bun)
-- [Stripe CLI](https://docs.stripe.com/stripe-cli) for local webhook testing
-
-### Installation
-
-Create a new next-forge project:
-
-```sh
-npx next-forge@latest init
-```
-
-### Setup
-
-1. Configure your environment variables
-2. Set up required service accounts (Clerk, Stripe, Resend, etc.)
-3. Run the development server
-
-For detailed setup instructions, read the [documentation](https://www.next-forge.com/docs).
-
-## Structure
-
-next-forge uses a monorepo structure managed by Turborepo:
+The monorepo is managed by Turborepo, which is a tool for managing monorepos. It provides a simple way to manage multiple packages in a single repository, and is designed to work with modern web applications.
 
 ```
-next-forge/
-├── apps/           # Deployable applications
-│   ├── web/        # Marketing website (port 3001)
-│   ├── app/        # Main application (port 3000)
-│   ├── api/        # API server
-│   ├── docs/       # Documentation
-│   ├── email/      # Email templates
-│   └── storybook/  # Component library
-└── packages/       # Shared packages
-    ├── design-system/
-    ├── database/
-    ├── auth/
-    └── ...
+├── apps
+│   ├── api
+│   ├── app
+│   ├── docs
+│   ├── email
+│   ├── storybook
+│   ├── studio
+│   └── web
+├── packages
+│   ├── ai
+│   ├── analytics
+│   ├── auth
+│   ├── cms
+│   ├── collaboration
+│   ├── database
+│   ├── design-system
+│   ├── email
+│   ├── feature-flags
+│   ├── internationalization
+│   ├── next-config
+│   ├── notifications
+│   ├── observability
+│   ├── payments
+│   ├── rate-limit
+│   ├── security
+│   ├── seo
+│   ├── storage
+│   ├── typescript-config
+│   └── webhooks
+├── scripts
+└── turbo
+    └── generators
 ```
 
-Each app is self-contained and independently deployable. Packages are shared across apps for consistency and maintainability.
+## TECH STACK
 
-## Documentation
+| Component | Technology |
+| :---- | :---- |
+| Monorepo | Turborepo |
+| Mobile App (Patient) | Kotlin (Android) / Swift (iOS) |
+| Web Dashboards (Admin, Doctor, Staff) | Next.js 14+ (App Router) |
+| Backend API | Next.js Serverless Functions |
+| Hosting | Vercel |
+| Database | Neon (PostgreSQL) |
+| ORM | Prisma |
+| Authentication | Clerk |
+| Real-time Notifications (Queues, Alerts) | Knock |
+| Payments (P1 & P4) | Stripe |
+| Transactional Emails | Resend |
+| AR Navigation (P3) | Multiset AI |
+| Security & Rate Limiting | Arcjet |
+| Observability (Logging & Errors) | BetterStack & Sentry |
+| Analytics | Google Analytics & Posthog |
 
-Full documentation is available at [next-forge.com/docs](https://www.next-forge.com/docs), including:
+## Apps
 
-- Detailed setup guides
-- Package documentation
-- Migration guides for swapping providers
-- Deployment instructions
-- Examples and recipes
+This Project contains a number of apps that make up your project. Each app is a self-contained application that can be deployed independently.
 
-## Contributing
+While you can choose to run these apps on the subdomain of your choice, the recommended subdomains are listed on each page. Remember to add them to your [environment variables](/docs/setup/env) under `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_WEB_URL`, and `NEXT_PUBLIC_DOCS_URL`.
 
-We welcome contributions! See the [contributing guide](https://github.com/vercel/next-forge/blob/main/.github/CONTRIBUTING.md) for details.
+Each app should be self-contained and not depend on other apps. They should have an `env.ts` file at the root of the app that composes the environment variables from the packages it depends on.
 
-## Contributors
+## Packages
 
-<a href="https://github.com/vercel/next-forge/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=vercel/next-forge" />
-</a>
+This Project contains a number of shared packages that are used across the monorepo. The purpose of these packages is to isolate shared code from the main app, making it easier to manage and update.
 
-Made with [contrib.rocks](https://contrib.rocks).
+Additionally, it makes it easier to swap out parts of the app for different implementations. For example, the `database` package contains everything related to the database, including the schema and migrations. This allows us to easily swap out the database provider or ORM without impacting other parts of the app.
 
-## License
+Each package should be self-contained and not depend on other packages. They should export everything that is needed by the app — middleware, hooks, components and even the [environment variables](/docs/setup/env).
 
-MIT
+All Packages basic documentation is available at web URL = https://www.next-forge.com/packages 
+
+More Detailed Documentation for Apps and Packages are available at this directory lcoation : waylio/.github/GUIDE/overview.md

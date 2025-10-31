@@ -1,0 +1,665 @@
+---
+title: "Main Application"
+description: "The primary web dashboard for healthcare professionals built with Next.js, providing comprehensive patient management and operational tools."
+---
+
+# Main Application
+
+The main application is the primary web dashboard for healthcare professionals, built on Next.js 14 with React 18. It provides a comprehensive interface for managing patients, appointments, prescriptions, and hospital operations.
+
+<Info>
+The main application runs on port 3000 in development. We recommend deploying it to `app.{yourdomain}.com` in production.
+</Info>
+
+## Overview
+
+The main application serves as the central hub for healthcare professionals, offering a modern, responsive interface for all core hospital operations. It's designed with role-based access control to serve different types of users effectively.
+
+### Key Features
+
+<CardGroup cols={2}>
+<Card title="Role-Based Interface" icon="users">
+  Customized dashboards and features based on user roles (Doctor, Nurse, Admin, etc.).
+</Card>
+
+<Card title="Real-Time Updates" icon="refresh">
+  Live updates for appointments, queues, and notifications using WebSocket connections.
+</Card>
+
+<Card title="Responsive Design" icon="mobile">
+  Fully responsive interface that works seamlessly on desktop, tablet, and mobile devices.
+</Card>
+
+<Card title="Accessibility First" icon="universal-access">
+  WCAG 2.1 compliant with keyboard navigation and screen reader support.
+</Card>
+</CardGroup>
+
+## User Roles & Interfaces
+
+The application provides tailored interfaces for different user roles:
+
+### Doctor Dashboard
+
+<AccordionGroup>
+<Accordion title="Patient Management">
+  **Features**:
+  - Patient list with search and filtering
+  - Patient medical history and records
+  - Appointment scheduling and management
+  - Real-time patient queue status
+  
+  **Key Components**:
+  - Patient search and selection
+  - Medical record viewer
+  - Appointment calendar
+  - Queue management panel
+</Accordion>
+
+<Accordion title="Prescription Management">
+  **Features**:
+  - Electronic prescription creation
+  - Drug interaction checking
+  - Prescription history review
+  - Pharmacy integration
+  
+  **Key Components**:
+  - Prescription editor with drug database
+  - Interaction checker
+  - Prescription history timeline
+  - Pharmacy selector
+</Accordion>
+
+<Accordion title="Clinical Tools">
+  **Features**:
+  - Clinical decision support
+  - Lab result integration
+  - Diagnostic tools
+  - Treatment planning
+  
+  **Key Components**:
+  - Clinical calculator tools
+  - Lab result viewer
+  - Diagnostic imaging viewer
+  - Treatment plan templates
+</Accordion>
+</AccordionGroup>
+
+### Nursing Staff Dashboard
+
+<AccordionGroup>
+<Accordion title="Patient Care">
+  **Features**:
+  - Patient vital signs monitoring
+  - Medication administration tracking
+  - Care plan management
+  - Patient communication
+  
+  **Key Components**:
+  - Vital signs input forms
+  - Medication administration record
+  - Care plan checklist
+  - Patient messaging system
+</Accordion>
+
+<Accordion title="Queue Management">
+  **Features**:
+  - Real-time queue monitoring
+  - Patient check-in/check-out
+  - Wait time management
+  - Room assignment
+  
+  **Key Components**:
+  - Queue status dashboard
+  - Check-in interface
+  - Room management panel
+  - Wait time calculator
+</Accordion>
+</AccordionGroup>
+
+### Reception Staff Dashboard
+
+<AccordionGroup>
+<Accordion title="Appointment Management">
+  **Features**:
+  - Appointment booking and scheduling
+  - Patient registration
+  - Insurance verification
+  - Payment processing
+  
+  **Key Components**:
+  - Appointment scheduler
+  - Patient registration forms
+  - Insurance verification tools
+  - Payment processing interface
+</Accordion>
+
+<Accordion title="Front Desk Operations">
+  **Features**:
+  - Patient check-in/check-out
+  - Visitor management
+  - Phone system integration
+  - Document management
+  
+  **Key Components**:
+  - Check-in kiosk interface
+  - Visitor registration
+  - Call management system
+  - Document scanner integration
+</Accordion>
+</AccordionGroup>
+
+### Administrative Dashboard
+
+<AccordionGroup>
+<Accordion title="System Administration">
+  **Features**:
+  - User management and permissions
+  - Organization settings
+  - System configuration
+  - Audit logging
+  
+  **Key Components**:
+  - User management interface
+  - Role and permission editor
+  - System settings panel
+  - Audit log viewer
+</Accordion>
+
+<Accordion title="Analytics & Reporting">
+  **Features**:
+  - Operational analytics
+  - Performance metrics
+  - Custom report generation
+  - Data export tools
+  
+  **Key Components**:
+  - Analytics dashboard
+  - Report builder
+  - Data visualization charts
+  - Export utilities
+</Accordion>
+</AccordionGroup>
+
+## Core Features
+
+### Authentication & Authorization
+
+<Tabs>
+<Tab title="Authentication Flow">
+  **Integration**: Clerk authentication service
+  
+  **Features**:
+  - Single sign-on (SSO)
+  - Multi-factor authentication
+  - Social login providers
+  - Session management
+  
+  **Implementation**:
+  ```typescript
+  // Protected route example
+  import { auth } from '@repo/auth';
+  
+  export default async function ProtectedPage() {
+    const { userId } = auth();
+    
+    if (!userId) {
+      redirect('/sign-in');
+    }
+    
+    // Page content for authenticated users
+    return <Dashboard />;
+  }
+  ```
+</Tab>
+
+<Tab title="Role-Based Access">
+  **Features**:
+  - Hierarchical role system
+  - Permission-based access control
+  - Dynamic UI based on permissions
+  - API-level authorization
+  
+  **Implementation**:
+  ```typescript
+  // Permission check example
+  import { checkPermission } from '@repo/auth';
+  
+  export default function AdminPanel() {
+    const canManageUsers = checkPermission('manage_users');
+    
+    return (
+      <div>
+        {canManageUsers && <UserManagement />}
+        <StandardFeatures />
+      </div>
+    );
+  }
+  ```
+</Tab>
+</Tabs>
+
+### Real-Time Features
+
+<Tabs>
+<Tab title="Live Notifications">
+  **Integration**: Knock notification service
+  
+  **Features**:
+  - In-app notification feed
+  - Real-time alerts
+  - Notification preferences
+  - Read/unread status
+  
+  **Implementation**:
+  ```typescript
+  import { NotificationsTrigger } from '@repo/notifications';
+  
+  export function NotificationButton() {
+    return (
+      <NotificationsTrigger>
+        <Button variant="ghost" size="icon">
+          <BellIcon size={16} />
+        </Button>
+      </NotificationsTrigger>
+    );
+  }
+  ```
+</Tab>
+
+<Tab title="Live Collaboration">
+  **Integration**: Liveblocks collaboration service
+  
+  **Features**:
+  - Live cursors
+  - Real-time presence
+  - Collaborative editing
+  - Avatar stack
+  
+  **Implementation**:
+  ```typescript
+  import { Room } from '@repo/collaboration';
+  
+  export function CollaborativeFeature() {
+    return (
+      <Room roomId="patient-record-123">
+        <LiveCursors />
+        <AvatarStack />
+        <CollaborativeEditor />
+      </Room>
+    );
+  }
+  ```
+</Tab>
+</Tabs>
+
+### Data Management
+
+<Tabs>
+<Tab title="Database Integration">
+  **Integration**: Prisma ORM with PostgreSQL
+  
+  **Features**:
+  - Type-safe database queries
+  - Real-time data synchronization
+  - Optimistic updates
+  - Caching strategies
+  
+  **Implementation**:
+  ```typescript
+  import { database } from '@repo/database';
+  
+  export async function getPatientData(patientId: string) {
+    const patient = await database.patient.findUnique({
+      where: { id: patientId },
+      include: {
+        appointments: true,
+        prescriptions: true,
+        medicalHistory: true,
+      },
+    });
+    
+    return patient;
+  }
+  ```
+</Tab>
+
+<Tab title="State Management">
+  **Technology**: React Server Components + Client State
+  
+  **Features**:
+  - Server-side data fetching
+  - Client-side state management
+  - Optimistic updates
+  - Error boundaries
+  
+  **Implementation**:
+  ```typescript
+  // Server Component
+  export default async function PatientPage({ params }) {
+    const patient = await getPatientData(params.id);
+    
+    return (
+      <PatientProvider initialData={patient}>
+        <PatientDashboard />
+      </PatientProvider>
+    );
+  }
+  ```
+</Tab>
+</Tabs>
+
+## Design System Integration
+
+The application uses the shared design system package for consistent UI components:
+
+### Component Usage
+
+<Tabs>
+<Tab title="Form Components">
+  ```typescript
+  import { 
+    Form, 
+    FormField, 
+    FormItem, 
+    FormLabel, 
+    FormControl,
+    FormMessage,
+    Input,
+    Button 
+  } from '@repo/design-system';
+  
+  export function PatientForm() {
+    return (
+      <Form {...form}>
+        <FormField
+          control={form.control}
+          name="firstName"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>First Name</FormLabel>
+              <FormControl>
+                <Input placeholder="Enter first name" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button type="submit">Save Patient</Button>
+      </Form>
+    );
+  }
+  ```
+</Tab>
+
+<Tab title="Data Display">
+  ```typescript
+  import { 
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+    Badge,
+    Avatar,
+    AvatarImage,
+    AvatarFallback
+  } from '@repo/design-system';
+  
+  export function PatientList({ patients }) {
+    return (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Patient</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Next Appointment</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {patients.map((patient) => (
+            <TableRow key={patient.id}>
+              <TableCell className="flex items-center gap-2">
+                <Avatar>
+                  <AvatarImage src={patient.avatar} />
+                  <AvatarFallback>{patient.initials}</AvatarFallback>
+                </Avatar>
+                {patient.name}
+              </TableCell>
+              <TableCell>
+                <Badge variant={patient.status === 'active' ? 'default' : 'secondary'}>
+                  {patient.status}
+                </Badge>
+              </TableCell>
+              <TableCell>{patient.nextAppointment}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    );
+  }
+  ```
+</Tab>
+
+<Tab title="Navigation">
+  ```typescript
+  import { 
+    Sidebar,
+    SidebarContent,
+    SidebarGroup,
+    SidebarGroupContent,
+    SidebarGroupLabel,
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem
+  } from '@repo/design-system';
+  
+  export function AppSidebar() {
+    return (
+      <Sidebar>
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupLabel>Patient Care</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link href="/patients">
+                      <UsersIcon />
+                      <span>Patients</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link href="/appointments">
+                      <CalendarIcon />
+                      <span>Appointments</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+      </Sidebar>
+    );
+  }
+  ```
+</Tab>
+</Tabs>
+
+## Development
+
+### Local Development
+
+<Steps>
+<Step title="Start the Application">
+  ```bash
+  # Start only the main app
+  pnpm dev --filter app
+  
+  # Or start all services
+  pnpm dev
+  ```
+  
+  The application will be available at http://localhost:3000
+</Step>
+
+<Step title="Authentication Setup">
+  Ensure Clerk authentication is configured:
+  
+  ```bash
+  # Check environment variables
+  echo $CLERK_SECRET_KEY
+  echo $NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+  ```
+  
+  Visit http://localhost:3000/sign-in to test authentication
+</Step>
+
+<Step title="Database Connection">
+  Verify database connectivity:
+  
+  ```bash
+  # Test database connection
+  pnpm db:studio
+  ```
+  
+  This opens Prisma Studio to browse your data
+</Step>
+</Steps>
+
+### Testing
+
+<Tabs>
+<Tab title="Unit Tests">
+  ```bash
+  # Run unit tests
+  pnpm test --filter app
+  
+  # Run specific test file
+  pnpm test --filter app -- components/PatientForm.test.tsx
+  
+  # Run tests in watch mode
+  pnpm test:watch --filter app
+  ```
+</Tab>
+
+<Tab title="Integration Tests">
+  ```bash
+  # Run integration tests
+  pnpm test:integration --filter app
+  
+  # Test specific feature
+  pnpm test:integration --filter app -- patient-management
+  ```
+</Tab>
+
+<Tab title="End-to-End Tests">
+  ```bash
+  # Run E2E tests with Playwright
+  pnpm test:e2e --filter app
+  
+  # Run specific E2E test
+  pnpm test:e2e --filter app -- appointment-booking.spec.ts
+  
+  # Run tests in headed mode
+  pnpm test:e2e:headed --filter app
+  ```
+</Tab>
+</Tabs>
+
+### Performance Optimization
+
+<AccordionGroup>
+<Accordion title="Code Splitting">
+  The application uses Next.js automatic code splitting and dynamic imports:
+  
+  ```typescript
+  // Dynamic import for heavy components
+  const HeavyChart = dynamic(() => import('./HeavyChart'), {
+    loading: () => <ChartSkeleton />,
+    ssr: false,
+  });
+  
+  // Route-based code splitting is automatic in Next.js
+  ```
+</Accordion>
+
+<Accordion title="Image Optimization">
+  Uses Next.js Image component for optimized image loading:
+  
+  ```typescript
+  import Image from 'next/image';
+  
+  export function PatientAvatar({ src, alt }) {
+    return (
+      <Image
+        src={src}
+        alt={alt}
+        width={40}
+        height={40}
+        className="rounded-full"
+        priority={false}
+      />
+    );
+  }
+  ```
+</Accordion>
+
+<Accordion title="Caching Strategy">
+  Implements multiple caching layers:
+  
+  - **Static Generation**: For public pages
+  - **Incremental Static Regeneration**: For semi-dynamic content
+  - **Server-Side Rendering**: For user-specific content
+  - **Client-Side Caching**: For API responses
+</Accordion>
+</AccordionGroup>
+
+## Deployment
+
+### Build Configuration
+
+```typescript
+// next.config.ts
+import { withSentryConfig } from '@sentry/nextjs';
+import { nextConfig } from '@repo/next-config';
+
+const config = {
+  ...nextConfig,
+  experimental: {
+    serverComponentsExternalPackages: ['@prisma/client'],
+  },
+  images: {
+    domains: ['images.clerk.dev', 'your-cdn-domain.com'],
+  },
+};
+
+export default withSentryConfig(config, {
+  silent: true,
+  org: 'your-org',
+  project: 'waylio-app',
+});
+```
+
+### Environment Variables
+
+<Warning>
+Ensure all required environment variables are configured. See the [Environment Setup Guide](/setup/environment) for the complete list.
+</Warning>
+
+### Monitoring & Analytics
+
+The application includes comprehensive monitoring:
+
+- **Error Tracking**: Sentry integration for error monitoring
+- **Performance Monitoring**: Core Web Vitals tracking
+- **User Analytics**: PostHog integration for user behavior
+- **Real User Monitoring**: Performance metrics collection
+
+<Note>
+For detailed component documentation and usage examples, visit our [Storybook](/apps/storybook) instance.
+</Note>

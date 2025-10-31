@@ -1,0 +1,721 @@
+---
+title: "Database Studio"
+description: "Visual database editor and management tool built on Prisma Studio for exploring and managing Waylio's PostgreSQL database."
+---
+
+# Database Studio
+
+Database Studio is a visual database editor and management tool that provides an intuitive interface for exploring, editing, and managing Waylio's PostgreSQL database. Built on Prisma Studio, it offers a user-friendly way to interact with your data during development and debugging.
+
+<Info>
+Database Studio runs on port 3005 in development. Access it at http://localhost:3005 to browse and edit your database records.
+</Info>
+
+## Overview
+
+Database Studio serves as the primary tool for database administration, data exploration, and debugging during development. It provides a visual interface to your PostgreSQL database, making it easy to understand data relationships and perform CRUD operations.
+
+### Key Features
+
+<CardGroup cols={2}>
+<Card title="Visual Data Browser" icon="table">
+  Browse all database tables with an intuitive interface showing relationships and data structure.
+</Card>
+
+<Card title="Real-Time Editing" icon="edit">
+  Create, update, and delete records directly through the web interface with instant feedback.
+</Card>
+
+<Card title="Relationship Navigation" icon="share-nodes">
+  Navigate between related records seamlessly using visual relationship indicators.
+</Card>
+
+<Card title="Advanced Filtering" icon="filter">
+  Filter and search records using powerful query builders and custom filters.
+</Card>
+</CardGroup>
+
+## Database Schema Overview
+
+### Core Healthcare Entities
+
+<Tabs>
+<Tab title="User Management">
+  **Tables**: `User`, `Organization`, `Role`, `Permission`
+  
+  **Key Relationships**:
+  - Users belong to Organizations
+  - Users have Roles with specific Permissions
+  - Multi-tenant isolation by Organization
+  
+  **Sample Data Structure**:
+  ```sql
+  -- Users table
+  User {
+    id: String (UUID)
+    clerkId: String (unique)
+    email: String (unique)
+    firstName: String
+    lastName: String
+    avatar: String?
+    organizationId: String
+    roleId: String
+    createdAt: DateTime
+    updatedAt: DateTime
+  }
+  
+  -- Organizations table
+  Organization {
+    id: String (UUID)
+    name: String
+    slug: String (unique)
+    logo: String?
+    settings: Json
+    subscriptionTier: String
+    createdAt: DateTime
+    updatedAt: DateTime
+  }
+  ```
+</Tab>
+
+<Tab title="Patient Management">
+  **Tables**: `Patient`, `MedicalHistory`, `EmergencyContact`, `Insurance`
+  
+  **Key Relationships**:
+  - Patients have Medical History records
+  - Patients have Emergency Contacts
+  - Patients have Insurance information
+  
+  **Sample Data Structure**:
+  ```sql
+  -- Patients table
+  Patient {
+    id: String (UUID)
+    mrn: String (unique) // Medical Record Number
+    firstName: String
+    lastName: String
+    dateOfBirth: DateTime
+    gender: String
+    phone: String
+    email: String?
+    address: Json
+    organizationId: String
+    createdAt: DateTime
+    updatedAt: DateTime
+  }
+  
+  -- Medical History table
+  MedicalHistory {
+    id: String (UUID)
+    patientId: String
+    condition: String
+    diagnosedDate: DateTime
+    status: String // active, resolved, chronic
+    notes: String?
+    providerId: String
+    createdAt: DateTime
+    updatedAt: DateTime
+  }
+  ```
+</Tab>
+
+<Tab title="Appointments">
+  **Tables**: `Appointment`, `AppointmentType`, `Schedule`, `Queue`
+  
+  **Key Relationships**:
+  - Appointments link Patients and Providers
+  - Appointments have Types and Schedules
+  - Appointments generate Queue entries
+  
+  **Sample Data Structure**:
+  ```sql
+  -- Appointments table
+  Appointment {
+    id: String (UUID)
+    patientId: String
+    providerId: String
+    appointmentTypeId: String
+    scheduledAt: DateTime
+    duration: Int // minutes
+    status: String // scheduled, confirmed, in-progress, completed, cancelled
+    notes: String?
+    queuePosition: Int?
+    organizationId: String
+    createdAt: DateTime
+    updatedAt: DateTime
+  }
+  
+  -- Queue table
+  Queue {
+    id: String (UUID)
+    appointmentId: String
+    providerId: String
+    position: Int
+    estimatedWaitTime: Int // minutes
+    status: String // waiting, called, in-progress, completed
+    checkedInAt: DateTime?
+    calledAt: DateTime?
+    completedAt: DateTime?
+    organizationId: String
+    createdAt: DateTime
+    updatedAt: DateTime
+  }
+  ```
+</Tab>
+
+<Tab title="Prescriptions">
+  **Tables**: `Prescription`, `Medication`, `Pharmacy`, `PrescriptionItem`
+  
+  **Key Relationships**:
+  - Prescriptions contain multiple Prescription Items
+  - Prescription Items reference Medications
+  - Prescriptions are filled at Pharmacies
+  
+  **Sample Data Structure**:
+  ```sql
+  -- Prescriptions table
+  Prescription {
+    id: String (UUID)
+    patientId: String
+    providerId: String
+    pharmacyId: String?
+    prescriptionNumber: String (unique)
+    status: String // pending, sent, filled, picked-up
+    issuedAt: DateTime
+    expiresAt: DateTime
+    refillsRemaining: Int
+    organizationId: String
+    createdAt: DateTime
+    updatedAt: DateTime
+  }
+  
+  -- Prescription Items table
+  PrescriptionItem {
+    id: String (UUID)
+    prescriptionId: String
+    medicationId: String
+    dosage: String
+    frequency: String
+    duration: String
+    quantity: Int
+    instructions: String?
+    createdAt: DateTime
+    updatedAt: DateTime
+  }
+  ```
+</Tab>
+</Tabs>
+
+### System Tables
+
+<AccordionGroup>
+<Accordion title="Navigation & Location">
+  **Tables**: `Location`, `NavigationMap`, `Route`, `Beacon`
+  
+  **Purpose**: Support AR navigation and indoor positioning
+  
+  **Key Features**:
+  - Hospital floor plans and room mapping
+  - Beacon positioning data
+  - Route optimization algorithms
+  - Accessibility routing options
+</Accordion>
+
+<Accordion title="Parking Management">
+  **Tables**: `ParkingSpace`, `ParkingReservation`, `ParkingTransaction`, `ParkingZone`
+  
+  **Purpose**: Manage hospital parking operations
+  
+  **Key Features**:
+  - Real-time space availability
+  - Reservation system
+  - Payment processing
+  - Violation tracking
+</Accordion>
+
+<Accordion title="Notifications">
+  **Tables**: `Notification`, `NotificationTemplate`, `NotificationLog`
+  
+  **Purpose**: Track notification delivery and preferences
+  
+  **Key Features**:
+  - Notification history
+  - Delivery status tracking
+  - User preferences
+  - Template management
+</Accordion>
+
+<Accordion title="Audit & Logging">
+  **Tables**: `AuditLog`, `SystemLog`, `ErrorLog`
+  
+  **Purpose**: Compliance and debugging
+  
+  **Key Features**:
+  - HIPAA compliance logging
+  - System event tracking
+  - Error monitoring
+  - Data access auditing
+</Accordion>
+</AccordionGroup>
+
+## Using Database Studio
+
+### Data Exploration
+
+<Steps>
+<Step title="Browse Tables">
+  1. Open Database Studio at http://localhost:3005
+  2. Select a table from the left sidebar
+  3. Browse records with pagination controls
+  4. Use the search bar to find specific records
+  
+  **Pro Tip**: Use Cmd/Ctrl + K to quickly search for tables
+</Step>
+
+<Step title="View Relationships">
+  1. Click on any foreign key field (highlighted in blue)
+  2. Navigate to related records automatically
+  3. Use the breadcrumb navigation to go back
+  4. View relationship counts in the sidebar
+  
+  **Example**: Click on `patientId` in an Appointment record to view the Patient details
+</Step>
+
+<Step title="Filter and Search">
+  1. Use the filter button to create complex queries
+  2. Combine multiple conditions with AND/OR logic
+  3. Save frequently used filters as bookmarks
+  4. Export filtered results as CSV or JSON
+  
+  **Advanced Filtering**:
+  ```sql
+  -- Example filter conditions
+  status = "active" AND createdAt > "2024-01-01"
+  organizationId = "org_123" OR role = "admin"
+  email CONTAINS "@waylio.com"
+  ```
+</Step>
+</Steps>
+
+### Data Management
+
+<Tabs>
+<Tab title="Creating Records">
+  **Process**:
+  1. Navigate to the desired table
+  2. Click the "Add Record" button
+  3. Fill in required fields (marked with *)
+  4. Use dropdowns for foreign key relationships
+  5. Save the record
+  
+  **Validation**:
+  - Required fields are enforced
+  - Data types are validated
+  - Unique constraints are checked
+  - Foreign key relationships are verified
+  
+  **Example - Creating a Patient**:
+  ```typescript
+  // Required fields for Patient creation
+  {
+    mrn: "MRN-2024-001", // Auto-generated or manual
+    firstName: "John",
+    lastName: "Doe",
+    dateOfBirth: "1980-01-15",
+    gender: "Male",
+    phone: "+1-555-123-4567",
+    organizationId: "org_waylio_hospital" // Selected from dropdown
+  }
+  ```
+</Tab>
+
+<Tab title="Editing Records">
+  **Process**:
+  1. Find the record using search or navigation
+  2. Click the edit icon (pencil) next to the record
+  3. Modify the desired fields
+  4. Save changes or cancel
+  
+  **Features**:
+  - Real-time validation
+  - Undo/redo functionality
+  - Change tracking
+  - Conflict detection
+  
+  **Bulk Editing**:
+  - Select multiple records using checkboxes
+  - Apply changes to all selected records
+  - Preview changes before applying
+  - Rollback capability
+</Tab>
+
+<Tab title="Deleting Records">
+  **Process**:
+  1. Select the record(s) to delete
+  2. Click the delete icon (trash)
+  3. Confirm the deletion in the modal
+  4. Handle cascade deletions if applicable
+  
+  **Safety Features**:
+  - Confirmation dialogs for all deletions
+  - Cascade deletion warnings
+  - Soft delete options where configured
+  - Audit trail for all deletions
+  
+  **Cascade Behavior**:
+  ```sql
+  -- Example: Deleting a Patient
+  -- Will also delete (if configured):
+  -- - Medical History records
+  -- - Appointments
+  -- - Prescriptions
+  -- - Emergency Contacts
+  ```
+</Tab>
+</Tabs>
+
+### Advanced Features
+
+<AccordionGroup>
+<Accordion title="Raw SQL Queries">
+  **Access**: Click "Raw Query" in the top navigation
+  
+  **Features**:
+  - Execute custom SQL queries
+  - View query execution plans
+  - Export results in multiple formats
+  - Save frequently used queries
+  
+  **Example Queries**:
+  ```sql
+  -- Find patients with upcoming appointments
+  SELECT p.firstName, p.lastName, a.scheduledAt, u.firstName as providerName
+  FROM Patient p
+  JOIN Appointment a ON p.id = a.patientId
+  JOIN User u ON a.providerId = u.id
+  WHERE a.scheduledAt > NOW()
+  ORDER BY a.scheduledAt;
+  
+  -- Queue analytics
+  SELECT 
+    DATE(createdAt) as date,
+    AVG(estimatedWaitTime) as avgWaitTime,
+    COUNT(*) as totalAppointments
+  FROM Queue
+  WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+  GROUP BY DATE(createdAt)
+  ORDER BY date;
+  ```
+</Accordion>
+
+<Accordion title="Data Import/Export">
+  **Import Features**:
+  - CSV file import with field mapping
+  - JSON data import
+  - Bulk data validation
+  - Error reporting and rollback
+  
+  **Export Features**:
+  - Export filtered results
+  - Multiple format support (CSV, JSON, Excel)
+  - Scheduled exports
+  - Custom field selection
+  
+  **Import Process**:
+  1. Select table for import
+  2. Upload CSV/JSON file
+  3. Map columns to database fields
+  4. Preview and validate data
+  5. Execute import with error handling
+</Accordion>
+
+<Accordion title="Database Migrations">
+  **View Migration History**:
+  - See all applied migrations
+  - View migration SQL
+  - Check migration status
+  - Rollback capabilities (development only)
+  
+  **Migration Management**:
+  ```bash
+  # View migration status
+  pnpm db:migrate status
+  
+  # Apply pending migrations
+  pnpm db:migrate deploy
+  
+  # Reset database (development only)
+  pnpm db:migrate reset
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Development Workflows
+
+### Common Development Tasks
+
+<Tabs>
+<Tab title="Seeding Test Data">
+  **Purpose**: Create realistic test data for development
+  
+  **Process**:
+  1. Use the seed script to generate sample data
+  2. Verify data in Database Studio
+  3. Test application features with realistic data
+  
+  **Seed Script Usage**:
+  ```bash
+  # Run database seed
+  pnpm db:seed
+  
+  # Seed specific data types
+  pnpm db:seed --patients=50 --appointments=200
+  
+  # Reset and reseed
+  pnpm db:reset
+  ```
+  
+  **Sample Data Includes**:
+  - Organizations and users
+  - Patients with medical histories
+  - Appointments and queues
+  - Prescriptions and medications
+  - Navigation maps and locations
+</Tab>
+
+<Tab title="Debugging Data Issues">
+  **Common Scenarios**:
+  - Investigating failed API requests
+  - Checking data consistency
+  - Verifying business logic
+  - Troubleshooting user reports
+  
+  **Debugging Process**:
+  1. Identify the affected records
+  2. Use Studio to examine data state
+  3. Check related records and relationships
+  4. Verify data against business rules
+  5. Make corrections if necessary
+  
+  **Example - Appointment Issues**:
+  ```sql
+  -- Check appointment conflicts
+  SELECT * FROM Appointment 
+  WHERE providerId = 'provider_123' 
+  AND scheduledAt BETWEEN '2024-01-15 09:00:00' AND '2024-01-15 17:00:00'
+  ORDER BY scheduledAt;
+  
+  -- Verify queue positions
+  SELECT a.id, a.scheduledAt, q.position, q.estimatedWaitTime
+  FROM Appointment a
+  LEFT JOIN Queue q ON a.id = q.appointmentId
+  WHERE a.providerId = 'provider_123'
+  AND DATE(a.scheduledAt) = '2024-01-15';
+  ```
+</Tab>
+
+<Tab title="Data Migration Testing">
+  **Purpose**: Verify data migrations work correctly
+  
+  **Process**:
+  1. Create migration script
+  2. Test on development database
+  3. Verify data integrity in Studio
+  4. Check application functionality
+  5. Document migration steps
+  
+  **Migration Verification**:
+  - Check record counts before/after
+  - Verify data types and constraints
+  - Test foreign key relationships
+  - Validate business logic still works
+</Tab>
+</Tabs>
+
+### Performance Monitoring
+
+<AccordionGroup>
+<Accordion title="Query Performance">
+  **Monitoring Tools**:
+  - Query execution time tracking
+  - Slow query identification
+  - Index usage analysis
+  - Connection pool monitoring
+  
+  **Optimization Strategies**:
+  - Add indexes for frequently queried fields
+  - Optimize N+1 query problems
+  - Use database views for complex queries
+  - Implement query result caching
+</Accordion>
+
+<Accordion title="Database Health">
+  **Health Metrics**:
+  - Connection count and pool usage
+  - Query response times
+  - Error rates and types
+  - Storage usage and growth
+  
+  **Monitoring Dashboard**:
+  ```sql
+  -- Database size query
+  SELECT 
+    schemaname,
+    tablename,
+    pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size
+  FROM pg_tables 
+  WHERE schemaname = 'public'
+  ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
+  
+  -- Active connections
+  SELECT count(*) as active_connections 
+  FROM pg_stat_activity 
+  WHERE state = 'active';
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Security and Compliance
+
+### Data Protection
+
+<AccordionGroup>
+<Accordion title="HIPAA Compliance">
+  **Audit Logging**:
+  - All data access is logged
+  - User actions are tracked
+  - Data modifications are recorded
+  - Access patterns are monitored
+  
+  **Data Encryption**:
+  - Encryption at rest (database level)
+  - Encryption in transit (SSL/TLS)
+  - Field-level encryption for sensitive data
+  - Key rotation and management
+</Accordion>
+
+<Accordion title="Access Control">
+  **Studio Access**:
+  - Development environment only
+  - VPN required for remote access
+  - Role-based access control
+  - Session timeout enforcement
+  
+  **Production Restrictions**:
+  - No direct database access in production
+  - Read-only replicas for reporting
+  - Automated backup and recovery
+  - Change management processes
+</Accordion>
+</AccordionGroup>
+
+## Development
+
+### Local Development
+
+<Steps>
+<Step title="Start Database Studio">
+  ```bash
+  # Start only Database Studio
+  pnpm studio
+  
+  # Or start all services
+  pnpm dev
+  ```
+  
+  Database Studio will be available at http://localhost:3005
+</Step>
+
+<Step title="Connect to Database">
+  Ensure your database connection is configured:
+  
+  ```bash
+  # Check database connection
+  pnpm db:status
+  
+  # Test connection
+  pnpm db:ping
+  ```
+</Step>
+
+<Step title="Manage Database">
+  ```bash
+  # Apply migrations
+  pnpm db:migrate
+  
+  # Seed with sample data
+  pnpm db:seed
+  
+  # Reset database (development only)
+  pnpm db:reset
+  ```
+</Step>
+</Steps>
+
+### Configuration
+
+<Tabs>
+<Tab title="Environment Setup">
+  ```bash
+  # Required environment variables
+  DATABASE_URL="postgresql://user:password@localhost:5432/waylio"
+  
+  # Optional Studio configuration
+  STUDIO_PORT=3005
+  STUDIO_BROWSER=true
+  ```
+</Tab>
+
+<Tab title="Prisma Configuration">
+  ```typescript
+  // prisma/schema.prisma
+  generator client {
+    provider = "prisma-client-js"
+  }
+  
+  generator studio {
+    provider = "prisma-studio"
+    port     = 3005
+  }
+  
+  datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+  }
+  ```
+</Tab>
+</Tabs>
+
+## Best Practices
+
+### Data Management
+
+<AccordionGroup>
+<Accordion title="Development Guidelines">
+  - Always use transactions for multi-table operations
+  - Validate data before making changes
+  - Use soft deletes for important records
+  - Maintain referential integrity
+  - Document complex queries and procedures
+</Accordion>
+
+<Accordion title="Security Guidelines">
+  - Never expose Studio in production
+  - Use read-only connections when possible
+  - Regularly rotate database credentials
+  - Monitor and audit all database access
+  - Implement proper backup and recovery procedures
+</Accordion>
+
+<Accordion title="Performance Guidelines">
+  - Monitor query performance regularly
+  - Use appropriate indexes
+  - Avoid N+1 query problems
+  - Implement connection pooling
+  - Cache frequently accessed data
+</Accordion>
+</AccordionGroup>
+
+<Note>
+Database Studio is a powerful tool for development and debugging. Always use caution when modifying data, especially in shared development environments.
+</Note>

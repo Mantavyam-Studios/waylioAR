@@ -1,0 +1,1395 @@
+---
+title: "Email Package"
+description: "Comprehensive email system powered by Resend and React Email for transactional emails, notifications, and healthcare communications."
+---
+
+# Email Package
+
+The email package provides a complete email solution for the Waylio platform, built on Resend for reliable delivery and React Email for beautiful, responsive email templates. It handles transactional emails, appointment notifications, and healthcare-specific communications while maintaining HIPAA compliance.
+
+## Installation
+
+```bash
+# Install the email package
+pnpm add @repo/email
+
+# Peer dependencies (automatically installed in monorepo)
+pnpm add resend react-email @react-email/components
+```
+
+## Overview
+
+The email package centralizes all email functionality across the Waylio platform, providing type-safe email templates, reliable delivery, and comprehensive tracking. It supports both transactional and marketing emails with healthcare-specific templates and compliance features.
+
+### Key Features
+
+<CardGroup cols={2}>
+<Card title="React Email Templates" icon="mail">
+  Beautiful, responsive email templates built with React Email components.
+</Card>
+
+<Card title="Reliable Delivery" icon="send">
+  High deliverability rates with Resend's infrastructure and reputation management.
+</Card>
+
+<Card title="Healthcare Compliance" icon="shield-check">
+  HIPAA-compliant email handling with secure transmission and audit trails.
+</Card>
+
+<Card title="Template Management" icon="layout-template">
+  Centralized template management with versioning and A/B testing capabilities.
+</Card>
+</CardGroup>
+
+## Email Templates
+
+### Healthcare Templates
+
+<Tabs>
+<Tab title="Appointment Confirmation">
+  **Purpose**: Confirm scheduled appointments with all necessary details
+  
+  ```typescript
+  import {
+    Html,
+    Head,
+    Body,
+    Container,
+    Section,
+    Text,
+    Button,
+    Img,
+    Hr,
+  } from '@react-email/components';
+  
+  interface AppointmentConfirmationProps {
+    patientName: string;
+    appointmentDate: string;
+    appointmentTime: string;
+    providerName: string;
+    providerSpecialty: string;
+    location: {
+      name: string;
+      address: string;
+      phone: string;
+    };
+    appointmentType: string;
+    instructions?: string;
+    rescheduleUrl: string;
+    cancelUrl: string;
+    organizationName: string;
+    organizationLogo: string;
+  }
+  
+  export function AppointmentConfirmationEmail({
+    patientName,
+    appointmentDate,
+    appointmentTime,
+    providerName,
+    providerSpecialty,
+    location,
+    appointmentType,
+    instructions,
+    rescheduleUrl,
+    cancelUrl,
+    organizationName,
+    organizationLogo,
+  }: AppointmentConfirmationProps) {
+    return (
+      <Html>
+        <Head />
+        <Body style={main}>
+          <Container style={container}>
+            {/* Header */}
+            <Section style={header}>
+              <Img
+                src={organizationLogo}
+                alt={organizationName}
+                width="120"
+                height="40"
+                style={logo}
+              />
+            </Section>
+            
+            {/* Main Content */}
+            <Section style={content}>
+              <Text style={heading}>
+                Appointment Confirmed
+              </Text>
+              
+              <Text style={paragraph}>
+                Hello {patientName},
+              </Text>
+              
+              <Text style={paragraph}>
+                Your appointment has been confirmed. Here are the details:
+              </Text>
+              
+              {/* Appointment Details Card */}
+              <Section style={appointmentCard}>
+                <Text style={cardTitle}>Appointment Details</Text>
+                
+                <div style={detailRow}>
+                  <Text style={detailLabel}>Date & Time:</Text>
+                  <Text style={detailValue}>
+                    {appointmentDate} at {appointmentTime}
+                  </Text>
+                </div>
+                
+                <div style={detailRow}>
+                  <Text style={detailLabel}>Provider:</Text>
+                  <Text style={detailValue}>
+                    {providerName}, {providerSpecialty}
+                  </Text>
+                </div>
+                
+                <div style={detailRow}>
+                  <Text style={detailLabel}>Type:</Text>
+                  <Text style={detailValue}>{appointmentType}</Text>
+                </div>
+                
+                <div style={detailRow}>
+                  <Text style={detailLabel}>Location:</Text>
+                  <Text style={detailValue}>
+                    {location.name}<br />
+                    {location.address}<br />
+                    Phone: {location.phone}
+                  </Text>
+                </div>
+              </Section>
+              
+              {/* Instructions */}
+              {instructions && (
+                <Section style={instructionsSection}>
+                  <Text style={instructionsTitle}>
+                    Preparation Instructions
+                  </Text>
+                  <Text style={instructionsText}>
+                    {instructions}
+                  </Text>
+                </Section>
+              )}
+              
+              {/* Action Buttons */}
+              <Section style={buttonSection}>
+                <Button
+                  href={rescheduleUrl}
+                  style={primaryButton}
+                >
+                  Reschedule Appointment
+                </Button>
+                
+                <Button
+                  href={cancelUrl}
+                  style={secondaryButton}
+                >
+                  Cancel Appointment
+                </Button>
+              </Section>
+              
+              {/* Important Notes */}
+              <Section style={notesSection}>
+                <Text style={notesTitle}>Important Notes:</Text>
+                <ul style={notesList}>
+                  <li>Please arrive 15 minutes early for check-in</li>
+                  <li>Bring a valid ID and insurance card</li>
+                  <li>If you need to cancel, please do so at least 24 hours in advance</li>
+                  <li>Contact us at {location.phone} if you have any questions</li>
+                </ul>
+              </Section>
+            </Section>
+            
+            <Hr style={hr} />
+            
+            {/* Footer */}
+            <Section style={footer}>
+              <Text style={footerText}>
+                This email was sent by {organizationName}. 
+                If you have any questions, please contact us at {location.phone}.
+              </Text>
+              
+              <Text style={disclaimerText}>
+                This message contains confidential healthcare information. 
+                If you received this email in error, please delete it immediately.
+              </Text>
+            </Section>
+          </Container>
+        </Body>
+      </Html>
+    );
+  }
+  
+  // Styles
+  const main = {
+    backgroundColor: '#f6f9fc',
+    fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
+  };
+  
+  const container = {
+    backgroundColor: '#ffffff',
+    margin: '0 auto',
+    padding: '20px 0 48px',
+    marginBottom: '64px',
+  };
+  
+  const header = {
+    padding: '20px 30px',
+    backgroundColor: '#ffffff',
+  };
+  
+  const logo = {
+    margin: '0 auto',
+  };
+  
+  const content = {
+    padding: '0 30px',
+  };
+  
+  const heading = {
+    fontSize: '24px',
+    fontWeight: 'bold',
+    color: '#1f2937',
+    margin: '30px 0 20px',
+    textAlign: 'center' as const,
+  };
+  
+  const paragraph = {
+    fontSize: '16px',
+    lineHeight: '1.6',
+    color: '#374151',
+    margin: '16px 0',
+  };
+  
+  const appointmentCard = {
+    backgroundColor: '#f8fafc',
+    border: '1px solid #e5e7eb',
+    borderRadius: '8px',
+    padding: '20px',
+    margin: '20px 0',
+  };
+  
+  const cardTitle = {
+    fontSize: '18px',
+    fontWeight: 'bold',
+    color: '#1f2937',
+    margin: '0 0 16px',
+  };
+  
+  const detailRow = {
+    display: 'flex',
+    marginBottom: '12px',
+  };
+  
+  const detailLabel = {
+    fontSize: '14px',
+    fontWeight: 'bold',
+    color: '#6b7280',
+    width: '120px',
+    margin: '0',
+  };
+  
+  const detailValue = {
+    fontSize: '14px',
+    color: '#1f2937',
+    margin: '0',
+    flex: '1',
+  };
+  
+  const instructionsSection = {
+    backgroundColor: '#fef3c7',
+    border: '1px solid #f59e0b',
+    borderRadius: '8px',
+    padding: '16px',
+    margin: '20px 0',
+  };
+  
+  const instructionsTitle = {
+    fontSize: '16px',
+    fontWeight: 'bold',
+    color: '#92400e',
+    margin: '0 0 8px',
+  };
+  
+  const instructionsText = {
+    fontSize: '14px',
+    color: '#92400e',
+    margin: '0',
+    lineHeight: '1.5',
+  };
+  
+  const buttonSection = {
+    textAlign: 'center' as const,
+    margin: '30px 0',
+  };
+  
+  const primaryButton = {
+    backgroundColor: '#3b82f6',
+    borderRadius: '6px',
+    color: '#ffffff',
+    fontSize: '16px',
+    fontWeight: 'bold',
+    textDecoration: 'none',
+    textAlign: 'center' as const,
+    display: 'inline-block',
+    padding: '12px 24px',
+    margin: '0 8px 8px',
+  };
+  
+  const secondaryButton = {
+    backgroundColor: '#ffffff',
+    border: '1px solid #d1d5db',
+    borderRadius: '6px',
+    color: '#374151',
+    fontSize: '16px',
+    fontWeight: 'bold',
+    textDecoration: 'none',
+    textAlign: 'center' as const,
+    display: 'inline-block',
+    padding: '12px 24px',
+    margin: '0 8px 8px',
+  };
+  
+  const notesSection = {
+    margin: '30px 0',
+  };
+  
+  const notesTitle = {
+    fontSize: '16px',
+    fontWeight: 'bold',
+    color: '#1f2937',
+    margin: '0 0 12px',
+  };
+  
+  const notesList = {
+    fontSize: '14px',
+    color: '#6b7280',
+    lineHeight: '1.6',
+    paddingLeft: '20px',
+  };
+  
+  const hr = {
+    borderColor: '#e5e7eb',
+    margin: '20px 0',
+  };
+  
+  const footer = {
+    padding: '0 30px',
+  };
+  
+  const footerText = {
+    fontSize: '12px',
+    color: '#6b7280',
+    lineHeight: '1.5',
+    margin: '0 0 12px',
+  };
+  
+  const disclaimerText = {
+    fontSize: '11px',
+    color: '#9ca3af',
+    lineHeight: '1.4',
+    margin: '0',
+    fontStyle: 'italic',
+  };
+  ```
+</Tab>
+
+<Tab title="Prescription Ready">
+  **Purpose**: Notify patients when prescriptions are ready for pickup
+  
+  ```typescript
+  import {
+    Html,
+    Head,
+    Body,
+    Container,
+    Section,
+    Text,
+    Button,
+    Img,
+  } from '@react-email/components';
+  
+  interface PrescriptionReadyProps {
+    patientName: string;
+    medications: Array<{
+      name: string;
+      dosage: string;
+      quantity: string;
+      instructions: string;
+    }>;
+    pharmacy: {
+      name: string;
+      address: string;
+      phone: string;
+      hours: string;
+    };
+    prescribingProvider: string;
+    readyDate: string;
+    pickupInstructions: string;
+    organizationName: string;
+    organizationLogo: string;
+  }
+  
+  export function PrescriptionReadyEmail({
+    patientName,
+    medications,
+    pharmacy,
+    prescribingProvider,
+    readyDate,
+    pickupInstructions,
+    organizationName,
+    organizationLogo,
+  }: PrescriptionReadyProps) {
+    return (
+      <Html>
+        <Head />
+        <Body style={main}>
+          <Container style={container}>
+            {/* Header */}
+            <Section style={header}>
+              <Img
+                src={organizationLogo}
+                alt={organizationName}
+                width="120"
+                height="40"
+                style={logo}
+              />
+            </Section>
+            
+            {/* Main Content */}
+            <Section style={content}>
+              <Text style={heading}>
+                Your Prescription is Ready
+              </Text>
+              
+              <Text style={paragraph}>
+                Hello {patientName},
+              </Text>
+              
+              <Text style={paragraph}>
+                Your prescription from Dr. {prescribingProvider} is ready for pickup 
+                as of {readyDate}.
+              </Text>
+              
+              {/* Medications List */}
+              <Section style={medicationsSection}>
+                <Text style={sectionTitle}>Medications Ready:</Text>
+                
+                {medications.map((medication, index) => (
+                  <div key={index} style={medicationItem}>
+                    <Text style={medicationName}>{medication.name}</Text>
+                    <Text style={medicationDetails}>
+                      Dosage: {medication.dosage} | Quantity: {medication.quantity}
+                    </Text>
+                    <Text style={medicationInstructions}>
+                      Instructions: {medication.instructions}
+                    </Text>
+                  </div>
+                ))}
+              </Section>
+              
+              {/* Pharmacy Information */}
+              <Section style={pharmacySection}>
+                <Text style={sectionTitle}>Pickup Location:</Text>
+                
+                <Text style={pharmacyName}>{pharmacy.name}</Text>
+                <Text style={pharmacyAddress}>{pharmacy.address}</Text>
+                <Text style={pharmacyContact}>
+                  Phone: {pharmacy.phone}<br />
+                  Hours: {pharmacy.hours}
+                </Text>
+              </Section>
+              
+              {/* Pickup Instructions */}
+              <Section style={instructionsSection}>
+                <Text style={instructionsTitle}>Pickup Instructions:</Text>
+                <Text style={instructionsText}>{pickupInstructions}</Text>
+              </Section>
+              
+              {/* Important Reminders */}
+              <Section style={remindersSection}>
+                <Text style={remindersTitle}>Important Reminders:</Text>
+                <ul style={remindersList}>
+                  <li>Bring a valid photo ID</li>
+                  <li>Bring your insurance card</li>
+                  <li>Prescriptions will be held for 30 days</li>
+                  <li>Contact the pharmacy if you have questions about your medication</li>
+                </ul>
+              </Section>
+            </Section>
+            
+            {/* Footer */}
+            <Section style={footer}>
+              <Text style={footerText}>
+                This email was sent by {organizationName}. 
+                For questions about your prescription, contact {pharmacy.name} at {pharmacy.phone}.
+              </Text>
+              
+              <Text style={disclaimerText}>
+                This message contains confidential healthcare information. 
+                If you received this email in error, please delete it immediately.
+              </Text>
+            </Section>
+          </Container>
+        </Body>
+      </Html>
+    );
+  }
+  
+  // Additional styles specific to prescription email
+  const medicationsSection = {
+    backgroundColor: '#f0f9ff',
+    border: '1px solid #0ea5e9',
+    borderRadius: '8px',
+    padding: '20px',
+    margin: '20px 0',
+  };
+  
+  const medicationItem = {
+    borderBottom: '1px solid #e0f2fe',
+    paddingBottom: '12px',
+    marginBottom: '12px',
+  };
+  
+  const medicationName = {
+    fontSize: '16px',
+    fontWeight: 'bold',
+    color: '#0c4a6e',
+    margin: '0 0 4px',
+  };
+  
+  const medicationDetails = {
+    fontSize: '14px',
+    color: '#0369a1',
+    margin: '0 0 4px',
+  };
+  
+  const medicationInstructions = {
+    fontSize: '13px',
+    color: '#075985',
+    margin: '0',
+    fontStyle: 'italic',
+  };
+  
+  const pharmacySection = {
+    backgroundColor: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    borderRadius: '8px',
+    padding: '16px',
+    margin: '20px 0',
+  };
+  
+  const pharmacyName = {
+    fontSize: '16px',
+    fontWeight: 'bold',
+    color: '#1e293b',
+    margin: '0 0 8px',
+  };
+  
+  const pharmacyAddress = {
+    fontSize: '14px',
+    color: '#475569',
+    margin: '0 0 8px',
+  };
+  
+  const pharmacyContact = {
+    fontSize: '14px',
+    color: '#475569',
+    margin: '0',
+  };
+  ```
+</Tab>
+
+<Tab title="Test Results">
+  **Purpose**: Notify patients when lab or test results are available
+  
+  ```typescript
+  interface TestResultsProps {
+    patientName: string;
+    testType: string;
+    testDate: string;
+    orderingProvider: string;
+    resultsAvailable: boolean;
+    urgentResults: boolean;
+    portalUrl: string;
+    contactInfo: {
+      phone: string;
+      email: string;
+    };
+    organizationName: string;
+    organizationLogo: string;
+  }
+  
+  export function TestResultsEmail({
+    patientName,
+    testType,
+    testDate,
+    orderingProvider,
+    resultsAvailable,
+    urgentResults,
+    portalUrl,
+    contactInfo,
+    organizationName,
+    organizationLogo,
+  }: TestResultsProps) {
+    return (
+      <Html>
+        <Head />
+        <Body style={main}>
+          <Container style={container}>
+            {/* Header */}
+            <Section style={header}>
+              <Img
+                src={organizationLogo}
+                alt={organizationName}
+                width="120"
+                height="40"
+                style={logo}
+              />
+            </Section>
+            
+            {/* Main Content */}
+            <Section style={content}>
+              {urgentResults && (
+                <Section style={urgentBanner}>
+                  <Text style={urgentText}>
+                    ⚠️ URGENT: Please contact your provider immediately
+                  </Text>
+                </Section>
+              )}
+              
+              <Text style={heading}>
+                {resultsAvailable ? 'Test Results Available' : 'Test Results Pending'}
+              </Text>
+              
+              <Text style={paragraph}>
+                Hello {patientName},
+              </Text>
+              
+              <Text style={paragraph}>
+                {resultsAvailable 
+                  ? `Your ${testType} results from ${testDate} are now available.`
+                  : `Your ${testType} from ${testDate} is being processed. We'll notify you when results are ready.`
+                }
+              </Text>
+              
+              {/* Test Information */}
+              <Section style={testInfoSection}>
+                <Text style={sectionTitle}>Test Information:</Text>
+                
+                <div style={detailRow}>
+                  <Text style={detailLabel}>Test Type:</Text>
+                  <Text style={detailValue}>{testType}</Text>
+                </div>
+                
+                <div style={detailRow}>
+                  <Text style={detailLabel}>Test Date:</Text>
+                  <Text style={detailValue}>{testDate}</Text>
+                </div>
+                
+                <div style={detailRow}>
+                  <Text style={detailLabel}>Ordering Provider:</Text>
+                  <Text style={detailValue}>Dr. {orderingProvider}</Text>
+                </div>
+              </Section>
+              
+              {resultsAvailable && (
+                <>
+                  {/* Action Button */}
+                  <Section style={buttonSection}>
+                    <Button href={portalUrl} style={primaryButton}>
+                      View Results in Patient Portal
+                    </Button>
+                  </Section>
+                  
+                  {/* Next Steps */}
+                  <Section style={nextStepsSection}>
+                    <Text style={nextStepsTitle}>Next Steps:</Text>
+                    <ul style={nextStepsList}>
+                      <li>Review your results in the patient portal</li>
+                      <li>Your provider will contact you if any follow-up is needed</li>
+                      <li>Contact us if you have questions about your results</li>
+                      {urgentResults && (
+                        <li style={urgentStep}>
+                          <strong>Call {contactInfo.phone} immediately for urgent results</strong>
+                        </li>
+                      )}
+                    </ul>
+                  </Section>
+                </>
+              )}
+            </Section>
+            
+            {/* Footer */}
+            <Section style={footer}>
+              <Text style={footerText}>
+                Questions? Contact us at {contactInfo.phone} or {contactInfo.email}
+              </Text>
+              
+              <Text style={disclaimerText}>
+                This message contains confidential healthcare information. 
+                If you received this email in error, please delete it immediately.
+              </Text>
+            </Section>
+          </Container>
+        </Body>
+      </Html>
+    );
+  }
+  
+  // Urgent-specific styles
+  const urgentBanner = {
+    backgroundColor: '#fef2f2',
+    border: '2px solid #ef4444',
+    borderRadius: '8px',
+    padding: '12px',
+    margin: '0 0 20px',
+    textAlign: 'center' as const,
+  };
+  
+  const urgentText = {
+    fontSize: '16px',
+    fontWeight: 'bold',
+    color: '#dc2626',
+    margin: '0',
+  };
+  
+  const testInfoSection = {
+    backgroundColor: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    borderRadius: '8px',
+    padding: '16px',
+    margin: '20px 0',
+  };
+  
+  const nextStepsSection = {
+    margin: '20px 0',
+  };
+  
+  const nextStepsTitle = {
+    fontSize: '16px',
+    fontWeight: 'bold',
+    color: '#1f2937',
+    margin: '0 0 12px',
+  };
+  
+  const nextStepsList = {
+    fontSize: '14px',
+    color: '#6b7280',
+    lineHeight: '1.6',
+    paddingLeft: '20px',
+  };
+  
+  const urgentStep = {
+    color: '#dc2626',
+    backgroundColor: '#fef2f2',
+    padding: '8px',
+    borderRadius: '4px',
+    marginTop: '8px',
+  };
+  ```
+</Tab>
+</Tabs>
+
+## Email Service
+
+### Email Sending
+
+<AccordionGroup>
+<Accordion title="Email Service Class">
+  ```typescript
+  import { Resend } from 'resend';
+  import { render } from '@react-email/render';
+  import { database } from '@repo/database';
+  import { 
+    AppointmentConfirmationEmail,
+    PrescriptionReadyEmail,
+    TestResultsEmail,
+    WelcomeEmail,
+    PasswordResetEmail,
+  } from './templates';
+  
+  export class EmailService {
+    private resend: Resend;
+    
+    constructor() {
+      this.resend = new Resend(process.env.RESEND_API_KEY);
+    }
+    
+    async sendAppointmentConfirmation(data: {
+      to: string;
+      patientName: string;
+      appointmentId: string;
+      appointmentDate: string;
+      appointmentTime: string;
+      providerName: string;
+      providerSpecialty: string;
+      location: any;
+      appointmentType: string;
+      instructions?: string;
+      organizationId: string;
+    }) {
+      try {
+        const organization = await this.getOrganization(data.organizationId);
+        
+        const emailHtml = render(
+          AppointmentConfirmationEmail({
+            ...data,
+            rescheduleUrl: `${process.env.NEXT_PUBLIC_APP_URL}/appointments/${data.appointmentId}/reschedule`,
+            cancelUrl: `${process.env.NEXT_PUBLIC_APP_URL}/appointments/${data.appointmentId}/cancel`,
+            organizationName: organization.name,
+            organizationLogo: organization.logoUrl,
+          })
+        );
+        
+        const result = await this.resend.emails.send({
+          from: `${organization.name} <appointments@${organization.emailDomain}>`,
+          to: data.to,
+          subject: `Appointment Confirmed - ${data.appointmentDate} at ${data.appointmentTime}`,
+          html: emailHtml,
+          tags: [
+            { name: 'type', value: 'appointment-confirmation' },
+            { name: 'organization', value: data.organizationId },
+            { name: 'appointment', value: data.appointmentId },
+          ],
+        });
+        
+        // Log email for audit trail
+        await this.logEmail({
+          type: 'appointment-confirmation',
+          recipient: data.to,
+          organizationId: data.organizationId,
+          relatedId: data.appointmentId,
+          resendId: result.data?.id,
+          status: 'sent',
+        });
+        
+        return result;
+      } catch (error) {
+        console.error('Failed to send appointment confirmation:', error);
+        
+        await this.logEmail({
+          type: 'appointment-confirmation',
+          recipient: data.to,
+          organizationId: data.organizationId,
+          relatedId: data.appointmentId,
+          status: 'failed',
+          error: error.message,
+        });
+        
+        throw error;
+      }
+    }
+    
+    async sendPrescriptionReady(data: {
+      to: string;
+      patientName: string;
+      prescriptionId: string;
+      medications: Array<{
+        name: string;
+        dosage: string;
+        quantity: string;
+        instructions: string;
+      }>;
+      pharmacy: any;
+      prescribingProvider: string;
+      organizationId: string;
+    }) {
+      try {
+        const organization = await this.getOrganization(data.organizationId);
+        
+        const emailHtml = render(
+          PrescriptionReadyEmail({
+            ...data,
+            readyDate: new Date().toLocaleDateString(),
+            pickupInstructions: 'Please bring a valid ID and insurance card when picking up your prescription.',
+            organizationName: organization.name,
+            organizationLogo: organization.logoUrl,
+          })
+        );
+        
+        const result = await this.resend.emails.send({
+          from: `${organization.name} <prescriptions@${organization.emailDomain}>`,
+          to: data.to,
+          subject: 'Your Prescription is Ready for Pickup',
+          html: emailHtml,
+          tags: [
+            { name: 'type', value: 'prescription-ready' },
+            { name: 'organization', value: data.organizationId },
+            { name: 'prescription', value: data.prescriptionId },
+          ],
+        });
+        
+        await this.logEmail({
+          type: 'prescription-ready',
+          recipient: data.to,
+          organizationId: data.organizationId,
+          relatedId: data.prescriptionId,
+          resendId: result.data?.id,
+          status: 'sent',
+        });
+        
+        return result;
+      } catch (error) {
+        console.error('Failed to send prescription ready email:', error);
+        throw error;
+      }
+    }
+    
+    async sendTestResults(data: {
+      to: string;
+      patientName: string;
+      testId: string;
+      testType: string;
+      testDate: string;
+      orderingProvider: string;
+      resultsAvailable: boolean;
+      urgentResults: boolean;
+      organizationId: string;
+    }) {
+      try {
+        const organization = await this.getOrganization(data.organizationId);
+        
+        const emailHtml = render(
+          TestResultsEmail({
+            ...data,
+            portalUrl: `${process.env.NEXT_PUBLIC_APP_URL}/portal/results/${data.testId}`,
+            contactInfo: {
+              phone: organization.phone,
+              email: organization.supportEmail,
+            },
+            organizationName: organization.name,
+            organizationLogo: organization.logoUrl,
+          })
+        );
+        
+        const result = await this.resend.emails.send({
+          from: `${organization.name} <results@${organization.emailDomain}>`,
+          to: data.to,
+          subject: data.urgentResults 
+            ? `URGENT: Test Results Available - ${data.testType}`
+            : `Test Results ${data.resultsAvailable ? 'Available' : 'Pending'} - ${data.testType}`,
+          html: emailHtml,
+          tags: [
+            { name: 'type', value: 'test-results' },
+            { name: 'organization', value: data.organizationId },
+            { name: 'test', value: data.testId },
+            { name: 'urgent', value: data.urgentResults.toString() },
+          ],
+        });
+        
+        await this.logEmail({
+          type: 'test-results',
+          recipient: data.to,
+          organizationId: data.organizationId,
+          relatedId: data.testId,
+          resendId: result.data?.id,
+          status: 'sent',
+          metadata: {
+            urgent: data.urgentResults,
+            resultsAvailable: data.resultsAvailable,
+          },
+        });
+        
+        return result;
+      } catch (error) {
+        console.error('Failed to send test results email:', error);
+        throw error;
+      }
+    }
+    
+    async sendBulkEmail(data: {
+      recipients: string[];
+      subject: string;
+      template: string;
+      templateData: any;
+      organizationId: string;
+      tags?: Array<{ name: string; value: string }>;
+    }) {
+      try {
+        const organization = await this.getOrganization(data.organizationId);
+        
+        // Send emails in batches to avoid rate limits
+        const batchSize = 50;
+        const batches = [];
+        
+        for (let i = 0; i < data.recipients.length; i += batchSize) {
+          const batch = data.recipients.slice(i, i + batchSize);
+          batches.push(batch);
+        }
+        
+        const results = [];
+        
+        for (const batch of batches) {
+          const batchPromises = batch.map(async (recipient) => {
+            const emailHtml = render(
+              this.getTemplate(data.template, {
+                ...data.templateData,
+                organizationName: organization.name,
+                organizationLogo: organization.logoUrl,
+              })
+            );
+            
+            return this.resend.emails.send({
+              from: `${organization.name} <noreply@${organization.emailDomain}>`,
+              to: recipient,
+              subject: data.subject,
+              html: emailHtml,
+              tags: [
+                { name: 'type', value: 'bulk-email' },
+                { name: 'organization', value: data.organizationId },
+                ...(data.tags || []),
+              ],
+            });
+          });
+          
+          const batchResults = await Promise.allSettled(batchPromises);
+          results.push(...batchResults);
+          
+          // Add delay between batches to respect rate limits
+          if (batches.indexOf(batch) < batches.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+        
+        // Log bulk email results
+        const successful = results.filter(r => r.status === 'fulfilled').length;
+        const failed = results.filter(r => r.status === 'rejected').length;
+        
+        await this.logEmail({
+          type: 'bulk-email',
+          recipient: `${data.recipients.length} recipients`,
+          organizationId: data.organizationId,
+          status: 'completed',
+          metadata: {
+            totalRecipients: data.recipients.length,
+            successful,
+            failed,
+            template: data.template,
+          },
+        });
+        
+        return {
+          total: data.recipients.length,
+          successful,
+          failed,
+          results,
+        };
+      } catch (error) {
+        console.error('Failed to send bulk email:', error);
+        throw error;
+      }
+    }
+    
+    private async getOrganization(organizationId: string) {
+      const organization = await database.organization.findUnique({
+        where: { id: organizationId },
+      });
+      
+      if (!organization) {
+        throw new Error('Organization not found');
+      }
+      
+      return organization;
+    }
+    
+    private getTemplate(templateName: string, data: any) {
+      const templates = {
+        'appointment-confirmation': AppointmentConfirmationEmail,
+        'prescription-ready': PrescriptionReadyEmail,
+        'test-results': TestResultsEmail,
+        'welcome': WelcomeEmail,
+        'password-reset': PasswordResetEmail,
+      };
+      
+      const Template = templates[templateName];
+      if (!Template) {
+        throw new Error(`Template ${templateName} not found`);
+      }
+      
+      return Template(data);
+    }
+    
+    private async logEmail(data: {
+      type: string;
+      recipient: string;
+      organizationId: string;
+      relatedId?: string;
+      resendId?: string;
+      status: 'sent' | 'failed' | 'completed';
+      error?: string;
+      metadata?: any;
+    }) {
+      try {
+        await database.emailLog.create({
+          data: {
+            type: data.type,
+            recipient: data.recipient,
+            organizationId: data.organizationId,
+            relatedId: data.relatedId,
+            resendId: data.resendId,
+            status: data.status,
+            error: data.error,
+            metadata: data.metadata,
+            sentAt: new Date(),
+          },
+        });
+      } catch (error) {
+        console.error('Failed to log email:', error);
+      }
+    }
+  }
+  
+  // Export singleton instance
+  export const emailService = new EmailService();
+  ```
+</Accordion>
+
+<Accordion title="Email Hooks">
+  ```typescript
+  import { useState, useCallback } from 'react';
+  import { emailService } from './email-service';
+  
+  export function useEmail() {
+    const [sending, setSending] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    
+    const sendEmail = useCallback(async (
+      type: string,
+      data: any
+    ) => {
+      setSending(true);
+      setError(null);
+      
+      try {
+        let result;
+        
+        switch (type) {
+          case 'appointment-confirmation':
+            result = await emailService.sendAppointmentConfirmation(data);
+            break;
+            
+          case 'prescription-ready':
+            result = await emailService.sendPrescriptionReady(data);
+            break;
+            
+          case 'test-results':
+            result = await emailService.sendTestResults(data);
+            break;
+            
+          default:
+            throw new Error(`Unknown email type: ${type}`);
+        }
+        
+        return result;
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to send email';
+        setError(errorMessage);
+        throw err;
+      } finally {
+        setSending(false);
+      }
+    }, []);
+    
+    const sendBulkEmail = useCallback(async (data: {
+      recipients: string[];
+      subject: string;
+      template: string;
+      templateData: any;
+      organizationId: string;
+    }) => {
+      setSending(true);
+      setError(null);
+      
+      try {
+        const result = await emailService.sendBulkEmail(data);
+        return result;
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to send bulk email';
+        setError(errorMessage);
+        throw err;
+      } finally {
+        setSending(false);
+      }
+    }, []);
+    
+    return {
+      sendEmail,
+      sendBulkEmail,
+      sending,
+      error,
+    };
+  }
+  
+  // Hook for email templates preview
+  export function useEmailPreview() {
+    const [previewing, setPreviewing] = useState(false);
+    
+    const previewTemplate = useCallback(async (
+      templateName: string,
+      data: any
+    ) => {
+      setPreviewing(true);
+      
+      try {
+        const response = await fetch('/api/email/preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            template: templateName,
+            data,
+          }),
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to generate preview');
+        }
+        
+        const html = await response.text();
+        return html;
+      } finally {
+        setPreviewing(false);
+      }
+    }, []);
+    
+    return {
+      previewTemplate,
+      previewing,
+    };
+  }
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Development
+
+### Setup and Configuration
+
+<Steps>
+<Step title="Environment Variables">
+  ```bash
+  # Resend configuration
+  RESEND_API_KEY="re_..."
+  
+  # Email domains (configure in Resend dashboard)
+  RESEND_DOMAIN="yourdomain.com"
+  
+  # Application URLs
+  NEXT_PUBLIC_APP_URL="https://app.waylio.com"
+  ```
+</Step>
+
+<Step title="Email Preview API">
+  ```typescript
+  // app/api/email/preview/route.ts
+  import { NextRequest, NextResponse } from 'next/server';
+  import { render } from '@react-email/render';
+  import { 
+    AppointmentConfirmationEmail,
+    PrescriptionReadyEmail,
+    TestResultsEmail,
+  } from '@repo/email/templates';
+  
+  export async function POST(req: NextRequest) {
+    try {
+      const { template, data } = await req.json();
+      
+      const templates = {
+        'appointment-confirmation': AppointmentConfirmationEmail,
+        'prescription-ready': PrescriptionReadyEmail,
+        'test-results': TestResultsEmail,
+      };
+      
+      const Template = templates[template];
+      if (!Template) {
+        return NextResponse.json(
+          { error: 'Template not found' },
+          { status: 404 }
+        );
+      }
+      
+      const html = render(Template(data));
+      
+      return new Response(html, {
+        headers: { 'Content-Type': 'text/html' },
+      });
+    } catch (error) {
+      return NextResponse.json(
+        { error: 'Failed to render template' },
+        { status: 500 }
+      );
+    }
+  }
+  ```
+</Step>
+
+<Step title="Testing Email Templates">
+  ```typescript
+  // __tests__/email.test.ts
+  import { render } from '@react-email/render';
+  import { AppointmentConfirmationEmail } from '@repo/email/templates';
+  
+  describe('Email Templates', () => {
+    test('renders appointment confirmation email', () => {
+      const props = {
+        patientName: 'John Doe',
+        appointmentDate: '2024-01-15',
+        appointmentTime: '10:00 AM',
+        providerName: 'Dr. Smith',
+        providerSpecialty: 'Cardiology',
+        location: {
+          name: 'Main Hospital',
+          address: '123 Health St',
+          phone: '(555) 123-4567',
+        },
+        appointmentType: 'Consultation',
+        rescheduleUrl: 'https://example.com/reschedule',
+        cancelUrl: 'https://example.com/cancel',
+        organizationName: 'Test Hospital',
+        organizationLogo: 'https://example.com/logo.png',
+      };
+      
+      const html = render(AppointmentConfirmationEmail(props));
+      
+      expect(html).toContain('John Doe');
+      expect(html).toContain('Dr. Smith');
+      expect(html).toContain('2024-01-15');
+      expect(html).toContain('10:00 AM');
+    });
+  });
+  ```
+</Step>
+</Steps>
+
+## Best Practices
+
+### Email Guidelines
+
+<AccordionGroup>
+<Accordion title="Template Design">
+  - Use responsive design for mobile compatibility
+  - Include clear call-to-action buttons
+  - Maintain consistent branding across templates
+  - Optimize for accessibility with proper alt text
+  - Test templates across different email clients
+</Accordion>
+
+<Accordion title="Healthcare Compliance">
+  - Include HIPAA disclaimers in all healthcare emails
+  - Use secure transmission methods
+  - Implement proper access controls
+  - Maintain audit trails for all email communications
+  - Follow patient consent preferences
+</Accordion>
+
+<Accordion title="Deliverability">
+  - Use authenticated sending domains
+  - Implement proper SPF, DKIM, and DMARC records
+  - Monitor bounce and complaint rates
+  - Maintain clean recipient lists
+  - Follow email best practices and regulations
+</Accordion>
+</AccordionGroup>
+
+<Note>
+The email package provides comprehensive email functionality while maintaining healthcare compliance and high deliverability standards. Always test templates thoroughly and monitor email performance metrics.
+</Note>

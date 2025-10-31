@@ -1,0 +1,1221 @@
+---
+title: "Notifications Package"
+description: "Real-time notification system powered by Knock, providing multi-channel messaging for appointments, prescriptions, and system alerts."
+---
+
+# Notifications Package
+
+The notifications package provides a comprehensive real-time messaging system for the Waylio platform, built on Knock. It handles appointment reminders, prescription notifications, system alerts, and real-time updates across web, mobile, and email channels.
+
+## Installation
+
+```bash
+# Install the notifications package
+pnpm add @repo/notifications
+
+# Peer dependencies (automatically installed in monorepo)
+pnpm add @knocklabs/node @knocklabs/react
+```
+
+## Overview
+
+The notifications package centralizes all messaging functionality, providing consistent notification experiences across all Waylio applications. It supports multiple delivery channels and healthcare-specific notification patterns.
+
+### Key Features
+
+<CardGroup cols={2}>
+<Card title="Multi-Channel Delivery" icon="bell">
+  Send notifications via in-app, email, SMS, and push notifications with unified API.
+</Card>
+
+<Card title="Healthcare Workflows" icon="heart-pulse">
+  Purpose-built templates for appointments, prescriptions, and medical alerts.
+</Card>
+
+<Card title="Real-Time Updates" icon="zap">
+  Live notification feeds with read/unread status and instant delivery.
+</Card>
+
+<Card title="Smart Scheduling" icon="clock">
+  Intelligent timing for appointment reminders and follow-up notifications.
+</Card>
+</CardGroup>
+
+## Core Components
+
+### Notification Provider
+
+<Tabs>
+<Tab title="Provider Setup">
+  **Purpose**: Root notification provider for the entire application
+  
+  ```typescript
+  // app/layout.tsx
+  import { NotificationProvider } from '@repo/notifications';
+  import { auth } from '@repo/auth';
+  
+  export default function RootLayout({
+    children,
+  }: {
+    children: React.ReactNode;
+  }) {
+    const { userId } = auth();
+    
+    return (
+      <html lang="en">
+        <body>
+          <NotificationProvider userId={userId}>
+            {children}
+          </NotificationProvider>
+        </body>
+      </html>
+    );
+  }
+  ```
+  
+  **Configuration Options**:
+  - `userId`: Current user identifier for personalized notifications
+  - `apiKey`: Knock public API key
+  - `host`: Custom Knock host (optional)
+  - `theme`: Notification UI theme customization
+</Tab>
+
+<Tab title="Notification Feed">
+  **Purpose**: Display real-time notification feed in the application
+  
+  ```typescript
+  import { 
+    NotificationFeed,
+    NotificationIconButton,
+    useNotifications 
+  } from '@repo/notifications';
+  
+  export function NotificationCenter() {
+    const { unreadCount } = useNotifications();
+    
+    return (
+      <div className="relative">
+        <NotificationIconButton badgeCount={unreadCount} />
+        
+        <NotificationFeed
+          feedId="in-app"
+          className="absolute right-0 top-12 w-96 max-h-96 overflow-y-auto"
+          renderItem={({ notification, onMarkAsRead, onMarkAsUnread }) => (
+            <NotificationItem
+              notification={notification}
+              onMarkAsRead={onMarkAsRead}
+              onMarkAsUnread={onMarkAsUnread}
+            />
+          )}
+          emptyState={
+            <div className="p-4 text-center text-muted-foreground">
+              No notifications yet
+            </div>
+          }
+        />
+      </div>
+    );
+  }
+  
+  function NotificationItem({ notification, onMarkAsRead, onMarkAsUnread }) {
+    return (
+      <div className={`p-4 border-b ${!notification.read_at ? 'bg-blue-50' : ''}`}>
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <h4 className="font-medium text-sm">{notification.data.title}</h4>
+            <p className="text-sm text-muted-foreground mt-1">
+              {notification.data.message}
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              {formatDistanceToNow(new Date(notification.inserted_at))} ago
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            {!notification.read_at ? (
+              <button
+                onClick={() => onMarkAsRead(notification.id)}
+                className="text-xs text-blue-600 hover:text-blue-800"
+              >
+                Mark as read
+              </button>
+            ) : (
+              <button
+                onClick={() => onMarkAsUnread(notification.id)}
+                className="text-xs text-gray-600 hover:text-gray-800"
+              >
+                Mark as unread
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+  ```
+</Tab>
+
+<Tab title="Toast Notifications">
+  **Purpose**: Show temporary notification toasts for immediate feedback
+  
+  ```typescript
+  import { 
+    useToast,
+    ToastProvider,
+    Toast,
+    ToastViewport 
+  } from '@repo/notifications';
+  
+  export function ToastExample() {
+    const { toast } = useToast();
+    
+    const showAppointmentConfirmation = () => {
+      toast({
+        title: "Appointment Confirmed",
+        description: "Your appointment with Dr. Smith has been confirmed for tomorrow at 2:00 PM.",
+        variant: "success",
+        duration: 5000,
+        action: {
+          label: "View Details",
+          onClick: () => {
+            // Navigate to appointment details
+          },
+        },
+      });
+    };
+    
+    const showPrescriptionAlert = () => {
+      toast({
+        title: "Prescription Ready",
+        description: "Your prescription is ready for pickup at Main Street Pharmacy.",
+        variant: "default",
+        duration: 0, // Persistent until dismissed
+        action: {
+          label: "Get Directions",
+          onClick: () => {
+            // Open maps to pharmacy
+          },
+        },
+      });
+    };
+    
+    const showErrorAlert = () => {
+      toast({
+        title: "Error",
+        description: "Failed to schedule appointment. Please try again.",
+        variant: "destructive",
+        duration: 8000,
+      });
+    };
+    
+    return (
+      <div className="space-y-2">
+        <button onClick={showAppointmentConfirmation}>
+          Show Success Toast
+        </button>
+        <button onClick={showPrescriptionAlert}>
+          Show Info Toast
+        </button>
+        <button onClick={showErrorAlert}>
+          Show Error Toast
+        </button>
+      </div>
+    );
+  }
+  
+  // App root with toast provider
+  export function App() {
+    return (
+      <ToastProvider>
+        <YourApp />
+        <ToastViewport />
+      </ToastProvider>
+    );
+  }
+  ```
+</Tab>
+</Tabs>
+
+## Notification Workflows
+
+### Healthcare-Specific Templates
+
+<AccordionGroup>
+<Accordion title="Appointment Notifications">
+  ```typescript
+  import { sendNotification } from '@repo/notifications';
+  
+  // Appointment confirmation
+  export async function sendAppointmentConfirmation(
+    patientId: string,
+    appointment: {
+      id: string;
+      scheduledAt: Date;
+      provider: { name: string; specialization: string };
+      location: string;
+      type: string;
+    }
+  ) {
+    await sendNotification({
+      workflow: 'appointment-confirmation',
+      recipients: [{ id: patientId }],
+      data: {
+        appointmentId: appointment.id,
+        patientName: appointment.patient.name,
+        providerName: appointment.provider.name,
+        specialization: appointment.provider.specialization,
+        scheduledAt: appointment.scheduledAt.toISOString(),
+        location: appointment.location,
+        appointmentType: appointment.type,
+        confirmationNumber: appointment.confirmationNumber,
+      },
+    });
+  }
+  
+  // Appointment reminder (24 hours before)
+  export async function scheduleAppointmentReminder(
+    patientId: string,
+    appointment: any
+  ) {
+    const reminderTime = new Date(appointment.scheduledAt);
+    reminderTime.setHours(reminderTime.getHours() - 24);
+    
+    await sendNotification({
+      workflow: 'appointment-reminder-24h',
+      recipients: [{ id: patientId }],
+      data: {
+        appointmentId: appointment.id,
+        patientName: appointment.patient.name,
+        providerName: appointment.provider.name,
+        scheduledAt: appointment.scheduledAt.toISOString(),
+        location: appointment.location,
+        preparationInstructions: appointment.preparationInstructions,
+      },
+      scheduleAt: reminderTime.toISOString(),
+    });
+  }
+  
+  // Appointment check-in reminder (2 hours before)
+  export async function scheduleCheckInReminder(
+    patientId: string,
+    appointment: any
+  ) {
+    const checkInTime = new Date(appointment.scheduledAt);
+    checkInTime.setHours(checkInTime.getHours() - 2);
+    
+    await sendNotification({
+      workflow: 'appointment-checkin-reminder',
+      recipients: [{ id: patientId }],
+      data: {
+        appointmentId: appointment.id,
+        patientName: appointment.patient.name,
+        scheduledAt: appointment.scheduledAt.toISOString(),
+        checkInUrl: `${process.env.NEXT_PUBLIC_APP_URL}/checkin/${appointment.id}`,
+        parkingInfo: appointment.location.parkingInfo,
+      },
+      scheduleAt: checkInTime.toISOString(),
+    });
+  }
+  
+  // Queue position updates
+  export async function sendQueueUpdate(
+    patientId: string,
+    queueData: {
+      position: number;
+      estimatedWaitTime: number;
+      providerName: string;
+    }
+  ) {
+    await sendNotification({
+      workflow: 'queue-position-update',
+      recipients: [{ id: patientId }],
+      data: {
+        position: queueData.position,
+        estimatedWaitTime: queueData.estimatedWaitTime,
+        providerName: queueData.providerName,
+        isNext: queueData.position === 1,
+      },
+    });
+  }
+  ```
+</Accordion>
+
+<Accordion title="Prescription Notifications">
+  ```typescript
+  // Prescription ready for pickup
+  export async function sendPrescriptionReady(
+    patientId: string,
+    prescription: {
+      id: string;
+      prescriptionNumber: string;
+      medications: Array<{ name: string; quantity: number }>;
+      pharmacy: { name: string; address: string; phone: string };
+      readyAt: Date;
+    }
+  ) {
+    await sendNotification({
+      workflow: 'prescription-ready',
+      recipients: [{ id: patientId }],
+      data: {
+        prescriptionId: prescription.id,
+        prescriptionNumber: prescription.prescriptionNumber,
+        medications: prescription.medications,
+        pharmacyName: prescription.pharmacy.name,
+        pharmacyAddress: prescription.pharmacy.address,
+        pharmacyPhone: prescription.pharmacy.phone,
+        readyAt: prescription.readyAt.toISOString(),
+        pickupInstructions: 'Please bring a valid ID and insurance card.',
+      },
+    });
+  }
+  
+  // Prescription refill reminder
+  export async function schedulePrescriptionRefillReminder(
+    patientId: string,
+    prescription: any
+  ) {
+    // Schedule reminder 7 days before prescription expires
+    const reminderDate = new Date(prescription.expiresAt);
+    reminderDate.setDate(reminderDate.getDate() - 7);
+    
+    await sendNotification({
+      workflow: 'prescription-refill-reminder',
+      recipients: [{ id: patientId }],
+      data: {
+        prescriptionId: prescription.id,
+        medicationNames: prescription.items.map(item => item.medication.name),
+        expiresAt: prescription.expiresAt.toISOString(),
+        refillsRemaining: prescription.refillsRemaining,
+        providerName: prescription.provider.name,
+        refillUrl: `${process.env.NEXT_PUBLIC_APP_URL}/prescriptions/${prescription.id}/refill`,
+      },
+      scheduleAt: reminderDate.toISOString(),
+    });
+  }
+  
+  // New prescription notification to provider
+  export async function notifyProviderNewPrescription(
+    providerId: string,
+    prescription: any
+  ) {
+    await sendNotification({
+      workflow: 'new-prescription-provider',
+      recipients: [{ id: providerId }],
+      data: {
+        prescriptionId: prescription.id,
+        patientName: prescription.patient.name,
+        patientMRN: prescription.patient.mrn,
+        medications: prescription.items.map(item => ({
+          name: item.medication.name,
+          dosage: item.dosage,
+          frequency: item.frequency,
+        })),
+        requiresApproval: prescription.status === 'pending',
+        approvalUrl: `${process.env.NEXT_PUBLIC_APP_URL}/prescriptions/${prescription.id}/approve`,
+      },
+    });
+  }
+  ```
+</Accordion>
+
+<Accordion title="System Notifications">
+  ```typescript
+  // System maintenance notification
+  export async function sendMaintenanceNotification(
+    organizationId: string,
+    maintenance: {
+      startTime: Date;
+      endTime: Date;
+      affectedServices: string[];
+      description: string;
+    }
+  ) {
+    // Get all users in the organization
+    const users = await database.user.findMany({
+      where: { organizationId },
+      select: { id: true },
+    });
+    
+    await sendNotification({
+      workflow: 'system-maintenance',
+      recipients: users.map(user => ({ id: user.id })),
+      data: {
+        startTime: maintenance.startTime.toISOString(),
+        endTime: maintenance.endTime.toISOString(),
+        duration: Math.round(
+          (maintenance.endTime.getTime() - maintenance.startTime.getTime()) / (1000 * 60)
+        ), // Duration in minutes
+        affectedServices: maintenance.affectedServices,
+        description: maintenance.description,
+        alternativeAccess: 'Mobile app will remain available during maintenance.',
+      },
+    });
+  }
+  
+  // Security alert notification
+  export async function sendSecurityAlert(
+    userId: string,
+    alert: {
+      type: 'login' | 'password_change' | 'suspicious_activity';
+      location?: string;
+      ipAddress?: string;
+      userAgent?: string;
+      timestamp: Date;
+    }
+  ) {
+    await sendNotification({
+      workflow: 'security-alert',
+      recipients: [{ id: userId }],
+      data: {
+        alertType: alert.type,
+        location: alert.location,
+        ipAddress: alert.ipAddress,
+        userAgent: alert.userAgent,
+        timestamp: alert.timestamp.toISOString(),
+        actionRequired: alert.type === 'suspicious_activity',
+        securityUrl: `${process.env.NEXT_PUBLIC_APP_URL}/security`,
+      },
+    });
+  }
+  
+  // Critical system error notification (to admins)
+  export async function sendCriticalErrorAlert(
+    error: {
+      service: string;
+      message: string;
+      stack?: string;
+      userId?: string;
+      organizationId?: string;
+    }
+  ) {
+    // Get system administrators
+    const admins = await database.user.findMany({
+      where: {
+        role: { name: 'super_admin' },
+      },
+      select: { id: true },
+    });
+    
+    await sendNotification({
+      workflow: 'critical-error-alert',
+      recipients: admins.map(admin => ({ id: admin.id })),
+      data: {
+        service: error.service,
+        message: error.message,
+        userId: error.userId,
+        organizationId: error.organizationId,
+        timestamp: new Date().toISOString(),
+        severity: 'critical',
+        dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/errors`,
+      },
+    });
+  }
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Real-Time Features
+
+### Live Notifications
+
+<Tabs>
+<Tab title="useNotifications Hook">
+  ```typescript
+  import { useNotifications } from '@repo/notifications';
+  
+  export function NotificationStatus() {
+    const {
+      notifications,
+      unreadCount,
+      isLoading,
+      markAsRead,
+      markAsUnread,
+      markAllAsRead,
+      refetch,
+    } = useNotifications({
+      feedId: 'in-app',
+      pageSize: 20,
+      status: 'all', // 'all', 'unread', 'read'
+    });
+    
+    if (isLoading) {
+      return <div>Loading notifications...</div>;
+    }
+    
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">
+            Notifications ({unreadCount} unread)
+          </h2>
+          
+          {unreadCount > 0 && (
+            <button
+              onClick={markAllAsRead}
+              className="text-sm text-blue-600 hover:text-blue-800"
+            >
+              Mark all as read
+            </button>
+          )}
+        </div>
+        
+        <div className="space-y-2">
+          {notifications.map((notification) => (
+            <div
+              key={notification.id}
+              className={`p-3 rounded-lg border ${
+                !notification.read_at ? 'bg-blue-50 border-blue-200' : 'bg-white'
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="font-medium text-sm">
+                    {notification.data.title}
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {notification.data.message}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {formatDistanceToNow(new Date(notification.inserted_at))} ago
+                  </p>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  {!notification.read_at ? (
+                    <button
+                      onClick={() => markAsRead(notification.id)}
+                      className="text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      Mark as read
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => markAsUnread(notification.id)}
+                      className="text-xs text-gray-600 hover:text-gray-800"
+                    >
+                      Mark as unread
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  ```
+</Tab>
+
+<Tab title="Real-Time Updates">
+  ```typescript
+  import { useRealtimeNotifications } from '@repo/notifications';
+  import { useEffect } from 'react';
+  
+  export function RealtimeNotificationHandler() {
+    const { subscribe, unsubscribe } = useRealtimeNotifications();
+    
+    useEffect(() => {
+      // Subscribe to real-time notification events
+      const unsubscribeFn = subscribe({
+        onNotificationReceived: (notification) => {
+          // Handle new notification
+          console.log('New notification:', notification);
+          
+          // Show toast for important notifications
+          if (notification.data.priority === 'high') {
+            toast({
+              title: notification.data.title,
+              description: notification.data.message,
+              variant: 'default',
+            });
+          }
+          
+          // Play sound for urgent notifications
+          if (notification.data.urgent) {
+            playNotificationSound();
+          }
+        },
+        
+        onNotificationRead: (notificationId) => {
+          // Handle notification read event
+          console.log('Notification read:', notificationId);
+        },
+        
+        onBadgeCountChanged: (count) => {
+          // Update badge count in UI
+          updateBadgeCount(count);
+        },
+      });
+      
+      return () => {
+        unsubscribeFn();
+      };
+    }, [subscribe]);
+    
+    return null; // This is a handler component
+  }
+  
+  function playNotificationSound() {
+    const audio = new Audio('/sounds/notification.mp3');
+    audio.play().catch(console.error);
+  }
+  
+  function updateBadgeCount(count: number) {
+    // Update favicon badge or browser title
+    if (count > 0) {
+      document.title = `(${count}) Waylio`;
+    } else {
+      document.title = 'Waylio';
+    }
+  }
+  ```
+</Tab>
+
+<Tab title="Notification Preferences">
+  ```typescript
+  import { 
+    useNotificationPreferences,
+    NotificationPreferences 
+  } from '@repo/notifications';
+  
+  export function NotificationSettings() {
+    const {
+      preferences,
+      updatePreferences,
+      isLoading,
+      isUpdating,
+    } = useNotificationPreferences();
+    
+    const handlePreferenceChange = async (
+      category: string,
+      channel: string,
+      enabled: boolean
+    ) => {
+      await updatePreferences({
+        [category]: {
+          ...preferences[category],
+          [channel]: enabled,
+        },
+      });
+    };
+    
+    if (isLoading) {
+      return <div>Loading preferences...</div>;
+    }
+    
+    return (
+      <div className="space-y-6">
+        <h2 className="text-lg font-semibold">Notification Preferences</h2>
+        
+        <div className="space-y-4">
+          {/* Appointment notifications */}
+          <div className="border rounded-lg p-4">
+            <h3 className="font-medium mb-3">Appointments</h3>
+            <div className="space-y-2">
+              <NotificationToggle
+                label="Appointment confirmations"
+                channels={['email', 'sms', 'push']}
+                preferences={preferences.appointments}
+                onChange={(channel, enabled) =>
+                  handlePreferenceChange('appointments', channel, enabled)
+                }
+              />
+              <NotificationToggle
+                label="Appointment reminders"
+                channels={['email', 'sms', 'push']}
+                preferences={preferences.appointments}
+                onChange={(channel, enabled) =>
+                  handlePreferenceChange('appointments', channel, enabled)
+                }
+              />
+              <NotificationToggle
+                label="Queue position updates"
+                channels={['push', 'sms']}
+                preferences={preferences.appointments}
+                onChange={(channel, enabled) =>
+                  handlePreferenceChange('appointments', channel, enabled)
+                }
+              />
+            </div>
+          </div>
+          
+          {/* Prescription notifications */}
+          <div className="border rounded-lg p-4">
+            <h3 className="font-medium mb-3">Prescriptions</h3>
+            <div className="space-y-2">
+              <NotificationToggle
+                label="Prescription ready for pickup"
+                channels={['email', 'sms', 'push']}
+                preferences={preferences.prescriptions}
+                onChange={(channel, enabled) =>
+                  handlePreferenceChange('prescriptions', channel, enabled)
+                }
+              />
+              <NotificationToggle
+                label="Refill reminders"
+                channels={['email', 'sms']}
+                preferences={preferences.prescriptions}
+                onChange={(channel, enabled) =>
+                  handlePreferenceChange('prescriptions', channel, enabled)
+                }
+              />
+            </div>
+          </div>
+          
+          {/* System notifications */}
+          <div className="border rounded-lg p-4">
+            <h3 className="font-medium mb-3">System</h3>
+            <div className="space-y-2">
+              <NotificationToggle
+                label="Security alerts"
+                channels={['email', 'push']}
+                preferences={preferences.security}
+                onChange={(channel, enabled) =>
+                  handlePreferenceChange('security', channel, enabled)
+                }
+              />
+              <NotificationToggle
+                label="System maintenance"
+                channels={['email']}
+                preferences={preferences.system}
+                onChange={(channel, enabled) =>
+                  handlePreferenceChange('system', channel, enabled)
+                }
+              />
+            </div>
+          </div>
+        </div>
+        
+        {isUpdating && (
+          <div className="text-sm text-gray-600">
+            Saving preferences...
+          </div>
+        )}
+      </div>
+    );
+  }
+  
+  function NotificationToggle({ 
+    label, 
+    channels, 
+    preferences, 
+    onChange 
+  }: {
+    label: string;
+    channels: string[];
+    preferences: Record<string, boolean>;
+    onChange: (channel: string, enabled: boolean) => void;
+  }) {
+    return (
+      <div className="flex items-center justify-between">
+        <span className="text-sm">{label}</span>
+        <div className="flex gap-4">
+          {channels.map((channel) => (
+            <label key={channel} className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={preferences[channel] || false}
+                onChange={(e) => onChange(channel, e.target.checked)}
+                className="rounded"
+              />
+              <span className="text-xs capitalize">{channel}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  ```
+</Tab>
+</Tabs>
+
+## Server-Side Integration
+
+### API Integration
+
+<AccordionGroup>
+<Accordion title="Knock Client Setup">
+  ```typescript
+  // lib/knock.ts
+  import { Knock } from '@knocklabs/node';
+  
+  export const knock = new Knock(process.env.KNOCK_SECRET_KEY);
+  
+  // Utility functions for common operations
+  export async function identifyUser(
+    userId: string,
+    userData: {
+      name?: string;
+      email?: string;
+      phone?: string;
+      avatar?: string;
+      organizationId?: string;
+    }
+  ) {
+    await knock.users.identify(userId, {
+      name: userData.name,
+      email: userData.email,
+      phone_number: userData.phone,
+      avatar: userData.avatar,
+      properties: {
+        organization_id: userData.organizationId,
+      },
+    });
+  }
+  
+  export async function sendNotification(params: {
+    workflow: string;
+    recipients: Array<{ id: string; email?: string; phone?: string }>;
+    data: Record<string, any>;
+    scheduleAt?: string;
+  }) {
+    return await knock.workflows.trigger(params.workflow, {
+      recipients: params.recipients,
+      data: params.data,
+      ...(params.scheduleAt && { schedule_at: params.scheduleAt }),
+    });
+  }
+  
+  export async function cancelScheduledNotification(
+    workflowRunId: string
+  ) {
+    return await knock.workflows.cancel(workflowRunId);
+  }
+  ```
+</Accordion>
+
+<Accordion title="Webhook Handlers">
+  ```typescript
+  // app/api/webhooks/knock/route.ts
+  import { NextRequest, NextResponse } from 'next/server';
+  import { headers } from 'next/headers';
+  import { knock } from '@/lib/knock';
+  import { database } from '@repo/database';
+  
+  export async function POST(req: NextRequest) {
+    const body = await req.text();
+    const signature = headers().get('knock-signature');
+    
+    // Verify webhook signature
+    const isValid = knock.webhooks.verify(body, signature, {
+      signingKey: process.env.KNOCK_WEBHOOK_SIGNING_KEY,
+    });
+    
+    if (!isValid) {
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+    }
+    
+    const event = JSON.parse(body);
+    
+    try {
+      switch (event.type) {
+        case 'message.delivered':
+          await handleMessageDelivered(event.data);
+          break;
+          
+        case 'message.delivery_failed':
+          await handleMessageDeliveryFailed(event.data);
+          break;
+          
+        case 'message.read':
+          await handleMessageRead(event.data);
+          break;
+          
+        case 'message.unread':
+          await handleMessageUnread(event.data);
+          break;
+          
+        default:
+          console.log('Unhandled webhook event:', event.type);
+      }
+      
+      return NextResponse.json({ success: true });
+    } catch (error) {
+      console.error('Webhook processing error:', error);
+      return NextResponse.json(
+        { error: 'Webhook processing failed' },
+        { status: 500 }
+      );
+    }
+  }
+  
+  async function handleMessageDelivered(data: any) {
+    // Log successful delivery
+    await database.notificationLog.create({
+      data: {
+        messageId: data.message.id,
+        userId: data.recipient.id,
+        status: 'delivered',
+        channel: data.message.channel_id,
+        deliveredAt: new Date(data.delivered_at),
+      },
+    });
+  }
+  
+  async function handleMessageDeliveryFailed(data: any) {
+    // Log delivery failure and potentially retry
+    await database.notificationLog.create({
+      data: {
+        messageId: data.message.id,
+        userId: data.recipient.id,
+        status: 'failed',
+        channel: data.message.channel_id,
+        error: data.error,
+        failedAt: new Date(),
+      },
+    });
+    
+    // Implement retry logic if needed
+    if (data.message.channel_id === 'email' && data.retry_count < 3) {
+      // Retry with different channel (SMS)
+      await retryNotificationWithSMS(data.message);
+    }
+  }
+  
+  async function handleMessageRead(data: any) {
+    // Update read status in database
+    await database.notificationLog.updateMany({
+      where: {
+        messageId: data.message.id,
+        userId: data.recipient.id,
+      },
+      data: {
+        readAt: new Date(data.read_at),
+      },
+    });
+  }
+  ```
+</Accordion>
+
+<Accordion title="Notification Analytics">
+  ```typescript
+  // utils/notification-analytics.ts
+  import { database } from '@repo/database';
+  import { knock } from '@/lib/knock';
+  
+  export class NotificationAnalytics {
+    static async getDeliveryStats(
+      organizationId: string,
+      dateRange: { start: Date; end: Date }
+    ) {
+      const stats = await database.notificationLog.groupBy({
+        by: ['status', 'channel'],
+        where: {
+          user: { organizationId },
+          createdAt: {
+            gte: dateRange.start,
+            lte: dateRange.end,
+          },
+        },
+        _count: {
+          id: true,
+        },
+      });
+      
+      return stats.reduce((acc, stat) => {
+        if (!acc[stat.channel]) {
+          acc[stat.channel] = {};
+        }
+        acc[stat.channel][stat.status] = stat._count.id;
+        return acc;
+      }, {} as Record<string, Record<string, number>>);
+    }
+    
+    static async getEngagementMetrics(
+      organizationId: string,
+      dateRange: { start: Date; end: Date }
+    ) {
+      const metrics = await database.notificationLog.aggregate({
+        where: {
+          user: { organizationId },
+          createdAt: {
+            gte: dateRange.start,
+            lte: dateRange.end,
+          },
+        },
+        _count: {
+          id: true,
+        },
+        _sum: {
+          readAt: true, // Count of read notifications
+        },
+      });
+      
+      const totalSent = metrics._count.id;
+      const totalRead = metrics._sum.readAt || 0;
+      const readRate = totalSent > 0 ? (totalRead / totalSent) * 100 : 0;
+      
+      return {
+        totalSent,
+        totalRead,
+        readRate,
+        unreadCount: totalSent - totalRead,
+      };
+    }
+    
+    static async getTopNotificationTypes(
+      organizationId: string,
+      limit: number = 10
+    ) {
+      return await database.notificationLog.groupBy({
+        by: ['workflowId'],
+        where: {
+          user: { organizationId },
+        },
+        _count: {
+          id: true,
+        },
+        orderBy: {
+          _count: {
+            id: 'desc',
+          },
+        },
+        take: limit,
+      });
+    }
+  }
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Development
+
+### Setup and Configuration
+
+<Steps>
+<Step title="Environment Variables">
+  ```bash
+  # Knock configuration
+  KNOCK_SECRET_KEY="sk_test_..."
+  NEXT_PUBLIC_KNOCK_PUBLIC_KEY="pk_test_..."
+  KNOCK_WEBHOOK_SIGNING_KEY="whsk_..."
+  
+  # Optional: Custom Knock host
+  KNOCK_HOST="https://api.knock.app"
+  ```
+</Step>
+
+<Step title="Workflow Templates">
+  Create notification templates in Knock dashboard or via API:
+  
+  ```typescript
+  // scripts/setup-workflows.ts
+  import { knock } from '@/lib/knock';
+  
+  async function setupWorkflows() {
+    // Create appointment confirmation workflow
+    await knock.workflows.create({
+      key: 'appointment-confirmation',
+      name: 'Appointment Confirmation',
+      description: 'Sent when an appointment is confirmed',
+      steps: [
+        {
+          ref: 'email',
+          type: 'email',
+          settings: {
+            subject: 'Appointment Confirmed - {{appointment_type}} with {{provider_name}}',
+            template: 'appointment-confirmation-email',
+          },
+        },
+        {
+          ref: 'sms',
+          type: 'sms',
+          settings: {
+            body: 'Your {{appointment_type}} with {{provider_name}} is confirmed for {{scheduled_at}}. Location: {{location}}',
+          },
+        },
+        {
+          ref: 'in_app',
+          type: 'in_app',
+          settings: {
+            title: 'Appointment Confirmed',
+            body: 'Your appointment with {{provider_name}} has been confirmed.',
+          },
+        },
+      ],
+    });
+  }
+  
+  setupWorkflows().catch(console.error);
+  ```
+</Step>
+
+<Step title="Testing Notifications">
+  ```typescript
+  // __tests__/notifications.test.ts
+  import { sendNotification } from '@repo/notifications';
+  import { knock } from '@/lib/knock';
+  
+  // Mock Knock for testing
+  jest.mock('@/lib/knock');
+  const mockKnock = knock as jest.Mocked<typeof knock>;
+  
+  describe('Notifications', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+    
+    test('sends appointment confirmation', async () => {
+      const appointment = {
+        id: 'apt_123',
+        patient: { name: 'John Doe' },
+        provider: { name: 'Dr. Smith', specialization: 'Cardiology' },
+        scheduledAt: new Date('2024-02-15T14:00:00Z'),
+        location: 'Room 101',
+        type: 'Consultation',
+        confirmationNumber: 'CONF123',
+      };
+      
+      await sendAppointmentConfirmation('user_123', appointment);
+      
+      expect(mockKnock.workflows.trigger).toHaveBeenCalledWith(
+        'appointment-confirmation',
+        {
+          recipients: [{ id: 'user_123' }],
+          data: expect.objectContaining({
+            appointmentId: 'apt_123',
+            patientName: 'John Doe',
+            providerName: 'Dr. Smith',
+          }),
+        }
+      );
+    });
+  });
+  ```
+</Step>
+</Steps>
+
+## Best Practices
+
+### Notification Design
+
+<AccordionGroup>
+<Accordion title="Content Guidelines">
+  - Use clear, actionable language
+  - Include relevant context and details
+  - Provide clear next steps or actions
+  - Use consistent tone and terminology
+  - Respect user preferences and timing
+</Accordion>
+
+<Accordion title="Timing and Frequency">
+  - Respect quiet hours (typically 10 PM - 8 AM)
+  - Avoid notification fatigue with smart batching
+  - Use appropriate urgency levels
+  - Allow users to customize timing preferences
+  - Implement rate limiting for non-critical notifications
+</Accordion>
+
+<Accordion title="Healthcare Compliance">
+  - Ensure HIPAA compliance for all patient data
+  - Use secure channels for sensitive information
+  - Implement proper audit logging
+  - Respect patient privacy preferences
+  - Follow healthcare communication standards
+</Accordion>
+</AccordionGroup>
+
+<Note>
+The notifications package is critical for patient engagement and operational efficiency. Always prioritize user experience, privacy, and healthcare compliance when implementing notification workflows.
+</Note>

@@ -1,86 +1,280 @@
 ---
-title: 'Quickstart'
-description: 'Start building awesome documentation in under 5 minutes'
+title: "Quick Start Guide"
+description: "Get Waylio running locally in under 10 minutes with this comprehensive setup guide."
 ---
 
-## Setup your development
+# Quick Start Guide
 
-Learn how to update your docs locally and and deploy them to the public.
+Get your Waylio development environment up and running in under 10 minutes. This guide covers everything you need to start developing with the Waylio healthcare platform.
 
-### Edit and preview
+## Prerequisites
 
-<AccordionGroup>
-  <Accordion icon="github" title="Clone your docs locally">
-    During the onboarding process, we created a repository on your Github with
-    your docs content. You can find this repository on our
-    [dashboard](https://dashboard.mintlify.com). To clone the repository
-    locally, follow these
-    [instructions](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository)
-    in your terminal.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Preview changes">
-    Previewing helps you make sure your changes look as intended. We built a
-    command line interface to render these changes locally. 1. Install the
-    [Mintlify CLI](https://www.npmjs.com/package/mintlify) to preview the
-    documentation changes locally with this command: ``` npm i -g mintlify ```
-    2. Run the following command at the root of your documentation (where
-    `mint.json` is): ``` mintlify dev ```
-  </Accordion>
-</AccordionGroup>
-
-### Deploy your changes
+Before you begin, ensure you have the following installed on your system:
 
 <AccordionGroup>
-
-<Accordion icon="message-bot" title="Install our Github app">
-  Our Github app automatically deploys your changes to your docs site, so you
-  don't need to manage deployments yourself. You can find the link to install on
-  your [dashboard](https://dashboard.mintlify.com). Once the bot has been
-  successfully installed, there should be a check mark next to the commit hash
-  of the repo.
-</Accordion>
-<Accordion icon="rocket" title="Push your changes">
-  [Commit and push your changes to
-  Git](https://docs.github.com/en/get-started/using-git/pushing-commits-to-a-remote-repository#about-git-push)
-  for your changes to update in your docs site. If you push and don't see that
-  the Github app successfully deployed your changes, you can also manually
-  update your docs through our [dashboard](https://dashboard.mintlify.com).
+<Accordion title="Required Software">
+  - **Node.js** (v18.17.0 or higher) - [Download here](https://nodejs.org/)
+  - **pnpm** (v8.0.0 or higher) - Install with `npm install -g pnpm`
+  - **Git** - [Download here](https://git-scm.com/)
+  - **PostgreSQL** database (we recommend [Neon](https://neon.tech) for development)
 </Accordion>
 
+<Accordion title="Required Accounts">
+  - **Clerk** account for authentication - [Sign up](https://clerk.com)
+  - **Neon** account for database - [Sign up](https://neon.tech)
+  - **Vercel** account for deployment (optional) - [Sign up](https://vercel.com)
+</Accordion>
 </AccordionGroup>
 
-## Update your docs
+## Installation
 
-Add content directly in your files with MDX syntax and React components. You can use any of our components, or even build your own.
+<Steps>
+<Step title="Clone the Repository">
+  Clone the Waylio repository to your local machine:
 
-<CardGroup>
+  ```bash
+  git clone https://github.com/your-org/waylio.git
+  cd waylio
+  ```
 
-<Card title="Style Your Docs" icon="paintbrush" href="/settings/global">
-  Add flair to your docs with personalized branding.
+  <Check>
+  Verify the clone was successful by running `ls -la` and confirming you see the monorepo structure.
+  </Check>
+</Step>
+
+<Step title="Install Dependencies">
+  Install all dependencies using pnpm:
+
+  ```bash
+  pnpm install
+  ```
+
+  This will install dependencies for all apps and packages in the monorepo.
+
+  <Check>
+  Verify installation by running `pnpm list` to see all installed packages.
+  </Check>
+</Step>
+
+<Step title="Set Up Environment Variables">
+  Copy the environment variable templates:
+
+  ```bash
+  # Copy environment templates
+  cp packages/database/.env.example packages/database/.env
+  cp apps/app/.env.example apps/app/.env.local
+  cp apps/web/.env.example apps/web/.env.local
+  cp apps/api/.env.example apps/api/.env.local
+  ```
+
+  <Warning>
+  You'll need to fill in the actual values in the next step. Never commit real API keys to version control.
+  </Warning>
+</Step>
+
+<Step title="Configure Database">
+  Set up your PostgreSQL database connection:
+
+  1. Create a new database on [Neon](https://neon.tech)
+  2. Copy the connection string
+  3. Add it to `packages/database/.env`:
+
+  ```bash
+  DATABASE_URL="postgresql://user:password@host:5432/database?sslmode=require"
+  ```
+
+  <Check>
+  Test the connection by running `pnpm db:migrate` from the root directory.
+  </Check>
+</Step>
+
+<Step title="Configure Authentication">
+  Set up Clerk authentication:
+
+  1. Create a new application in your [Clerk Dashboard](https://dashboard.clerk.com)
+  2. Copy your API keys
+  3. Add them to your app environment files:
+
+  ```bash
+  # In apps/app/.env.local and apps/web/.env.local
+  CLERK_SECRET_KEY="sk_test_..."
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_..."
+  NEXT_PUBLIC_CLERK_SIGN_IN_URL="/sign-in"
+  NEXT_PUBLIC_CLERK_SIGN_UP_URL="/sign-up"
+  NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL="/"
+  NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL="/"
+  ```
+
+  <Check>
+  Verify authentication setup by starting the app (next step) and accessing the sign-in page.
+  </Check>
+</Step>
+
+<Step title="Initialize Database Schema">
+  Set up the database schema and seed data:
+
+  ```bash
+  pnpm db:migrate
+  pnpm db:seed
+  ```
+
+  This creates all necessary tables and adds sample data for development.
+
+  <Check>
+  Verify the database setup by running `pnpm studio` and browsing the data.
+  </Check>
+</Step>
+
+<Step title="Start Development Servers">
+  Launch all development servers:
+
+  ```bash
+  pnpm dev
+  ```
+
+  This starts all applications simultaneously:
+  - **Main App**: http://localhost:3000
+  - **Marketing Website**: http://localhost:3001
+  - **API Server**: http://localhost:3002
+  - **Email Preview**: http://localhost:3003
+  - **Documentation**: http://localhost:3004
+  - **Database Studio**: http://localhost:3005
+  - **Storybook**: http://localhost:6006
+
+  <Check>
+  Verify all services are running by visiting each URL and confirming they load correctly.
+  </Check>
+</Step>
+</Steps>
+
+## Verify Your Setup
+
+After completing the installation, verify everything is working correctly:
+
+<Tabs>
+<Tab title="Main Application">
+  1. Visit http://localhost:3000
+  2. Click "Sign In" and create a test account
+  3. Verify you can access the dashboard
+  4. Check that navigation and basic features work
+</Tab>
+
+<Tab title="API Server">
+  1. Visit http://localhost:3002/api/health
+  2. You should see a JSON response indicating the API is healthy
+  3. Test authentication by visiting a protected endpoint
+</Tab>
+
+<Tab title="Database">
+  1. Visit http://localhost:3005 (Prisma Studio)
+  2. Browse the database tables
+  3. Verify sample data is present
+  4. Test creating/editing records
+</Tab>
+
+<Tab title="Email Templates">
+  1. Visit http://localhost:3003
+  2. Browse available email templates
+  3. Preview templates in different themes
+  4. Test responsive design
+</Tab>
+</Tabs>
+
+## Next Steps
+
+Now that you have Waylio running locally, here's what to explore next:
+
+<CardGroup cols={2}>
+<Card title="Architecture Overview" icon="sitemap" href="/architecture">
+  Understand how Waylio's components work together and the overall system design.
 </Card>
 
-<Card
-  title="Add API Endpoints"
-  icon="square-code"
-  href="/api-playground/configuration"
->
-  Implement your OpenAPI spec and enable API user interaction.
+<Card title="API Documentation" icon="code" href="/api-reference">
+  Explore the comprehensive API documentation with interactive examples.
 </Card>
 
-<Card
-  title="Integrate Analytics"
-  icon="chart-mixed"
-  href="/analytics/supported-integrations"
->
-  Draw insights from user interactions with your documentation.
+<Card title="Package Documentation" icon="box" href="/packages">
+  Learn about the 20+ shared packages and how to use them in your applications.
 </Card>
 
-<Card
-  title="Host on a Custom Domain"
-  icon="browser"
-  href="/settings/custom-domain/subdomain"
->
-  Keep your docs on your own website's subdomain.
+<Card title="Deployment Guide" icon="rocket" href="/setup/deployment">
+  Deploy your Waylio instance to production with Vercel and configure external services.
 </Card>
-
 </CardGroup>
+
+## Common Issues
+
+<AccordionGroup>
+<Accordion title="Port Already in Use">
+  If you see port conflicts, you can start individual apps:
+  
+  ```bash
+  # Start only the main app
+  pnpm dev --filter app
+  
+  # Start only the API
+  pnpm dev --filter api
+  
+  # Start only the website
+  pnpm dev --filter web
+  ```
+</Accordion>
+
+<Accordion title="Database Connection Issues">
+  - Verify your `DATABASE_URL` is correct
+  - Ensure your database is accessible from your local machine
+  - Check that SSL mode is configured correctly for your provider
+  - Try running `pnpm db:reset` to recreate the database
+</Accordion>
+
+<Accordion title="Authentication Not Working">
+  - Verify your Clerk API keys are correct
+  - Ensure the Clerk application is configured for the correct domain
+  - Check that redirect URLs match your local development URLs
+  - Clear browser cookies and try again
+</Accordion>
+
+<Accordion title="Build Errors">
+  - Run `pnpm clean` to clear all build caches
+  - Delete `node_modules` and run `pnpm install` again
+  - Ensure you're using the correct Node.js version
+  - Check for TypeScript errors with `pnpm type-check`
+</Accordion>
+</AccordionGroup>
+
+## Development Commands
+
+Here are the most commonly used commands during development:
+
+```bash
+# Start all development servers
+pnpm dev
+
+# Start a specific app
+pnpm dev --filter app
+pnpm dev --filter web
+pnpm dev --filter api
+
+# Database operations
+pnpm db:migrate    # Apply database migrations
+pnpm db:seed       # Seed database with sample data
+pnpm db:reset      # Reset database and reseed
+pnpm studio        # Open Prisma Studio
+
+# Code quality
+pnpm lint          # Run linter
+pnpm format        # Format code
+pnpm type-check    # Check TypeScript types
+
+# Testing
+pnpm test          # Run all tests
+pnpm test:e2e      # Run end-to-end tests
+
+# Build for production
+pnpm build         # Build all apps
+pnpm build --filter app  # Build specific app
+```
+
+<Note>
+For more detailed information about development workflows, see our [Development Guide](/development).
+</Note>

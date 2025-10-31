@@ -1,6 +1,6 @@
 "use client";
 
-import { OrganizationSwitcher, UserButton } from "@repo/auth/client";
+// import { OrganizationSwitcher, UserButton } from "@repo/auth/client";
 import { ModeToggle } from "@repo/design-system/components/mode-toggle";
 import { Button } from "@repo/design-system/components/ui/button";
 import {
@@ -195,7 +195,7 @@ export const GlobalSidebar = ({ children }: GlobalSidebarProperties) => {
   return (
     <>
       <Sidebar variant="inset">
-        <SidebarHeader>
+        {/* <SidebarHeader>
           <SidebarMenu>
             <SidebarMenuItem>
               <div
@@ -211,7 +211,7 @@ export const GlobalSidebar = ({ children }: GlobalSidebarProperties) => {
               </div>
             </SidebarMenuItem>
           </SidebarMenu>
-        </SidebarHeader>
+        </SidebarHeader> */}
         <Search />
         <SidebarContent>
           <SidebarGroup>
@@ -326,7 +326,7 @@ export const GlobalSidebar = ({ children }: GlobalSidebarProperties) => {
         <SidebarFooter>
           <SidebarMenu>
             <SidebarMenuItem className="flex items-center gap-2">
-              <UserButton
+              {/* <UserButton
                 appearance={{
                   elements: {
                     rootBox: "flex overflow-hidden w-full",
@@ -335,7 +335,7 @@ export const GlobalSidebar = ({ children }: GlobalSidebarProperties) => {
                   },
                 }}
                 showName
-              />
+              /> */}
               <div className="flex shrink-0 items-center gap-px">
                 <ModeToggle />
                 <Button

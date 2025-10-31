@@ -1,0 +1,1183 @@
+---
+title: "TypeScript Config Package"
+description: "Shared TypeScript configuration and type definitions for the Waylio monorepo with healthcare-specific types, strict type checking, and development tooling."
+---
+
+# TypeScript Config Package
+
+The TypeScript config package provides shared TypeScript configuration and type definitions for the Waylio healthcare platform. It includes healthcare-specific types, strict type checking rules, and development tooling configurations optimized for the monorepo structure.
+
+## Installation
+
+```bash
+# Install the TypeScript config package
+pnpm add @repo/typescript-config
+
+# Peer dependencies (automatically installed in monorepo)
+pnpm add typescript @types/node @types/react @types/react-dom
+```
+
+## Overview
+
+The TypeScript config package ensures consistent TypeScript configuration across all applications and packages in the Waylio monorepo. It provides healthcare-specific type definitions, strict type checking rules, and optimized compiler settings for both development and production builds.
+
+### Key Features
+
+<CardGroup cols={2}>
+<Card title="Shared Configurations" icon="settings">
+  Base TypeScript configurations for different project types (apps, packages, libraries).
+</Card>
+
+<Card title="Healthcare Types" icon="stethoscope">
+  Comprehensive type definitions for healthcare data, medical records, and HIPAA compliance.
+</Card>
+
+<Card title="Strict Type Checking" icon="shield-check">
+  Enforced strict mode with comprehensive type checking for better code quality.
+</Card>
+
+<Card title="Development Tooling" icon="wrench">
+  Optimized configurations for IDEs, linting, and development workflows.
+</Card>
+</CardGroup>
+
+## Base Configurations
+
+### Core TypeScript Configs
+
+<Tabs>
+<Tab title="Base Configuration">
+  **Purpose**: Foundation TypeScript configuration for all projects
+  
+  ```json
+  // tsconfig/base.json
+  {
+    "$schema": "https://json.schemastore.org/tsconfig",
+    "display": "Waylio Base TypeScript Config",
+    "compilerOptions": {
+      // Type Checking
+      "strict": true,
+      "exactOptionalPropertyTypes": true,
+      "noFallthroughCasesInSwitch": true,
+      "noImplicitOverride": true,
+      "noImplicitReturns": true,
+      "noPropertyAccessFromIndexSignature": true,
+      "noUncheckedIndexedAccess": true,
+      "noUnusedLocals": true,
+      "noUnusedParameters": true,
+      
+      // Modules
+      "module": "ESNext",
+      "moduleResolution": "bundler",
+      "allowImportingTsExtensions": true,
+      "resolveJsonModule": true,
+      "allowSyntheticDefaultImports": true,
+      "esModuleInterop": true,
+      
+      // Emit
+      "declaration": true,
+      "declarationMap": true,
+      "sourceMap": true,
+      "removeComments": false,
+      "importHelpers": true,
+      "downlevelIteration": true,
+      
+      // JavaScript Support
+      "allowJs": true,
+      "checkJs": false,
+      
+      // Interop Constraints
+      "isolatedModules": true,
+      "verbatimModuleSyntax": false,
+      "allowArbitraryExtensions": false,
+      "forceConsistentCasingInFileNames": true,
+      
+      // Language and Environment
+      "target": "ES2022",
+      "lib": ["ES2022", "DOM", "DOM.Iterable"],
+      "useDefineForClassFields": true,
+      
+      // Projects
+      "incremental": true,
+      "composite": false,
+      "tsBuildInfoFile": ".tsbuildinfo",
+      
+      // Output Formatting
+      "noErrorTruncation": true,
+      "preserveWatchOutput": true,
+      "pretty": true,
+      
+      // Completeness
+      "skipLibCheck": true,
+      
+      // Path Mapping
+      "baseUrl": ".",
+      "paths": {
+        "@/*": ["./src/*"],
+        "@repo/*": ["../../packages/*/src"],
+        "@/types": ["./src/types"],
+        "@/utils": ["./src/utils"],
+        "@/components": ["./src/components"],
+        "@/hooks": ["./src/hooks"],
+        "@/lib": ["./src/lib"]
+      }
+    },
+    "exclude": [
+      "node_modules",
+      "dist",
+      "build",
+      ".next",
+      ".turbo",
+      "coverage",
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/*.spec.ts",
+      "**/*.spec.tsx"
+    ]
+  }
+  ```
+</Tab>
+
+<Tab title="Next.js Configuration">
+  **Purpose**: TypeScript configuration for Next.js applications
+  
+  ```json
+  // tsconfig/nextjs.json
+  {
+    "$schema": "https://json.schemastore.org/tsconfig",
+    "display": "Waylio Next.js TypeScript Config",
+    "extends": "./base.json",
+    "compilerOptions": {
+      "target": "ES2017",
+      "lib": ["DOM", "DOM.Iterable", "ES6"],
+      "allowJs": true,
+      "skipLibCheck": true,
+      "strict": true,
+      "noEmit": true,
+      "esModuleInterop": true,
+      "module": "esnext",
+      "moduleResolution": "bundler",
+      "resolveJsonModule": true,
+      "isolatedModules": true,
+      "jsx": "preserve",
+      "incremental": true,
+      "plugins": [
+        {
+          "name": "next"
+        }
+      ],
+      "baseUrl": ".",
+      "paths": {
+        "@/*": ["./src/*"],
+        "@/components/*": ["./src/components/*"],
+        "@/lib/*": ["./src/lib/*"],
+        "@/utils/*": ["./src/utils/*"],
+        "@/types/*": ["./src/types/*"],
+        "@/hooks/*": ["./src/hooks/*"],
+        "@/styles/*": ["./src/styles/*"],
+        "@/public/*": ["./public/*"],
+        "@repo/*": ["../../packages/*/src"]
+      }
+    },
+    "include": [
+      "next-env.d.ts",
+      "**/*.ts",
+      "**/*.tsx",
+      ".next/types/**/*.ts"
+    ],
+    "exclude": [
+      "node_modules",
+      ".next",
+      "out",
+      "dist"
+    ]
+  }
+  ```
+</Tab>
+
+<Tab title="React Library Configuration">
+  **Purpose**: TypeScript configuration for React component libraries
+  
+  ```json
+  // tsconfig/react-library.json
+  {
+    "$schema": "https://json.schemastore.org/tsconfig",
+    "display": "Waylio React Library TypeScript Config",
+    "extends": "./base.json",
+    "compilerOptions": {
+      "target": "ES2020",
+      "lib": ["ES2020", "DOM", "DOM.Iterable"],
+      "module": "ESNext",
+      "moduleResolution": "bundler",
+      "jsx": "react-jsx",
+      "declaration": true,
+      "declarationMap": true,
+      "emitDeclarationOnly": true,
+      "outDir": "dist",
+      "rootDir": "src",
+      "composite": true,
+      "incremental": true,
+      "tsBuildInfoFile": "dist/.tsbuildinfo"
+    },
+    "include": [
+      "src/**/*"
+    ],
+    "exclude": [
+      "dist",
+      "node_modules",
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/*.stories.ts",
+      "**/*.stories.tsx"
+    ]
+  }
+  ```
+</Tab>
+
+<Tab title="Node.js Configuration">
+  **Purpose**: TypeScript configuration for Node.js applications and APIs
+  
+  ```json
+  // tsconfig/nodejs.json
+  {
+    "$schema": "https://json.schemastore.org/tsconfig",
+    "display": "Waylio Node.js TypeScript Config",
+    "extends": "./base.json",
+    "compilerOptions": {
+      "target": "ES2022",
+      "lib": ["ES2022"],
+      "module": "CommonJS",
+      "moduleResolution": "node",
+      "esModuleInterop": true,
+      "allowSyntheticDefaultImports": true,
+      "resolveJsonModule": true,
+      "sourceMap": true,
+      "outDir": "dist",
+      "rootDir": "src",
+      "declaration": true,
+      "declarationMap": true,
+      "composite": true,
+      "incremental": true,
+      "tsBuildInfoFile": "dist/.tsbuildinfo",
+      "types": ["node"],
+      "typeRoots": ["node_modules/@types"]
+    },
+    "include": [
+      "src/**/*"
+    ],
+    "exclude": [
+      "dist",
+      "node_modules",
+      "**/*.test.ts",
+      "**/*.spec.ts"
+    ],
+    "ts-node": {
+      "esm": true,
+      "experimentalSpecifierResolution": "node"
+    }
+  }
+  ```
+</Tab>
+</Tabs>
+
+## Healthcare Type Definitions
+
+### Core Healthcare Types
+
+<AccordionGroup>
+<Accordion title="Patient and Medical Types">
+  ```typescript
+  // types/healthcare.ts
+  
+  // Base types for healthcare entities
+  export interface BaseEntity {
+    id: string;
+    createdAt: Date;
+    updatedAt: Date;
+    createdBy: string;
+    updatedBy?: string;
+    organizationId: string;
+  }
+  
+  // Patient information types
+  export interface Patient extends BaseEntity {
+    // Demographics
+    firstName: string;
+    lastName: string;
+    middleName?: string;
+    dateOfBirth: Date;
+    gender: 'male' | 'female' | 'other' | 'prefer_not_to_say';
+    
+    // Contact Information
+    email?: string;
+    phoneNumber?: string;
+    address: Address;
+    emergencyContact?: EmergencyContact;
+    
+    // Medical Information
+    medicalRecordNumber: string;
+    bloodType?: BloodType;
+    allergies: Allergy[];
+    medications: Medication[];
+    medicalHistory: MedicalHistoryEntry[];
+    
+    // Insurance Information
+    insuranceInformation: InsuranceInformation[];
+    
+    // System Information
+    isActive: boolean;
+    preferredLanguage: string;
+    accessibilityNeeds?: string[];
+  }
+  
+  export interface Address {
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    country: string;
+    type: 'home' | 'work' | 'temporary';
+  }
+  
+  export interface EmergencyContact {
+    name: string;
+    relationship: string;
+    phoneNumber: string;
+    email?: string;
+    address?: Address;
+  }
+  
+  export type BloodType = 
+    | 'A+' | 'A-' | 'B+' | 'B-' 
+    | 'AB+' | 'AB-' | 'O+' | 'O-' 
+    | 'unknown';
+  
+  export interface Allergy {
+    id: string;
+    allergen: string;
+    severity: 'mild' | 'moderate' | 'severe' | 'life_threatening';
+    reaction: string;
+    notes?: string;
+    diagnosedDate?: Date;
+    diagnosedBy?: string;
+  }
+  
+  export interface Medication {
+    id: string;
+    name: string;
+    dosage: string;
+    frequency: string;
+    route: 'oral' | 'injection' | 'topical' | 'inhalation' | 'other';
+    prescribedBy: string;
+    prescribedDate: Date;
+    startDate: Date;
+    endDate?: Date;
+    isActive: boolean;
+    notes?: string;
+  }
+  
+  export interface MedicalHistoryEntry {
+    id: string;
+    condition: string;
+    diagnosisDate: Date;
+    diagnosedBy: string;
+    status: 'active' | 'resolved' | 'chronic' | 'in_remission';
+    severity?: 'mild' | 'moderate' | 'severe';
+    notes?: string;
+    treatmentPlan?: string;
+  }
+  
+  export interface InsuranceInformation {
+    id: string;
+    provider: string;
+    policyNumber: string;
+    groupNumber?: string;
+    subscriberId: string;
+    subscriberName: string;
+    relationship: 'self' | 'spouse' | 'child' | 'other';
+    effectiveDate: Date;
+    expirationDate?: Date;
+    isPrimary: boolean;
+    copay?: number;
+    deductible?: number;
+  }
+  
+  // Healthcare Provider types
+  export interface HealthcareProvider extends BaseEntity {
+    firstName: string;
+    lastName: string;
+    title: string; // Dr., Nurse, PA, etc.
+    specialty: MedicalSpecialty;
+    licenseNumber: string;
+    npiNumber: string; // National Provider Identifier
+    
+    // Contact Information
+    email: string;
+    phoneNumber: string;
+    officeAddress: Address;
+    
+    // Professional Information
+    education: Education[];
+    certifications: Certification[];
+    languages: string[];
+    yearsOfExperience: number;
+    
+    // Availability
+    workingHours: WorkingHours[];
+    isAcceptingNewPatients: boolean;
+    appointmentTypes: AppointmentType[];
+    
+    // System Information
+    isActive: boolean;
+    departmentId?: string;
+  }
+  
+  export type MedicalSpecialty = 
+    | 'family_medicine' | 'internal_medicine' | 'pediatrics'
+    | 'cardiology' | 'dermatology' | 'endocrinology'
+    | 'gastroenterology' | 'neurology' | 'oncology'
+    | 'orthopedics' | 'psychiatry' | 'radiology'
+    | 'surgery' | 'urology' | 'emergency_medicine'
+    | 'anesthesiology' | 'pathology' | 'nursing'
+    | 'other';
+  
+  export interface Education {
+    institution: string;
+    degree: string;
+    fieldOfStudy: string;
+    graduationYear: number;
+  }
+  
+  export interface Certification {
+    name: string;
+    issuingOrganization: string;
+    issueDate: Date;
+    expirationDate?: Date;
+    certificateNumber?: string;
+  }
+  
+  export interface WorkingHours {
+    dayOfWeek: 0 | 1 | 2 | 3 | 4 | 5 | 6; // 0 = Sunday
+    startTime: string; // HH:MM format
+    endTime: string; // HH:MM format
+    isAvailable: boolean;
+  }
+  
+  // Appointment types
+  export interface Appointment extends BaseEntity {
+    patientId: string;
+    providerId: string;
+    appointmentType: AppointmentType;
+    scheduledDateTime: Date;
+    duration: number; // minutes
+    status: AppointmentStatus;
+    
+    // Location
+    locationId?: string;
+    roomNumber?: string;
+    isVirtual: boolean;
+    virtualMeetingUrl?: string;
+    
+    // Details
+    reasonForVisit: string;
+    notes?: string;
+    symptoms?: string[];
+    
+    // Follow-up
+    followUpRequired?: boolean;
+    followUpInstructions?: string;
+    
+    // Billing
+    estimatedCost?: number;
+    insuranceCoverage?: number;
+  }
+  
+  export type AppointmentType = 
+    | 'consultation' | 'follow_up' | 'annual_checkup'
+    | 'urgent_care' | 'procedure' | 'lab_work'
+    | 'imaging' | 'therapy' | 'vaccination'
+    | 'telemedicine' | 'other';
+  
+  export type AppointmentStatus = 
+    | 'scheduled' | 'confirmed' | 'checked_in'
+    | 'in_progress' | 'completed' | 'cancelled'
+    | 'no_show' | 'rescheduled';
+  
+  // Medical Record types
+  export interface MedicalRecord extends BaseEntity {
+    patientId: string;
+    providerId: string;
+    appointmentId?: string;
+    
+    // Visit Information
+    visitDate: Date;
+    visitType: 'routine' | 'urgent' | 'emergency' | 'follow_up';
+    chiefComplaint: string;
+    
+    // Clinical Data
+    vitalSigns?: VitalSigns;
+    symptoms: string[];
+    diagnosis: Diagnosis[];
+    treatmentPlan: TreatmentPlan;
+    
+    // Prescriptions
+    prescriptions: Prescription[];
+    
+    // Orders
+    labOrders: LabOrder[];
+    imagingOrders: ImagingOrder[];
+    
+    // Notes
+    clinicalNotes: string;
+    patientInstructions: string;
+    
+    // Follow-up
+    followUpDate?: Date;
+    followUpInstructions?: string;
+  }
+  
+  export interface VitalSigns {
+    temperature?: number; // Celsius
+    bloodPressureSystolic?: number;
+    bloodPressureDiastolic?: number;
+    heartRate?: number; // BPM
+    respiratoryRate?: number; // per minute
+    oxygenSaturation?: number; // percentage
+    height?: number; // cm
+    weight?: number; // kg
+    bmi?: number;
+    painLevel?: number; // 1-10 scale
+    recordedAt: Date;
+    recordedBy: string;
+  }
+  
+  export interface Diagnosis {
+    id: string;
+    code: string; // ICD-10 code
+    description: string;
+    type: 'primary' | 'secondary' | 'differential';
+    severity?: 'mild' | 'moderate' | 'severe';
+    status: 'active' | 'resolved' | 'chronic';
+    diagnosisDate: Date;
+    notes?: string;
+  }
+  
+  export interface TreatmentPlan {
+    id: string;
+    description: string;
+    goals: string[];
+    interventions: Intervention[];
+    timeline?: string;
+    expectedOutcome?: string;
+    notes?: string;
+  }
+  
+  export interface Intervention {
+    type: 'medication' | 'procedure' | 'therapy' | 'lifestyle' | 'monitoring';
+    description: string;
+    frequency?: string;
+    duration?: string;
+    instructions?: string;
+  }
+  
+  export interface Prescription extends BaseEntity {
+    patientId: string;
+    providerId: string;
+    medicationName: string;
+    dosage: string;
+    quantity: number;
+    refills: number;
+    instructions: string;
+    
+    // Dates
+    prescribedDate: Date;
+    startDate: Date;
+    endDate?: Date;
+    
+    // Status
+    status: 'active' | 'completed' | 'cancelled' | 'expired';
+    
+    // Pharmacy
+    pharmacyId?: string;
+    pharmacyName?: string;
+    
+    // Safety
+    drugInteractions?: string[];
+    contraindications?: string[];
+    sideEffects?: string[];
+  }
+  
+  export interface LabOrder extends BaseEntity {
+    patientId: string;
+    providerId: string;
+    testName: string;
+    testCode: string;
+    priority: 'routine' | 'urgent' | 'stat';
+    
+    // Scheduling
+    orderedDate: Date;
+    scheduledDate?: Date;
+    completedDate?: Date;
+    
+    // Status
+    status: 'ordered' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+    
+    // Instructions
+    instructions?: string;
+    fastingRequired?: boolean;
+    
+    // Results
+    results?: LabResult[];
+  }
+  
+  export interface LabResult {
+    testName: string;
+    value: string | number;
+    unit?: string;
+    referenceRange?: string;
+    status: 'normal' | 'abnormal' | 'critical';
+    notes?: string;
+  }
+  
+  export interface ImagingOrder extends BaseEntity {
+    patientId: string;
+    providerId: string;
+    imagingType: ImagingType;
+    bodyPart: string;
+    priority: 'routine' | 'urgent' | 'stat';
+    
+    // Scheduling
+    orderedDate: Date;
+    scheduledDate?: Date;
+    completedDate?: Date;
+    
+    // Status
+    status: 'ordered' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+    
+    // Clinical Information
+    clinicalIndication: string;
+    contrastRequired?: boolean;
+    
+    // Instructions
+    preparationInstructions?: string;
+    
+    // Results
+    results?: ImagingResult;
+  }
+  
+  export type ImagingType = 
+    | 'x_ray' | 'ct_scan' | 'mri' | 'ultrasound'
+    | 'mammography' | 'pet_scan' | 'nuclear_medicine'
+    | 'fluoroscopy' | 'dexa_scan';
+  
+  export interface ImagingResult {
+    findings: string;
+    impression: string;
+    recommendations?: string;
+    radiologistId: string;
+    reportDate: Date;
+    imageUrls?: string[];
+  }
+  ```
+</Accordion>
+
+<Accordion title="API and Response Types">
+  ```typescript
+  // types/api.ts
+  
+  // Generic API response types
+  export interface APIResponse<T = any> {
+    success: boolean;
+    data?: T;
+    error?: APIError;
+    message?: string;
+    timestamp: string;
+    requestId: string;
+  }
+  
+  export interface APIError {
+    code: string;
+    message: string;
+    details?: Record<string, any>;
+    field?: string;
+    stack?: string; // Only in development
+  }
+  
+  export interface PaginatedResponse<T> {
+    data: T[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+    };
+  }
+  
+  export interface SearchResponse<T> extends PaginatedResponse<T> {
+    query: string;
+    filters?: Record<string, any>;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }
+  
+  // Request types
+  export interface CreatePatientRequest {
+    firstName: string;
+    lastName: string;
+    middleName?: string;
+    dateOfBirth: string; // ISO date string
+    gender: Patient['gender'];
+    email?: string;
+    phoneNumber?: string;
+    address: Address;
+    emergencyContact?: EmergencyContact;
+    insuranceInformation?: Omit<InsuranceInformation, 'id'>[];
+    preferredLanguage?: string;
+    accessibilityNeeds?: string[];
+  }
+  
+  export interface UpdatePatientRequest extends Partial<CreatePatientRequest> {
+    id: string;
+  }
+  
+  export interface CreateAppointmentRequest {
+    patientId: string;
+    providerId: string;
+    appointmentType: AppointmentType;
+    scheduledDateTime: string; // ISO date string
+    duration?: number;
+    reasonForVisit: string;
+    notes?: string;
+    symptoms?: string[];
+    isVirtual?: boolean;
+    locationId?: string;
+    roomNumber?: string;
+  }
+  
+  export interface UpdateAppointmentRequest extends Partial<CreateAppointmentRequest> {
+    id: string;
+    status?: AppointmentStatus;
+  }
+  
+  export interface CreatePrescriptionRequest {
+    patientId: string;
+    medicationName: string;
+    dosage: string;
+    quantity: number;
+    refills: number;
+    instructions: string;
+    startDate?: string; // ISO date string
+    endDate?: string; // ISO date string
+    pharmacyId?: string;
+  }
+  
+  // Search and filter types
+  export interface PatientSearchFilters {
+    query?: string;
+    gender?: Patient['gender'];
+    ageRange?: {
+      min?: number;
+      max?: number;
+    };
+    bloodType?: BloodType;
+    hasAllergies?: boolean;
+    isActive?: boolean;
+    organizationId?: string;
+  }
+  
+  export interface AppointmentSearchFilters {
+    patientId?: string;
+    providerId?: string;
+    appointmentType?: AppointmentType;
+    status?: AppointmentStatus;
+    dateRange?: {
+      start: string; // ISO date string
+      end: string; // ISO date string
+    };
+    isVirtual?: boolean;
+    organizationId?: string;
+  }
+  
+  export interface ProviderSearchFilters {
+    query?: string;
+    specialty?: MedicalSpecialty;
+    isAcceptingNewPatients?: boolean;
+    languages?: string[];
+    organizationId?: string;
+    departmentId?: string;
+  }
+  
+  // Webhook types
+  export interface WebhookEvent<T = any> {
+    id: string;
+    type: WebhookEventType;
+    data: T;
+    timestamp: string;
+    organizationId: string;
+    source: 'waylio' | 'external';
+    version: string;
+  }
+  
+  export type WebhookEventType = 
+    | 'patient.created' | 'patient.updated' | 'patient.deleted'
+    | 'appointment.created' | 'appointment.updated' | 'appointment.cancelled'
+    | 'prescription.created' | 'prescription.filled' | 'prescription.cancelled'
+    | 'lab_result.available' | 'imaging_result.available'
+    | 'payment.processed' | 'payment.failed'
+    | 'user.created' | 'user.updated' | 'user.deleted';
+  
+  // Authentication types
+  export interface AuthUser {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: UserRole;
+    organizationId?: string;
+    providerId?: string;
+    patientId?: string;
+    permissions: string[];
+    lastLoginAt?: Date;
+    isActive: boolean;
+  }
+  
+  export type UserRole = 
+    | 'patient' | 'provider' | 'nurse' | 'admin'
+    | 'reception' | 'billing' | 'super_admin';
+  
+  export interface LoginRequest {
+    email: string;
+    password: string;
+    organizationId?: string;
+  }
+  
+  export interface LoginResponse {
+    user: AuthUser;
+    accessToken: string;
+    refreshToken: string;
+    expiresIn: number;
+  }
+  
+  // File upload types
+  export interface FileUploadRequest {
+    file: File;
+    documentType: 'medical_record' | 'prescription' | 'lab_result' | 'imaging' | 'insurance' | 'other';
+    patientId?: string;
+    providerId?: string;
+    tags?: string[];
+    accessLevel?: 'public' | 'private' | 'restricted';
+  }
+  
+  export interface FileMetadata {
+    id: string;
+    filename: string;
+    originalName: string;
+    mimeType: string;
+    size: number;
+    url?: string;
+    documentType: string;
+    uploadedBy: string;
+    uploadedAt: string;
+    patientId?: string;
+    providerId?: string;
+    organizationId?: string;
+    tags: string[];
+    accessLevel: string;
+    hipaaCompliant: boolean;
+  }
+  ```
+</Accordion>
+
+<Accordion title="Utility Types">
+  ```typescript
+  // types/utils.ts
+  
+  // Utility types for better type safety
+  export type Prettify<T> = {
+    [K in keyof T]: T[K];
+  } & {};
+  
+  export type DeepPartial<T> = {
+    [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+  };
+  
+  export type DeepRequired<T> = {
+    [P in keyof T]-?: T[P] extends object ? DeepRequired<T[P]> : T[P];
+  };
+  
+  export type NonEmptyArray<T> = [T, ...T[]];
+  
+  export type ValueOf<T> = T[keyof T];
+  
+  export type KeysOfType<T, U> = {
+    [K in keyof T]: T[K] extends U ? K : never;
+  }[keyof T];
+  
+  export type RequiredKeys<T> = {
+    [K in keyof T]-?: {} extends Pick<T, K> ? never : K;
+  }[keyof T];
+  
+  export type OptionalKeys<T> = {
+    [K in keyof T]-?: {} extends Pick<T, K> ? K : never;
+  }[keyof T];
+  
+  // Date utility types
+  export type DateString = string; // ISO 8601 date string
+  export type TimeString = string; // HH:MM format
+  export type DateTimeString = string; // ISO 8601 datetime string
+  
+  // ID types for better type safety
+  export type PatientId = string & { readonly brand: unique symbol };
+  export type ProviderId = string & { readonly brand: unique symbol };
+  export type AppointmentId = string & { readonly brand: unique symbol };
+  export type OrganizationId = string & { readonly brand: unique symbol };
+  export type UserId = string & { readonly brand: unique symbol };
+  
+  // Helper functions for ID types
+  export const createPatientId = (id: string): PatientId => id as PatientId;
+  export const createProviderId = (id: string): ProviderId => id as ProviderId;
+  export const createAppointmentId = (id: string): AppointmentId => id as AppointmentId;
+  export const createOrganizationId = (id: string): OrganizationId => id as OrganizationId;
+  export const createUserId = (id: string): UserId => id as UserId;
+  
+  // Environment types
+  export interface EnvironmentVariables {
+    // Database
+    DATABASE_URL: string;
+    
+    // Authentication
+    CLERK_SECRET_KEY: string;
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: string;
+    
+    // Storage
+    AWS_ACCESS_KEY_ID?: string;
+    AWS_SECRET_ACCESS_KEY?: string;
+    AWS_S3_BUCKET?: string;
+    BLOB_READ_WRITE_TOKEN?: string;
+    
+    // Email
+    RESEND_API_KEY: string;
+    
+    // Analytics
+    NEXT_PUBLIC_POSTHOG_KEY: string;
+    NEXT_PUBLIC_GA_MEASUREMENT_ID?: string;
+    
+    // Monitoring
+    SENTRY_DSN?: string;
+    BETTER_STACK_TOKEN?: string;
+    
+    // Feature Flags
+    FLAGSMITH_ENVIRONMENT_KEY: string;
+    
+    // Payments
+    STRIPE_SECRET_KEY: string;
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: string;
+    
+    // AI
+    MULTISET_API_KEY: string;
+    
+    // Other
+    NEXT_PUBLIC_SITE_URL: string;
+    ENCRYPTION_MASTER_KEY: string;
+    JWT_SECRET: string;
+  }
+  
+  // Component prop types
+  export interface BaseComponentProps {
+    className?: string;
+    children?: React.ReactNode;
+    'data-testid'?: string;
+  }
+  
+  export interface LoadingState {
+    isLoading: boolean;
+    error?: string | null;
+  }
+  
+  export interface AsyncState<T> extends LoadingState {
+    data?: T | null;
+  }
+  
+  // Form types
+  export interface FormField<T = any> {
+    value: T;
+    error?: string;
+    touched: boolean;
+    required?: boolean;
+  }
+  
+  export interface FormState<T extends Record<string, any>> {
+    fields: {
+      [K in keyof T]: FormField<T[K]>;
+    };
+    isValid: boolean;
+    isSubmitting: boolean;
+    submitError?: string;
+  }
+  
+  // Table types
+  export interface TableColumn<T> {
+    key: keyof T;
+    label: string;
+    sortable?: boolean;
+    render?: (value: T[keyof T], row: T) => React.ReactNode;
+    width?: string;
+    align?: 'left' | 'center' | 'right';
+  }
+  
+  export interface TableProps<T> {
+    data: T[];
+    columns: TableColumn<T>[];
+    loading?: boolean;
+    error?: string;
+    onSort?: (key: keyof T, direction: 'asc' | 'desc') => void;
+    onRowClick?: (row: T) => void;
+    pagination?: {
+      page: number;
+      limit: number;
+      total: number;
+      onPageChange: (page: number) => void;
+    };
+  }
+  
+  // Navigation types
+  export interface NavigationItem {
+    label: string;
+    href: string;
+    icon?: React.ComponentType<any>;
+    badge?: string | number;
+    children?: NavigationItem[];
+    permissions?: string[];
+  }
+  
+  // Theme types
+  export interface ThemeColors {
+    primary: string;
+    secondary: string;
+    success: string;
+    warning: string;
+    error: string;
+    info: string;
+    background: string;
+    surface: string;
+    text: {
+      primary: string;
+      secondary: string;
+      disabled: string;
+    };
+  }
+  
+  export interface Theme {
+    colors: ThemeColors;
+    spacing: Record<string, string>;
+    typography: Record<string, any>;
+    breakpoints: Record<string, string>;
+    shadows: Record<string, string>;
+    borderRadius: Record<string, string>;
+  }
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Development
+
+### Setup and Configuration
+
+<Steps>
+<Step title="Project Setup">
+  ```json
+  // tsconfig.json (in each app/package)
+  {
+    "extends": "@repo/typescript-config/nextjs.json",
+    "compilerOptions": {
+      "baseUrl": ".",
+      "paths": {
+        "@/*": ["./src/*"],
+        "@repo/*": ["../../packages/*/src"]
+      }
+    },
+    "include": [
+      "next-env.d.ts",
+      "**/*.ts",
+      "**/*.tsx",
+      ".next/types/**/*.ts"
+    ]
+  }
+  ```
+</Step>
+
+<Step title="Package Configuration">
+  ```json
+  // package.json
+  {
+    "name": "@repo/typescript-config",
+    "version": "0.0.0",
+    "private": true,
+    "main": "index.js",
+    "files": [
+      "base.json",
+      "nextjs.json",
+      "react-library.json",
+      "nodejs.json"
+    ],
+    "devDependencies": {
+      "typescript": "^5.0.0"
+    }
+  }
+  ```
+</Step>
+
+<Step title="IDE Configuration">
+  ```json
+  // .vscode/settings.json
+  {
+    "typescript.preferences.importModuleSpecifier": "relative",
+    "typescript.suggest.autoImports": true,
+    "typescript.updateImportsOnFileMove.enabled": "always",
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": true,
+      "source.fixAll.eslint": true
+    },
+    "typescript.inlayHints.parameterNames.enabled": "all",
+    "typescript.inlayHints.variableTypes.enabled": true,
+    "typescript.inlayHints.functionLikeReturnTypes.enabled": true
+  }
+  ```
+</Step>
+</Steps>
+
+## Best Practices
+
+### TypeScript Guidelines
+
+<AccordionGroup>
+<Accordion title="Type Safety">
+  - Use strict mode and enable all strict type checking options
+  - Prefer type assertions over any types
+  - Use branded types for IDs to prevent mixing different entity IDs
+  - Implement proper error handling with typed error objects
+  - Use discriminated unions for complex state management
+</Accordion>
+
+<Accordion title="Code Organization">
+  - Organize types by domain (healthcare, api, utils)
+  - Use barrel exports for clean imports
+  - Implement consistent naming conventions
+  - Document complex types with JSDoc comments
+  - Use utility types to reduce code duplication
+</Accordion>
+
+<Accordion title="Performance">
+  - Enable incremental compilation for faster builds
+  - Use composite projects for better build performance
+  - Implement proper tree shaking with ES modules
+  - Optimize path mapping for faster module resolution
+  - Use type-only imports where appropriate
+</Accordion>
+</AccordionGroup>
+
+<Note>
+TypeScript configuration in healthcare applications should prioritize type safety and maintainability. Strict type checking helps prevent runtime errors that could impact patient care.
+</Note>

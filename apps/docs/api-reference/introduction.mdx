@@ -1,33 +1,499 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: "API Reference"
+description: "Complete API reference for the Waylio healthcare platform with authentication, endpoints, and integration examples for healthcare applications."
 ---
 
-<Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
-</Note>
+# API Reference
 
-## Welcome
+Welcome to the Waylio API reference documentation. This comprehensive guide covers all available endpoints, authentication methods, and integration patterns for building healthcare applications with the Waylio platform.
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
+## Base URL
 
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+All API requests should be made to:
+
+```
+https://api.waylio.com/v1
+```
+
+For development and testing:
+
+```
+http://localhost:3000/api/v1
+```
 
 ## Authentication
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+### Bearer Token Authentication
+
+The Waylio API uses Bearer token authentication. Include your API token in the Authorization header:
+
+```bash
+curl -H "Authorization: Bearer YOUR_API_TOKEN" \
+     https://api.waylio.com/v1/patients
+```
+
+### Getting Your API Token
+
+1. Log in to your Waylio dashboard
+2. Navigate to Settings > API Keys
+3. Generate a new API key for your application
+4. Store the key securely and never expose it in client-side code
+
+## API Overview
+
+### Core Resources
+
+<CardGroup cols={2}>
+<Card title="Patients" icon="user">
+  Manage patient records, demographics, and medical information with HIPAA compliance.
+</Card>
+
+<Card title="Appointments" icon="calendar">
+  Schedule, update, and manage patient appointments with providers and facilities.
+</Card>
+
+<Card title="Providers" icon="stethoscope">
+  Healthcare provider profiles, specialties, availability, and credentials.
+</Card>
+
+<Card title="Medical Records" icon="file-medical">
+  Secure access to patient medical records, diagnoses, and treatment history.
+</Card>
+
+<Card title="Prescriptions" icon="pills">
+  Prescription management, medication tracking, and pharmacy integration.
+</Card>
+
+<Card title="Organizations" icon="building-hospital">
+  Multi-tenant organization management for healthcare facilities and systems.
+</Card>
+</CardGroup>
+
+### API Features
+
+- **RESTful Design**: Standard HTTP methods and status codes
+- **JSON Responses**: All responses are in JSON format
+- **Rate Limiting**: 1000 requests per hour per API key
+- **Pagination**: Cursor-based pagination for large datasets
+- **Filtering**: Advanced filtering and search capabilities
+- **Webhooks**: Real-time event notifications
+- **HIPAA Compliant**: End-to-end encryption and audit logging
+
+## Quick Start
+
+### 1. Authentication Setup
+
+```javascript
+// JavaScript/Node.js
+const WAYLIO_API_TOKEN = 'your_api_token_here';
+const BASE_URL = 'https://api.waylio.com/v1';
+
+const headers = {
+  'Authorization': `Bearer ${WAYLIO_API_TOKEN}`,
+  'Content-Type': 'application/json',
+};
+```
+
+### 2. Make Your First Request
+
+```javascript
+// Fetch all patients
+async function getPatients() {
+  const response = await fetch(`${BASE_URL}/patients`, {
+    method: 'GET',
+    headers: headers,
+  });
+  
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  return data;
+}
+
+// Usage
+getPatients()
+  .then(patients => console.log(patients))
+  .catch(error => console.error('Error:', error));
+```
+
+### 3. Create a New Patient
+
+```javascript
+// Create a new patient
+async function createPatient(patientData) {
+  const response = await fetch(`${BASE_URL}/patients`, {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify(patientData),
+  });
+  
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+  
+  const patient = await response.json();
+  return patient;
+}
+
+// Example patient data
+const newPatient = {
+  firstName: 'John',
+  lastName: 'Doe',
+  dateOfBirth: '1990-01-15',
+  gender: 'male',
+  email: 'john.doe@example.com',
+  phoneNumber: '+1-555-123-4567',
+  address: {
+    street: '123 Main St',
+    city: 'Anytown',
+    state: 'CA',
+    zipCode: '12345',
+    country: 'US'
+  }
+};
+
+createPatient(newPatient)
+  .then(patient => console.log('Created patient:', patient))
+  .catch(error => console.error('Error:', error));
+```
+
+## Response Format
+
+### Success Response
 
 ```json
-"security": [
-  {
-    "bearerAuth": []
-  }
-]
+{
+  "success": true,
+  "data": {
+    "id": "patient_123",
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "john.doe@example.com",
+    "createdAt": "2024-01-15T10:30:00Z",
+    "updatedAt": "2024-01-15T10:30:00Z"
+  },
+  "message": "Patient created successfully",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "requestId": "req_abc123"
+}
 ```
+
+### Error Response
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid email format",
+    "field": "email",
+    "details": {
+      "provided": "invalid-email",
+      "expected": "Valid email address"
+    }
+  },
+  "timestamp": "2024-01-15T10:30:00Z",
+  "requestId": "req_abc123"
+}
+```
+
+### Paginated Response
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "patient_123",
+      "firstName": "John",
+      "lastName": "Doe"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 150,
+    "totalPages": 8,
+    "hasNext": true,
+    "hasPrev": false,
+    "nextCursor": "cursor_abc123",
+    "prevCursor": null
+  },
+  "timestamp": "2024-01-15T10:30:00Z",
+  "requestId": "req_abc123"
+}
+```
+
+## HTTP Status Codes
+
+| Status Code | Description |
+|-------------|-------------|
+| `200` | OK - Request successful |
+| `201` | Created - Resource created successfully |
+| `400` | Bad Request - Invalid request parameters |
+| `401` | Unauthorized - Invalid or missing API token |
+| `403` | Forbidden - Insufficient permissions |
+| `404` | Not Found - Resource not found |
+| `409` | Conflict - Resource already exists |
+| `422` | Unprocessable Entity - Validation errors |
+| `429` | Too Many Requests - Rate limit exceeded |
+| `500` | Internal Server Error - Server error |
+| `503` | Service Unavailable - Service temporarily unavailable |
+
+## Rate Limiting
+
+The Waylio API implements rate limiting to ensure fair usage:
+
+- **Standard Plan**: 1,000 requests per hour
+- **Professional Plan**: 10,000 requests per hour
+- **Enterprise Plan**: 100,000 requests per hour
+
+Rate limit headers are included in all responses:
+
+```
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 999
+X-RateLimit-Reset: 1642694400
+```
+
+## Pagination
+
+Large datasets are paginated using cursor-based pagination:
+
+```bash
+# First page
+GET /api/v1/patients?limit=20
+
+# Next page using cursor
+GET /api/v1/patients?limit=20&cursor=cursor_abc123
+
+# Previous page using cursor
+GET /api/v1/patients?limit=20&cursor=cursor_xyz789&direction=prev
+```
+
+## Filtering and Search
+
+### Query Parameters
+
+```bash
+# Filter patients by gender
+GET /api/v1/patients?gender=female
+
+# Search patients by name
+GET /api/v1/patients?search=john
+
+# Filter by date range
+GET /api/v1/appointments?startDate=2024-01-01&endDate=2024-01-31
+
+# Multiple filters
+GET /api/v1/patients?gender=male&ageMin=18&ageMax=65
+```
+
+### Advanced Search
+
+```bash
+# Full-text search across multiple fields
+GET /api/v1/patients?q=john+doe+cardiology
+
+# Filter by nested fields
+GET /api/v1/patients?address.state=CA&address.city=Los+Angeles
+```
+
+## Webhooks
+
+Subscribe to real-time events using webhooks:
+
+### Webhook Events
+
+- `patient.created` - New patient registered
+- `patient.updated` - Patient information updated
+- `appointment.created` - New appointment scheduled
+- `appointment.cancelled` - Appointment cancelled
+- `prescription.created` - New prescription issued
+- `lab_result.available` - Lab results ready
+
+### Webhook Configuration
+
+```javascript
+// Configure webhook endpoint
+const webhookConfig = {
+  url: 'https://your-app.com/webhooks/waylio',
+  events: ['patient.created', 'appointment.created'],
+  secret: 'your_webhook_secret'
+};
+
+// Register webhook
+fetch(`${BASE_URL}/webhooks`, {
+  method: 'POST',
+  headers: headers,
+  body: JSON.stringify(webhookConfig)
+});
+```
+
+## SDKs and Libraries
+
+### Official SDKs
+
+<CardGroup cols={2}>
+<Card title="JavaScript/Node.js" icon="js">
+  ```bash
+  npm install @waylio/sdk
+  ```
+</Card>
+
+<Card title="Python" icon="python">
+  ```bash
+  pip install waylio-python
+  ```
+</Card>
+
+<Card title="PHP" icon="php">
+  ```bash
+  composer require waylio/php-sdk
+  ```
+</Card>
+
+<Card title="Ruby" icon="gem">
+  ```bash
+  gem install waylio-ruby
+  ```
+</Card>
+</CardGroup>
+
+### SDK Usage Example
+
+```javascript
+// JavaScript SDK
+import { WaylioClient } from '@waylio/sdk';
+
+const waylio = new WaylioClient({
+  apiKey: 'your_api_token',
+  baseUrl: 'https://api.waylio.com/v1'
+});
+
+// Create patient
+const patient = await waylio.patients.create({
+  firstName: 'John',
+  lastName: 'Doe',
+  email: 'john.doe@example.com'
+});
+
+// Get appointments
+const appointments = await waylio.appointments.list({
+  patientId: patient.id,
+  startDate: '2024-01-01'
+});
+```
+
+## Error Handling
+
+### Common Error Codes
+
+| Error Code | Description | Resolution |
+|------------|-------------|------------|
+| `INVALID_API_KEY` | API key is invalid or expired | Check your API key in dashboard |
+| `INSUFFICIENT_PERMISSIONS` | Missing required permissions | Contact support for access |
+| `VALIDATION_ERROR` | Request validation failed | Check request parameters |
+| `RESOURCE_NOT_FOUND` | Requested resource doesn't exist | Verify resource ID |
+| `RATE_LIMIT_EXCEEDED` | Too many requests | Wait before retrying |
+| `HIPAA_VIOLATION` | Request violates HIPAA compliance | Review data access policies |
+
+### Error Handling Best Practices
+
+```javascript
+async function handleApiRequest() {
+  try {
+    const response = await fetch(`${BASE_URL}/patients`, {
+      method: 'GET',
+      headers: headers,
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      
+      switch (error.error.code) {
+        case 'RATE_LIMIT_EXCEEDED':
+          // Wait and retry
+          await new Promise(resolve => setTimeout(resolve, 60000));
+          return handleApiRequest();
+          
+        case 'INVALID_API_KEY':
+          // Refresh API key
+          throw new Error('API key needs to be refreshed');
+          
+        default:
+          throw new Error(error.error.message);
+      }
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('API request failed:', error);
+    throw error;
+  }
+}
+```
+
+## Testing
+
+### Sandbox Environment
+
+Use the sandbox environment for testing:
+
+```
+https://sandbox-api.waylio.com/v1
+```
+
+### Test Data
+
+The sandbox includes test data for development:
+- 100 sample patients
+- 50 healthcare providers
+- 200 appointments
+- Sample medical records and prescriptions
+
+### API Testing Tools
+
+<CardGroup cols={2}>
+<Card title="Postman Collection" icon="play">
+  Import our Postman collection for easy API testing and exploration.
+</Card>
+
+<Card title="OpenAPI Spec" icon="code">
+  Download the OpenAPI specification for automated testing and code generation.
+</Card>
+</CardGroup>
+
+## Support
+
+### Getting Help
+
+<CardGroup cols={2}>
+<Card title="Documentation" icon="book">
+  Comprehensive guides and API reference documentation.
+</Card>
+
+<Card title="Support Portal" icon="headset">
+  Submit tickets and track issues through our support portal.
+</Card>
+
+<Card title="Community Forum" icon="comments">
+  Connect with other developers and get community support.
+</Card>
+
+<Card title="Status Page" icon="chart-line">
+  Monitor API status and planned maintenance windows.
+</Card>
+</CardGroup>
+
+### Contact Information
+
+- **Email**: api-support@waylio.com
+- **Phone**: +1-800-WAYLIO-1
+- **Emergency**: +1-800-WAYLIO-911 (for critical healthcare system issues)
+
+<Note>
+The Waylio API is designed specifically for healthcare applications and includes built-in HIPAA compliance features. All data is encrypted in transit and at rest, with comprehensive audit logging for regulatory compliance.
+</Note>

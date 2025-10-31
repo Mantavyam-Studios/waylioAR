@@ -1,0 +1,963 @@
+---
+title: "Production Deployment"
+description: "Comprehensive guide for deploying the Waylio healthcare platform to production with enterprise-grade security, monitoring, and HIPAA compliance configurations."
+---
+
+# Production Deployment
+
+This guide covers the complete production deployment process for the Waylio healthcare platform, including enterprise-grade security configurations, monitoring setup, and HIPAA compliance requirements for healthcare applications.
+
+## Production Readiness Checklist
+
+### Security Requirements
+
+<CardGroup cols={2}>
+<Card title="HIPAA Compliance" icon="shield-check">
+  End-to-end encryption, audit logging, access controls, and data retention policies
+</Card>
+
+<Card title="Authentication" icon="key">
+  Multi-factor authentication, session management, and role-based access control
+</Card>
+
+<Card title="Data Protection" icon="lock">
+  Field-level encryption, secure backups, and data anonymization capabilities
+</Card>
+
+<Card title="Network Security" icon="network-wired">
+  SSL/TLS encryption, firewall rules, and DDoS protection
+</Card>
+</CardGroup>
+
+### Infrastructure Requirements
+
+<Steps>
+<Step title="Database Setup">
+  ```bash
+  # Production PostgreSQL with encryption
+  # - Minimum PostgreSQL 14+
+  # - SSL/TLS encryption enabled
+  # - Automated backups with 7-year retention
+  # - Point-in-time recovery capability
+  # - Read replicas for scaling
+  
+  # Example Neon configuration
+  DATABASE_URL="postgresql://user:pass@ep-xxx.us-east-1.aws.neon.tech/waylio?sslmode=require&pgbouncer=true"
+  DATABASE_SSL_MODE="require"
+  DATABASE_POOL_SIZE="20"
+  DATABASE_TIMEOUT="30000"
+  ```
+</Step>
+
+<Step title="CDN and Storage">
+  ```bash
+  # AWS S3 with CloudFront
+  AWS_S3_BUCKET="waylio-prod-files"
+  AWS_CLOUDFRONT_DISTRIBUTION_ID="E1234567890ABC"
+  AWS_S3_FORCE_PATH_STYLE="false"
+  
+  # Vercel Blob (alternative)
+  BLOB_READ_WRITE_TOKEN="vercel_blob_prod_token"
+  BLOB_STORE_ID="waylio-production"
+  ```
+</Step>
+
+<Step title="Monitoring and Logging">
+  ```bash
+  # Sentry for error tracking
+  SENTRY_DSN="https://prod-key@sentry.io/project-id"
+  SENTRY_ENVIRONMENT="production"
+  SENTRY_RELEASE="1.0.0"
+  
+  # Better Stack for logging
+  BETTER_STACK_TOKEN="prod_logging_token"
+  BETTER_STACK_DATASET="waylio-production"
+  
+  # PostHog for analytics
+  NEXT_PUBLIC_POSTHOG_KEY="phc_prod_key"
+  NEXT_PUBLIC_POSTHOG_HOST="https://app.posthog.com"
+  ```
+</Step>
+</Steps>
+
+## Environment Configuration
+
+### Production Environment Variables
+
+<Tabs>
+<Tab title="Core Application">
+  ```bash
+  # Application Configuration
+  NODE_ENV="production"
+  NEXT_PUBLIC_SITE_URL="https://waylio.com"
+  NEXT_PUBLIC_API_URL="https://api.waylio.com"
+  NEXT_PUBLIC_APP_VERSION="1.0.0"
+  
+  # Database
+  DATABASE_URL="postgresql://prod_user:secure_pass@prod-host:5432/waylio?sslmode=require"
+  DATABASE_POOL_SIZE="20"
+  DATABASE_TIMEOUT="30000"
+  DATABASE_SSL_MODE="require"
+  
+  # Authentication
+  CLERK_SECRET_KEY="sk_live_production_clerk_key"
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_live_production_clerk_key"
+  CLERK_WEBHOOK_SECRET="whsec_production_webhook_secret"
+  
+  # Security
+  JWT_SECRET="production-jwt-secret-min-32-chars"
+  ENCRYPTION_MASTER_KEY="production-master-encryption-key-32-chars"
+  PATIENT_DATA_ENCRYPTION_KEY="patient-data-encryption-key-32-chars"
+  MEDICAL_RECORD_ENCRYPTION_KEY="medical-record-encryption-key-32-chars"
+  
+  # Session Management
+  SESSION_TIMEOUT="28800000" # 8 hours
+  REFRESH_TOKEN_EXPIRES_IN="2592000000" # 30 days
+  JWT_EXPIRES_IN="900000" # 15 minutes
+  ```
+</Tab>
+
+<Tab title="External Services">
+  ```bash
+  # Email Service
+  RESEND_API_KEY="re_production_api_key"
+  FROM_EMAIL="noreply@waylio.com"
+  SUPPORT_EMAIL="support@waylio.com"
+  
+  # Payment Processing
+  STRIPE_SECRET_KEY="sk_live_production_stripe_key"
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_live_production_stripe_key"
+  STRIPE_WEBHOOK_SECRET="whsec_production_stripe_webhook"
+  
+  # File Storage
+  AWS_ACCESS_KEY_ID="AKIA_PRODUCTION_ACCESS_KEY"
+  AWS_SECRET_ACCESS_KEY="production_secret_access_key"
+  AWS_S3_BUCKET="waylio-production-files"
+  AWS_REGION="us-east-1"
+  
+  # AI Services
+  MULTISET_API_KEY="production_multiset_api_key"
+  MULTISET_PROJECT_ID="waylio_production_project"
+  MULTISET_ENVIRONMENT="production"
+  
+  # Notifications
+  KNOCK_API_KEY="production_knock_api_key"
+  KNOCK_SIGNING_KEY="production_knock_signing_key"
+  KNOCK_ENVIRONMENT="production"
+  
+  # Content Management
+  BASEHUB_TOKEN="production_basehub_token"
+  BASEHUB_REF="main"
+  ```
+</Tab>
+
+<Tab title="Monitoring & Security">
+  ```bash
+  # Error Monitoring
+  SENTRY_DSN="https://production-key@sentry.io/project-id"
+  SENTRY_ORG="waylio"
+  SENTRY_PROJECT="waylio-production"
+  SENTRY_AUTH_TOKEN="production_sentry_auth_token"
+  
+  # Analytics
+  NEXT_PUBLIC_POSTHOG_KEY="phc_production_posthog_key"
+  NEXT_PUBLIC_GA_MEASUREMENT_ID="G-PRODUCTION123"
+  
+  # Logging
+  BETTER_STACK_TOKEN="production_better_stack_token"
+  LOG_LEVEL="info"
+  
+  # Rate Limiting
+  UPSTASH_REDIS_REST_URL="https://prod-redis.upstash.io"
+  UPSTASH_REDIS_REST_TOKEN="production_redis_token"
+  API_RATE_LIMIT_MAX="100"
+  API_RATE_LIMIT_WINDOW="900000" # 15 minutes
+  
+  # HIPAA Compliance
+  AUDIT_LOG_ENABLED="true"
+  AUDIT_LOG_RETENTION_DAYS="2555" # 7 years
+  DATA_RETENTION_ENABLED="true"
+  PATIENT_DATA_RETENTION_YEARS="7"
+  BACKUP_ENCRYPTION_ENABLED="true"
+  ```
+</Tab>
+</Tabs>
+
+### Security Configuration
+
+<Steps>
+<Step title="SSL/TLS Configuration">
+  ```javascript
+  // next.config.js - Production security headers
+  const securityHeaders = [
+    {
+      key: 'Strict-Transport-Security',
+      value: 'max-age=31536000; includeSubDomains; preload'
+    },
+    {
+      key: 'X-Frame-Options',
+      value: 'DENY'
+    },
+    {
+      key: 'X-Content-Type-Options',
+      value: 'nosniff'
+    },
+    {
+      key: 'Referrer-Policy',
+      value: 'strict-origin-when-cross-origin'
+    },
+    {
+      key: 'Content-Security-Policy',
+      value: [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://js.stripe.com",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: https:",
+        "font-src 'self' data:",
+        "connect-src 'self' https://api.stripe.com https://api.clerk.dev",
+        "frame-src https://js.stripe.com"
+      ].join('; ')
+    },
+    {
+      key: 'Permissions-Policy',
+      value: 'camera=(), microphone=(), geolocation=(), payment=(self)'
+    }
+  ];
+  
+  module.exports = {
+    async headers() {
+      return [
+        {
+          source: '/(.*)',
+          headers: securityHeaders,
+        },
+      ];
+    },
+  };
+  ```
+</Step>
+
+<Step title="API Security">
+  ```typescript
+  // middleware.ts - Production API security
+  import { NextRequest, NextResponse } from 'next/server';
+  import { authMiddleware } from '@clerk/nextjs';
+  import { Ratelimit } from '@upstash/ratelimit';
+  import { Redis } from '@upstash/redis';
+  
+  const ratelimit = new Ratelimit({
+    redis: Redis.fromEnv(),
+    limiter: Ratelimit.slidingWindow(100, '15 m'),
+  });
+  
+  export default authMiddleware({
+    publicRoutes: ['/api/health', '/api/webhooks/(.*)'],
+    
+    async beforeAuth(req) {
+      // Rate limiting
+      const ip = req.ip ?? '127.0.0.1';
+      const { success, limit, reset, remaining } = await ratelimit.limit(ip);
+      
+      if (!success) {
+        return new NextResponse('Rate limit exceeded', { 
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': limit.toString(),
+            'X-RateLimit-Remaining': remaining.toString(),
+            'X-RateLimit-Reset': new Date(reset).toISOString(),
+          },
+        });
+      }
+      
+      // Security headers for API routes
+      if (req.nextUrl.pathname.startsWith('/api/')) {
+        const response = NextResponse.next();
+        response.headers.set('X-API-Version', '1.0');
+        response.headers.set('X-Request-ID', crypto.randomUUID());
+        return response;
+      }
+    },
+    
+    async afterAuth(auth, req) {
+      // HIPAA compliance checks
+      if (req.nextUrl.pathname.startsWith('/api/patients') || 
+          req.nextUrl.pathname.startsWith('/api/medical-records')) {
+        
+        if (!auth.userId) {
+          return new NextResponse('Unauthorized', { status: 401 });
+        }
+        
+        // Log access for audit trail
+        console.log(`HIPAA Access: ${auth.userId} accessed ${req.nextUrl.pathname} from ${req.ip}`);
+      }
+    },
+  });
+  ```
+</Step>
+
+<Step title="Data Encryption">
+  ```typescript
+  // lib/encryption.ts - Production encryption
+  import crypto from 'crypto';
+  
+  const ALGORITHM = 'aes-256-gcm';
+  const MASTER_KEY = process.env.ENCRYPTION_MASTER_KEY!;
+  
+  export class ProductionEncryption {
+    static encrypt(text: string, additionalData?: string): string {
+      const iv = crypto.randomBytes(16);
+      const cipher = crypto.createCipher(ALGORITHM, MASTER_KEY);
+      
+      if (additionalData) {
+        cipher.setAAD(Buffer.from(additionalData));
+      }
+      
+      let encrypted = cipher.update(text, 'utf8', 'hex');
+      encrypted += cipher.final('hex');
+      
+      const authTag = cipher.getAuthTag();
+      
+      return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
+    }
+    
+    static decrypt(encryptedData: string, additionalData?: string): string {
+      const [ivHex, authTagHex, encrypted] = encryptedData.split(':');
+      
+      const iv = Buffer.from(ivHex, 'hex');
+      const authTag = Buffer.from(authTagHex, 'hex');
+      
+      const decipher = crypto.createDecipher(ALGORITHM, MASTER_KEY);
+      decipher.setAuthTag(authTag);
+      
+      if (additionalData) {
+        decipher.setAAD(Buffer.from(additionalData));
+      }
+      
+      let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
+      
+      return decrypted;
+    }
+  }
+  ```
+</Step>
+</Steps>
+
+## Deployment Pipeline
+
+### CI/CD Configuration
+
+<Tabs>
+<Tab title="GitHub Actions">
+  ```yaml
+  # .github/workflows/production.yml
+  name: Production Deployment
+  
+  on:
+    push:
+      branches: [main]
+    release:
+      types: [published]
+  
+  jobs:
+    security-scan:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+        
+        - name: Run security audit
+          run: |
+            npm audit --audit-level high
+            pnpm dlx @next/codemod security-audit
+        
+        - name: HIPAA compliance check
+          run: |
+            pnpm dlx hipaa-compliance-checker
+            pnpm env:hipaa-check
+    
+    test:
+      runs-on: ubuntu-latest
+      needs: security-scan
+      steps:
+        - uses: actions/checkout@v4
+        
+        - name: Setup Node.js
+          uses: actions/setup-node@v4
+          with:
+            node-version: '20'
+            cache: 'pnpm'
+        
+        - name: Install dependencies
+          run: pnpm install --frozen-lockfile
+        
+        - name: Run tests
+          run: |
+            pnpm test:unit
+            pnpm test:integration
+            pnpm test:e2e
+        
+        - name: Check coverage
+          run: pnpm test:coverage --threshold=80
+    
+    build:
+      runs-on: ubuntu-latest
+      needs: test
+      steps:
+        - uses: actions/checkout@v4
+        
+        - name: Setup Node.js
+          uses: actions/setup-node@v4
+          with:
+            node-version: '20'
+            cache: 'pnpm'
+        
+        - name: Install dependencies
+          run: pnpm install --frozen-lockfile
+        
+        - name: Build applications
+          run: |
+            pnpm build:packages
+            pnpm build:web
+            pnpm build:api
+            pnpm build:docs
+        
+        - name: Upload build artifacts
+          uses: actions/upload-artifact@v4
+          with:
+            name: build-artifacts
+            path: |
+              apps/web/.next
+              apps/api/.next
+              apps/docs/out
+    
+    deploy:
+      runs-on: ubuntu-latest
+      needs: build
+      environment: production
+      steps:
+        - uses: actions/checkout@v4
+        
+        - name: Deploy to Vercel
+          uses: amondnet/vercel-action@v25
+          with:
+            vercel-token: ${{ secrets.VERCEL_TOKEN }}
+            vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+            vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+            vercel-args: '--prod'
+        
+        - name: Run post-deployment tests
+          run: |
+            pnpm test:smoke-production
+            pnpm test:health-check
+        
+        - name: Notify deployment
+          uses: 8398a7/action-slack@v3
+          with:
+            status: ${{ job.status }}
+            channel: '#deployments'
+            webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+  ```
+</Tab>
+
+<Tab title="Database Migrations">
+  ```yaml
+  # .github/workflows/db-migration.yml
+  name: Database Migration
+  
+  on:
+    workflow_dispatch:
+      inputs:
+        environment:
+          description: 'Environment to migrate'
+          required: true
+          default: 'production'
+          type: choice
+          options:
+            - staging
+            - production
+  
+  jobs:
+    migrate:
+      runs-on: ubuntu-latest
+      environment: ${{ github.event.inputs.environment }}
+      steps:
+        - uses: actions/checkout@v4
+        
+        - name: Setup Node.js
+          uses: actions/setup-node@v4
+          with:
+            node-version: '20'
+            cache: 'pnpm'
+        
+        - name: Install dependencies
+          run: pnpm install --frozen-lockfile
+        
+        - name: Backup database
+          run: |
+            pnpm db:backup --environment=${{ github.event.inputs.environment }}
+        
+        - name: Run migrations
+          env:
+            DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          run: |
+            pnpm db:migrate:deploy
+            pnpm db:generate
+        
+        - name: Verify migration
+          run: |
+            pnpm db:migrate:status
+            pnpm db:seed:verify
+        
+        - name: Rollback on failure
+          if: failure()
+          run: |
+            pnpm db:migrate:rollback
+            pnpm db:restore --backup-id=latest
+  ```
+</Tab>
+</Tabs>
+
+### Blue-Green Deployment
+
+<Steps>
+<Step title="Staging Environment">
+  ```bash
+  # Deploy to staging first
+  vercel --target staging
+  
+  # Run comprehensive tests
+  pnpm test:staging
+  pnpm test:load
+  pnpm test:security
+  
+  # HIPAA compliance verification
+  pnpm test:hipaa-compliance
+  ```
+</Step>
+
+<Step title="Production Deployment">
+  ```bash
+  # Deploy to production
+  vercel --prod
+  
+  # Health check
+  curl -f https://waylio.com/api/health
+  
+  # Smoke tests
+  pnpm test:smoke-production
+  
+  # Monitor for 15 minutes
+  pnpm monitor:deployment --duration=15m
+  ```
+</Step>
+
+<Step title="Rollback Strategy">
+  ```bash
+  # Automatic rollback on failure
+  if [ $? -ne 0 ]; then
+    echo "Deployment failed, rolling back..."
+    vercel rollback
+    
+    # Notify team
+    slack-notify "Production deployment failed and rolled back"
+    
+    # Create incident
+    pagerduty-incident "Production deployment failure"
+  fi
+  ```
+</Step>
+</Steps>
+
+## Monitoring and Alerting
+
+### Production Monitoring
+
+<Steps>
+<Step title="Application Monitoring">
+  ```typescript
+  // lib/monitoring.ts
+  import * as Sentry from '@sentry/nextjs';
+  import { PostHog } from 'posthog-node';
+  
+  export class ProductionMonitoring {
+    private static posthog = new PostHog(
+      process.env.NEXT_PUBLIC_POSTHOG_KEY!,
+      { host: 'https://app.posthog.com' }
+    );
+    
+    static trackError(error: Error, context?: Record<string, any>) {
+      Sentry.captureException(error, {
+        tags: {
+          environment: 'production',
+          service: 'waylio-api',
+        },
+        extra: context,
+      });
+    }
+    
+    static trackPerformance(operation: string, duration: number) {
+      this.posthog.capture({
+        distinctId: 'system',
+        event: 'performance_metric',
+        properties: {
+          operation,
+          duration,
+          environment: 'production',
+        },
+      });
+    }
+    
+    static trackHIPAAAccess(userId: string, resource: string, action: string) {
+      // HIPAA audit logging
+      console.log(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        userId,
+        resource,
+        action,
+        ip: 'logged-separately',
+        userAgent: 'logged-separately',
+        type: 'HIPAA_ACCESS',
+      }));
+      
+      // Send to secure audit log service
+      fetch(process.env.AUDIT_LOG_ENDPOINT!, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.AUDIT_LOG_TOKEN}`,
+        },
+        body: JSON.stringify({
+          userId,
+          resource,
+          action,
+          timestamp: new Date().toISOString(),
+        }),
+      });
+    }
+  }
+  ```
+</Step>
+
+<Step title="Health Checks">
+  ```typescript
+  // app/api/health/route.ts
+  import { NextResponse } from 'next/server';
+  import { PrismaClient } from '@prisma/client';
+  
+  const prisma = new PrismaClient();
+  
+  export async function GET() {
+    const checks = {
+      timestamp: new Date().toISOString(),
+      status: 'healthy',
+      version: process.env.NEXT_PUBLIC_APP_VERSION,
+      environment: process.env.NODE_ENV,
+      checks: {
+        database: 'unknown',
+        redis: 'unknown',
+        external_services: 'unknown',
+      },
+    };
+    
+    try {
+      // Database health check
+      await prisma.$queryRaw`SELECT 1`;
+      checks.checks.database = 'healthy';
+    } catch (error) {
+      checks.checks.database = 'unhealthy';
+      checks.status = 'degraded';
+    }
+    
+    try {
+      // Redis health check
+      const redis = new Redis({ url: process.env.UPSTASH_REDIS_REST_URL });
+      await redis.ping();
+      checks.checks.redis = 'healthy';
+    } catch (error) {
+      checks.checks.redis = 'unhealthy';
+      checks.status = 'degraded';
+    }
+    
+    try {
+      // External services health check
+      const clerkResponse = await fetch('https://api.clerk.dev/v1/health');
+      if (clerkResponse.ok) {
+        checks.checks.external_services = 'healthy';
+      } else {
+        checks.checks.external_services = 'degraded';
+      }
+    } catch (error) {
+      checks.checks.external_services = 'unhealthy';
+      checks.status = 'degraded';
+    }
+    
+    const statusCode = checks.status === 'healthy' ? 200 : 503;
+    return NextResponse.json(checks, { status: statusCode });
+  }
+  ```
+</Step>
+
+<Step title="Alerting Configuration">
+  ```typescript
+  // lib/alerts.ts
+  export class ProductionAlerts {
+    static async sendCriticalAlert(message: string, details?: any) {
+      // PagerDuty integration
+      await fetch('https://events.pagerduty.com/v2/enqueue', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          routing_key: process.env.PAGERDUTY_ROUTING_KEY,
+          event_action: 'trigger',
+          payload: {
+            summary: message,
+            severity: 'critical',
+            source: 'waylio-production',
+            custom_details: details,
+          },
+        }),
+      });
+      
+      // Slack notification
+      await fetch(process.env.SLACK_WEBHOOK_URL!, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: `🚨 CRITICAL ALERT: ${message}`,
+          channel: '#alerts',
+          username: 'Waylio Production',
+        }),
+      });
+    }
+    
+    static async sendHealthAlert(service: string, status: string) {
+      if (status !== 'healthy') {
+        await this.sendCriticalAlert(
+          `Service ${service} is ${status}`,
+          { service, status, timestamp: new Date().toISOString() }
+        );
+      }
+    }
+  }
+  ```
+</Step>
+</Steps>
+
+## Backup and Disaster Recovery
+
+### Automated Backups
+
+<AccordionGroup>
+<Accordion title="Database Backups">
+  ```bash
+  # Automated database backup script
+  #!/bin/bash
+  
+  # Configuration
+  DB_URL="$DATABASE_URL"
+  BACKUP_BUCKET="waylio-production-backups"
+  ENCRYPTION_KEY="$BACKUP_ENCRYPTION_KEY"
+  
+  # Create encrypted backup
+  pg_dump "$DB_URL" \
+    --format=custom \
+    --compress=9 \
+    --verbose \
+    | gpg --cipher-algo AES256 \
+          --compress-algo 1 \
+          --s2k-mode 3 \
+          --s2k-digest-algo SHA512 \
+          --s2k-count 65536 \
+          --force-mdc \
+          --quiet \
+          --no-greeting \
+          --batch \
+          --yes \
+          --passphrase "$ENCRYPTION_KEY" \
+          --symmetric \
+    | aws s3 cp - "s3://$BACKUP_BUCKET/database/$(date +%Y%m%d_%H%M%S).sql.gpg"
+  
+  # Verify backup
+  aws s3 ls "s3://$BACKUP_BUCKET/database/" --human-readable
+  
+  # Clean old backups (keep 90 days)
+  aws s3 ls "s3://$BACKUP_BUCKET/database/" \
+    | awk '$1 < "'$(date -d '90 days ago' '+%Y-%m-%d')'" {print $4}' \
+    | xargs -I {} aws s3 rm "s3://$BACKUP_BUCKET/database/{}"
+  ```
+</Accordion>
+
+<Accordion title="File Storage Backups">
+  ```bash
+  # S3 cross-region replication
+  aws s3api put-bucket-replication \
+    --bucket waylio-production-files \
+    --replication-configuration file://replication-config.json
+  
+  # replication-config.json
+  {
+    "Role": "arn:aws:iam::account:role/replication-role",
+    "Rules": [
+      {
+        "ID": "ReplicateToSecondaryRegion",
+        "Status": "Enabled",
+        "Prefix": "",
+        "Destination": {
+          "Bucket": "arn:aws:s3:::waylio-backup-files-us-west-2",
+          "StorageClass": "STANDARD_IA"
+        }
+      }
+    ]
+  }
+  ```
+</Accordion>
+
+<Accordion title="Application State Backup">
+  ```typescript
+  // lib/backup.ts
+  export class ApplicationBackup {
+    static async createSystemSnapshot() {
+      const snapshot = {
+        timestamp: new Date().toISOString(),
+        version: process.env.NEXT_PUBLIC_APP_VERSION,
+        environment: process.env.NODE_ENV,
+        configuration: {
+          // Non-sensitive configuration
+          features: await this.getFeatureFlags(),
+          settings: await this.getSystemSettings(),
+        },
+        statistics: {
+          users: await this.getUserCount(),
+          organizations: await this.getOrganizationCount(),
+          appointments: await this.getAppointmentCount(),
+        },
+      };
+      
+      // Store encrypted snapshot
+      const encrypted = await encrypt(JSON.stringify(snapshot));
+      await uploadToS3(encrypted, `snapshots/${Date.now()}.json.enc`);
+      
+      return snapshot;
+    }
+  }
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Performance Optimization
+
+### Production Performance
+
+<Steps>
+<Step title="Caching Strategy">
+  ```typescript
+  // lib/cache.ts
+  import { Redis } from '@upstash/redis';
+  
+  const redis = Redis.fromEnv();
+  
+  export class ProductionCache {
+    static async get<T>(key: string): Promise<T | null> {
+      try {
+        const cached = await redis.get(key);
+        return cached ? JSON.parse(cached as string) : null;
+      } catch (error) {
+        console.error('Cache get error:', error);
+        return null;
+      }
+    }
+    
+    static async set(key: string, value: any, ttl: number = 3600): Promise<void> {
+      try {
+        await redis.setex(key, ttl, JSON.stringify(value));
+      } catch (error) {
+        console.error('Cache set error:', error);
+      }
+    }
+    
+    static async invalidate(pattern: string): Promise<void> {
+      try {
+        const keys = await redis.keys(pattern);
+        if (keys.length > 0) {
+          await redis.del(...keys);
+        }
+      } catch (error) {
+        console.error('Cache invalidation error:', error);
+      }
+    }
+  }
+  ```
+</Step>
+
+<Step title="Database Optimization">
+  ```sql
+  -- Production database optimizations
+  
+  -- Connection pooling
+  ALTER SYSTEM SET max_connections = 200;
+  ALTER SYSTEM SET shared_buffers = '256MB';
+  ALTER SYSTEM SET effective_cache_size = '1GB';
+  
+  -- Query optimization
+  ALTER SYSTEM SET random_page_cost = 1.1;
+  ALTER SYSTEM SET seq_page_cost = 1.0;
+  
+  -- Logging for monitoring
+  ALTER SYSTEM SET log_min_duration_statement = 1000;
+  ALTER SYSTEM SET log_checkpoints = on;
+  ALTER SYSTEM SET log_connections = on;
+  ALTER SYSTEM SET log_disconnections = on;
+  
+  -- Reload configuration
+  SELECT pg_reload_conf();
+  ```
+</Step>
+
+<Step title="CDN Configuration">
+  ```javascript
+  // next.config.js - CDN optimization
+  module.exports = {
+    images: {
+      domains: ['waylio.com', 's3.amazonaws.com', 'cdn.waylio.com'],
+      formats: ['image/webp', 'image/avif'],
+      minimumCacheTTL: 86400, // 24 hours
+    },
+    
+    async headers() {
+      return [
+        {
+          source: '/static/(.*)',
+          headers: [
+            {
+              key: 'Cache-Control',
+              value: 'public, max-age=31536000, immutable',
+            },
+          ],
+        },
+        {
+          source: '/_next/static/(.*)',
+          headers: [
+            {
+              key: 'Cache-Control',
+              value: 'public, max-age=31536000, immutable',
+            },
+          ],
+        },
+      ];
+    },
+  };
+  ```
+</Step>
+</Steps>
+
+<Warning>
+Production deployments for healthcare applications require additional compliance measures. Ensure all PHI is encrypted, audit logs are maintained, and access controls are properly configured before going live.
+</Warning>
+
+<Note>
+Healthcare applications must maintain 99.9% uptime and have disaster recovery plans in place. Regular testing of backup and recovery procedures is essential for HIPAA compliance.
+</Note>

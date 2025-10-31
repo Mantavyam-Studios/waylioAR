@@ -1,0 +1,808 @@
+---
+title: "Email Templates"
+description: "React-based email template system with preview server for developing and testing transactional emails."
+---
+
+# Email Templates
+
+The email application provides a comprehensive system for creating, previewing, and managing transactional email templates using React Email. It includes a development server for testing templates and integrates with Resend for reliable email delivery.
+
+<Info>
+The email preview server runs on port 3003 in development. Access it at http://localhost:3003 to preview all email templates.
+</Info>
+
+## Overview
+
+The email system is built on React Email, allowing you to create email templates using familiar React components and JSX syntax. This approach ensures consistency with your web application's design system and makes email templates maintainable and version-controlled.
+
+### Key Features
+
+<CardGroup cols={2}>
+<Card title="React Components" icon="react">
+  Build emails using React components with full TypeScript support and reusable design patterns.
+</Card>
+
+<Card title="Live Preview" icon="eye">
+  Real-time preview server for testing templates across different email clients and devices.
+</Card>
+
+<Card title="Design System Integration" icon="palette">
+  Seamless integration with Waylio's design system for consistent branding and styling.
+</Card>
+
+<Card title="Multi-Language Support" icon="globe">
+  Built-in internationalization support for sending emails in multiple languages.
+</Card>
+</CardGroup>
+
+## Email Templates
+
+### Appointment-Related Emails
+
+<Tabs>
+<Tab title="Appointment Confirmation">
+  **Template**: `AppointmentConfirmationEmail`
+  **Trigger**: When appointment is booked
+  **Recipients**: Patient and healthcare provider
+  
+  **Content**:
+  - Appointment details (date, time, provider)
+  - Location and navigation instructions
+  - Preparation instructions
+  - Cancellation/rescheduling options
+  
+  **Implementation**:
+  ```typescript
+  import {
+    Html,
+    Head,
+    Body,
+    Container,
+    Section,
+    Text,
+    Button,
+    Img,
+  } from '@react-email/components';
+  
+  interface AppointmentConfirmationProps {
+    patientName: string;
+    providerName: string;
+    appointmentDate: string;
+    appointmentTime: string;
+    location: string;
+    confirmationNumber: string;
+  }
+  
+  export function AppointmentConfirmationEmail({
+    patientName,
+    providerName,
+    appointmentDate,
+    appointmentTime,
+    location,
+    confirmationNumber,
+  }: AppointmentConfirmationProps) {
+    return (
+      <Html>
+        <Head />
+        <Body style={main}>
+          <Container style={container}>
+            <Img
+              src="https://waylio.com/logo.png"
+              width="120"
+              height="40"
+              alt="Waylio"
+              style={logo}
+            />
+            
+            <Section style={content}>
+              <Text style={heading}>
+                Appointment Confirmed
+              </Text>
+              
+              <Text style={paragraph}>
+                Hello {patientName},
+              </Text>
+              
+              <Text style={paragraph}>
+                Your appointment with {providerName} has been confirmed for:
+              </Text>
+              
+              <Section style={appointmentDetails}>
+                <Text style={detailItem}>
+                  <strong>Date:</strong> {appointmentDate}
+                </Text>
+                <Text style={detailItem}>
+                  <strong>Time:</strong> {appointmentTime}
+                </Text>
+                <Text style={detailItem}>
+                  <strong>Provider:</strong> {providerName}
+                </Text>
+                <Text style={detailItem}>
+                  <strong>Location:</strong> {location}
+                </Text>
+                <Text style={detailItem}>
+                  <strong>Confirmation #:</strong> {confirmationNumber}
+                </Text>
+              </Section>
+              
+              <Button
+                href={`https://app.waylio.com/appointments/${confirmationNumber}`}
+                style={button}
+              >
+                View Appointment Details
+              </Button>
+              
+              <Text style={paragraph}>
+                Need to reschedule or cancel? Click the button above or call us at (555) 123-4567.
+              </Text>
+            </Section>
+          </Container>
+        </Body>
+      </Html>
+    );
+  }
+  ```
+</Tab>
+
+<Tab title="Appointment Reminder">
+  **Template**: `AppointmentReminderEmail`
+  **Trigger**: 24 hours before appointment
+  **Recipients**: Patient
+  
+  **Content**:
+  - Reminder of upcoming appointment
+  - Preparation checklist
+  - Check-in instructions
+  - Contact information
+  
+  **Scheduling**:
+  ```typescript
+  // Scheduled via cron job in API server
+  export async function sendAppointmentReminders() {
+    const upcomingAppointments = await database.appointment.findMany({
+      where: {
+        scheduledAt: {
+          gte: new Date(),
+          lte: addHours(new Date(), 24),
+        },
+        status: 'confirmed',
+      },
+      include: {
+        patient: true,
+        provider: true,
+      },
+    });
+    
+    for (const appointment of upcomingAppointments) {
+      await resend.emails.send({
+        from: 'appointments@waylio.com',
+        to: appointment.patient.email,
+        subject: `Reminder: Appointment tomorrow with ${appointment.provider.name}`,
+        react: <AppointmentReminderEmail appointment={appointment} />,
+      });
+    }
+  }
+  ```
+</Tab>
+
+<Tab title="Appointment Cancellation">
+  **Template**: `AppointmentCancellationEmail`
+  **Trigger**: When appointment is cancelled
+  **Recipients**: Patient and healthcare provider
+  
+  **Content**:
+  - Cancellation confirmation
+  - Refund information (if applicable)
+  - Rebooking suggestions
+  - Contact information for questions
+</Tab>
+</Tabs>
+
+### Prescription-Related Emails
+
+<Tabs>
+<Tab title="Prescription Ready">
+  **Template**: `PrescriptionReadyEmail`
+  **Trigger**: When prescription is ready for pickup
+  **Recipients**: Patient
+  
+  **Content**:
+  - Prescription details
+  - Pharmacy information
+  - Pickup instructions
+  - Medication information
+  
+  **Implementation**:
+  ```typescript
+  interface PrescriptionReadyProps {
+    patientName: string;
+    medicationName: string;
+    pharmacyName: string;
+    pharmacyAddress: string;
+    prescriptionNumber: string;
+    pickupInstructions: string;
+  }
+  
+  export function PrescriptionReadyEmail({
+    patientName,
+    medicationName,
+    pharmacyName,
+    pharmacyAddress,
+    prescriptionNumber,
+    pickupInstructions,
+  }: PrescriptionReadyProps) {
+    return (
+      <Html>
+        <Head />
+        <Body style={main}>
+          <Container style={container}>
+            <Section style={content}>
+              <Text style={heading}>
+                Your Prescription is Ready
+              </Text>
+              
+              <Text style={paragraph}>
+                Hello {patientName},
+              </Text>
+              
+              <Text style={paragraph}>
+                Your prescription for <strong>{medicationName}</strong> is ready for pickup.
+              </Text>
+              
+              <Section style={prescriptionDetails}>
+                <Text style={detailItem}>
+                  <strong>Prescription #:</strong> {prescriptionNumber}
+                </Text>
+                <Text style={detailItem}>
+                  <strong>Pharmacy:</strong> {pharmacyName}
+                </Text>
+                <Text style={detailItem}>
+                  <strong>Address:</strong> {pharmacyAddress}
+                </Text>
+              </Section>
+              
+              <Text style={paragraph}>
+                <strong>Pickup Instructions:</strong><br />
+                {pickupInstructions}
+              </Text>
+              
+              <Button
+                href={`https://app.waylio.com/prescriptions/${prescriptionNumber}`}
+                style={button}
+              >
+                View Prescription Details
+              </Button>
+            </Section>
+          </Container>
+        </Body>
+      </Html>
+    );
+  }
+  ```
+</Tab>
+
+<Tab title="Prescription Refill Reminder">
+  **Template**: `PrescriptionRefillReminderEmail`
+  **Trigger**: When prescription is running low
+  **Recipients**: Patient
+  
+  **Content**:
+  - Medication running low notification
+  - Refill request options
+  - Pharmacy contact information
+  - Medication adherence tips
+</Tab>
+</Tabs>
+
+### System Notifications
+
+<Tabs>
+<Tab title="Welcome Email">
+  **Template**: `WelcomeEmail`
+  **Trigger**: New user registration
+  **Recipients**: New user
+  
+  **Content**:
+  - Welcome message and platform introduction
+  - Getting started guide
+  - Feature highlights
+  - Support contact information
+  
+  **Implementation**:
+  ```typescript
+  interface WelcomeEmailProps {
+    userName: string;
+    userRole: 'patient' | 'provider' | 'staff' | 'admin';
+    organizationName?: string;
+  }
+  
+  export function WelcomeEmail({
+    userName,
+    userRole,
+    organizationName,
+  }: WelcomeEmailProps) {
+    const roleSpecificContent = getRoleSpecificContent(userRole);
+    
+    return (
+      <Html>
+        <Head />
+        <Body style={main}>
+          <Container style={container}>
+            <Section style={content}>
+              <Text style={heading}>
+                Welcome to Waylio{organizationName ? ` at ${organizationName}` : ''}!
+              </Text>
+              
+              <Text style={paragraph}>
+                Hello {userName},
+              </Text>
+              
+              <Text style={paragraph}>
+                Welcome to Waylio! We're excited to help you {roleSpecificContent.description}.
+              </Text>
+              
+              <Section style={featuresSection}>
+                <Text style={subheading}>Get Started:</Text>
+                {roleSpecificContent.features.map((feature, index) => (
+                  <Text key={index} style={featureItem}>
+                    • {feature}
+                  </Text>
+                ))}
+              </Section>
+              
+              <Button
+                href="https://app.waylio.com/onboarding"
+                style={button}
+              >
+                Complete Setup
+              </Button>
+            </Section>
+          </Container>
+        </Body>
+      </Html>
+    );
+  }
+  ```
+</Tab>
+
+<Tab title="Password Reset">
+  **Template**: `PasswordResetEmail`
+  **Trigger**: Password reset request
+  **Recipients**: User requesting reset
+  
+  **Content**:
+  - Password reset confirmation
+  - Secure reset link
+  - Security tips
+  - Expiration notice
+</Tab>
+
+<Tab title="Security Alert">
+  **Template**: `SecurityAlertEmail`
+  **Trigger**: Suspicious account activity
+  **Recipients**: Account owner
+  
+  **Content**:
+  - Security event details
+  - Recommended actions
+  - Account security tips
+  - Contact information
+</Tab>
+</Tabs>
+
+## Email Styling
+
+### Design System Integration
+
+<AccordionGroup>
+<Accordion title="Brand Colors">
+  ```typescript
+  // Email-specific color palette
+  export const emailColors = {
+    primary: '#2563eb',
+    secondary: '#64748b',
+    success: '#059669',
+    warning: '#d97706',
+    error: '#dc2626',
+    background: '#ffffff',
+    surface: '#f8fafc',
+    text: {
+      primary: '#0f172a',
+      secondary: '#475569',
+      muted: '#94a3b8',
+    },
+  };
+  
+  // Usage in email components
+  const heading = {
+    color: emailColors.text.primary,
+    fontSize: '24px',
+    fontWeight: '600',
+    lineHeight: '1.25',
+    margin: '0 0 16px 0',
+  };
+  ```
+</Accordion>
+
+<Accordion title="Typography">
+  ```typescript
+  // Email-safe typography styles
+  export const emailTypography = {
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    heading1: {
+      fontSize: '32px',
+      fontWeight: '700',
+      lineHeight: '1.25',
+      margin: '0 0 24px 0',
+    },
+    heading2: {
+      fontSize: '24px',
+      fontWeight: '600',
+      lineHeight: '1.25',
+      margin: '0 0 16px 0',
+    },
+    paragraph: {
+      fontSize: '16px',
+      fontWeight: '400',
+      lineHeight: '1.5',
+      margin: '0 0 16px 0',
+    },
+    small: {
+      fontSize: '14px',
+      fontWeight: '400',
+      lineHeight: '1.4',
+      margin: '0 0 12px 0',
+    },
+  };
+  ```
+</Accordion>
+
+<Accordion title="Layout Components">
+  ```typescript
+  // Reusable layout components
+  export const emailStyles = {
+    main: {
+      backgroundColor: emailColors.background,
+      fontFamily: emailTypography.fontFamily,
+    },
+    container: {
+      margin: '0 auto',
+      padding: '20px 0 48px',
+      width: '580px',
+    },
+    content: {
+      padding: '32px',
+      backgroundColor: emailColors.surface,
+      borderRadius: '8px',
+      border: `1px solid ${emailColors.border}`,
+    },
+    button: {
+      backgroundColor: emailColors.primary,
+      borderRadius: '6px',
+      color: '#ffffff',
+      fontSize: '16px',
+      fontWeight: '600',
+      textDecoration: 'none',
+      textAlign: 'center' as const,
+      display: 'block',
+      padding: '12px 24px',
+      margin: '24px 0',
+    },
+  };
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Development Server
+
+### Preview Interface
+
+<Tabs>
+<Tab title="Template Gallery">
+  The preview server provides a gallery of all email templates:
+  
+  ```typescript
+  // pages/index.tsx
+  import { getAllTemplates } from '../lib/templates';
+  
+  export default function EmailGallery() {
+    const templates = getAllTemplates();
+    
+    return (
+      <div className="container mx-auto p-8">
+        <h1 className="text-3xl font-bold mb-8">Email Templates</h1>
+        
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {templates.map((template) => (
+            <TemplateCard
+              key={template.id}
+              name={template.name}
+              description={template.description}
+              previewUrl={`/preview/${template.id}`}
+              thumbnail={template.thumbnail}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+  ```
+</Tab>
+
+<Tab title="Live Preview">
+  ```typescript
+  // pages/preview/[template].tsx
+  import { render } from '@react-email/render';
+  import { getTemplate } from '../../lib/templates';
+  
+  export default function TemplatePreview({ template, html }) {
+    return (
+      <div className="flex h-screen">
+        <div className="w-1/3 p-4 bg-gray-50">
+          <h2 className="text-xl font-bold mb-4">{template.name}</h2>
+          <TemplateControls template={template} />
+        </div>
+        
+        <div className="flex-1">
+          <iframe
+            srcDoc={html}
+            className="w-full h-full border-0"
+            title="Email Preview"
+          />
+        </div>
+      </div>
+    );
+  }
+  
+  export async function getServerSideProps({ params }) {
+    const template = getTemplate(params.template);
+    const html = render(template.component(template.sampleData));
+    
+    return {
+      props: { template, html },
+    };
+  }
+  ```
+</Tab>
+
+<Tab title="Testing Tools">
+  ```typescript
+  // Email testing utilities
+  export class EmailTester {
+    static async testTemplate(templateName: string, data: any) {
+      const template = getTemplate(templateName);
+      const html = render(template.component(data));
+      
+      // Test HTML validity
+      const isValidHTML = await this.validateHTML(html);
+      
+      // Test email client compatibility
+      const compatibility = await this.testCompatibility(html);
+      
+      // Test accessibility
+      const accessibility = await this.testAccessibility(html);
+      
+      return {
+        isValidHTML,
+        compatibility,
+        accessibility,
+        html,
+      };
+    }
+    
+    static async sendTestEmail(templateName: string, data: any, recipient: string) {
+      const template = getTemplate(templateName);
+      
+      return await resend.emails.send({
+        from: 'test@waylio.com',
+        to: recipient,
+        subject: `[TEST] ${template.subject(data)}`,
+        react: template.component(data),
+      });
+    }
+  }
+  ```
+</Tab>
+</Tabs>
+
+## Email Delivery
+
+### Resend Integration
+
+<Tabs>
+<Tab title="Configuration">
+  ```typescript
+  // lib/email.ts
+  import { Resend } from 'resend';
+  
+  export const resend = new Resend(process.env.RESEND_API_KEY);
+  
+  export const emailConfig = {
+    from: {
+      default: 'noreply@waylio.com',
+      appointments: 'appointments@waylio.com',
+      prescriptions: 'prescriptions@waylio.com',
+      support: 'support@waylio.com',
+    },
+    replyTo: 'support@waylio.com',
+    domains: {
+      production: 'waylio.com',
+      staging: 'staging.waylio.com',
+      development: 'localhost:3003',
+    },
+  };
+  ```
+</Tab>
+
+<Tab title="Email Service">
+  ```typescript
+  // services/email-service.ts
+  export class EmailService {
+    static async sendAppointmentConfirmation(appointment: Appointment) {
+      try {
+        const result = await resend.emails.send({
+          from: emailConfig.from.appointments,
+          to: appointment.patient.email,
+          subject: `Appointment Confirmed - ${appointment.provider.name}`,
+          react: <AppointmentConfirmationEmail appointment={appointment} />,
+          tags: [
+            { name: 'category', value: 'appointment' },
+            { name: 'type', value: 'confirmation' },
+          ],
+        });
+        
+        // Log email sent
+        await database.emailLog.create({
+          data: {
+            emailId: result.data?.id,
+            recipient: appointment.patient.email,
+            template: 'appointment-confirmation',
+            status: 'sent',
+            appointmentId: appointment.id,
+          },
+        });
+        
+        return result;
+      } catch (error) {
+        console.error('Failed to send appointment confirmation:', error);
+        throw error;
+      }
+    }
+    
+    static async sendBulkEmails(emails: BulkEmailRequest[]) {
+      const results = await Promise.allSettled(
+        emails.map(email => resend.emails.send(email))
+      );
+      
+      return results.map((result, index) => ({
+        email: emails[index],
+        success: result.status === 'fulfilled',
+        result: result.status === 'fulfilled' ? result.value : result.reason,
+      }));
+    }
+  }
+  ```
+</Tab>
+
+<Tab title="Webhook Handling">
+  ```typescript
+  // api/webhooks/resend.ts
+  export async function POST(request: Request) {
+    const signature = request.headers.get('resend-signature');
+    const body = await request.text();
+    
+    // Verify webhook signature
+    const isValid = verifyWebhookSignature(body, signature);
+    if (!isValid) {
+      return new Response('Invalid signature', { status: 401 });
+    }
+    
+    const event = JSON.parse(body);
+    
+    switch (event.type) {
+      case 'email.delivered':
+        await handleEmailDelivered(event.data);
+        break;
+      case 'email.bounced':
+        await handleEmailBounced(event.data);
+        break;
+      case 'email.complained':
+        await handleEmailComplained(event.data);
+        break;
+    }
+    
+    return new Response('OK', { status: 200 });
+  }
+  ```
+</Tab>
+</Tabs>
+
+## Development
+
+### Local Development
+
+<Steps>
+<Step title="Start Email Preview Server">
+  ```bash
+  # Start only the email preview server
+  pnpm dev --filter email
+  
+  # Or start all services
+  pnpm dev
+  ```
+  
+  The preview server will be available at http://localhost:3003
+</Step>
+
+<Step title="Create New Template">
+  ```bash
+  # Generate new email template
+  pnpm email:create-template --name="appointment-reminder"
+  
+  # This creates:
+  # - templates/appointment-reminder.tsx
+  # - tests/appointment-reminder.test.tsx
+  # - sample-data/appointment-reminder.json
+  ```
+</Step>
+
+<Step title="Test Email Delivery">
+  ```bash
+  # Send test email
+  pnpm email:test --template="welcome" --to="test@example.com"
+  
+  # Test all templates
+  pnpm email:test-all
+  ```
+</Step>
+</Steps>
+
+### Testing
+
+<Tabs>
+<Tab title="Template Testing">
+  ```bash
+  # Run email template tests
+  pnpm test --filter email
+  
+  # Test specific template
+  pnpm test --filter email -- appointment-confirmation.test.tsx
+  
+  # Visual regression testing
+  pnpm test:visual --filter email
+  ```
+</Tab>
+
+<Tab title="Email Client Testing">
+  ```bash
+  # Test email rendering across clients
+  pnpm email:test-clients --template="welcome"
+  
+  # Generate compatibility report
+  pnpm email:compatibility-report
+  ```
+</Tab>
+</Tabs>
+
+## Deployment
+
+The email templates are deployed as part of the API server and can be triggered from any application in the monorepo.
+
+### Environment Configuration
+
+<Warning>
+Ensure your Resend API key and domain are properly configured in your deployment environment.
+</Warning>
+
+### Monitoring
+
+Email delivery is monitored through:
+
+- **Delivery Tracking**: Resend webhook integration
+- **Error Monitoring**: Sentry integration for email failures
+- **Analytics**: Email open and click tracking
+- **Bounce Management**: Automatic handling of bounced emails
+
+<Note>
+For email template development best practices and guidelines, see our [Email Design Guide](/guides/email-design).
+</Note>

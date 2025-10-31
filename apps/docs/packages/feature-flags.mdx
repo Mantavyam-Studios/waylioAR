@@ -1,0 +1,1065 @@
+---
+title: "Feature Flags Package"
+description: "Feature flag management system for controlled feature rollouts, A/B testing, and gradual deployments across the Waylio platform."
+---
+
+# Feature Flags Package
+
+The feature flags package provides comprehensive feature flag management for the Waylio platform, enabling controlled feature rollouts, A/B testing, and gradual deployments. It supports both client-side and server-side feature flags with real-time updates and detailed analytics.
+
+## Installation
+
+```bash
+# Install the feature flags package
+pnpm add @repo/feature-flags
+
+# Peer dependencies (automatically installed in monorepo)
+pnpm add @vercel/flags flagsmith-nodejs
+```
+
+## Overview
+
+The feature flags package enables safe feature deployment and experimentation across the healthcare platform. It provides granular control over feature visibility, supports user segmentation, and integrates with analytics for data-driven decision making.
+
+### Key Features
+
+<CardGroup cols={2}>
+<Card title="Real-Time Updates" icon="refresh-cw">
+  Instant feature flag updates without requiring application restarts or deployments.
+</Card>
+
+<Card title="User Segmentation" icon="users">
+  Target specific user groups, organizations, or roles with different feature configurations.
+</Card>
+
+<Card title="A/B Testing" icon="split">
+  Built-in A/B testing capabilities with statistical significance tracking.
+</Card>
+
+<Card title="Gradual Rollouts" icon="trending-up">
+  Percentage-based rollouts with automatic scaling and rollback capabilities.
+</Card>
+</CardGroup>
+
+## Feature Flag Components
+
+### Flag Provider
+
+<Tabs>
+<Tab title="Provider Setup">
+  **Purpose**: Initialize feature flag client and provide context
+  
+  ```typescript
+  // app/layout.tsx
+  import { FeatureFlagsProvider } from '@repo/feature-flags';
+  import { auth } from '@repo/auth';
+  
+  export default async function RootLayout({
+    children,
+  }: {
+    children: React.ReactNode;
+  }) {
+    const { user } = await auth();
+    
+    const userContext = user ? {
+      id: user.id,
+      email: user.primaryEmailAddress?.emailAddress,
+      role: user.publicMetadata?.role,
+      organizationId: user.organizationMemberships?.[0]?.organization?.id,
+      organizationName: user.organizationMemberships?.[0]?.organization?.name,
+      department: user.publicMetadata?.department,
+      createdAt: user.createdAt,
+    } : null;
+    
+    return (
+      <html lang="en">
+        <body>
+          <FeatureFlagsProvider
+            apiKey={process.env.NEXT_PUBLIC_FLAGSMITH_CLIENT_KEY}
+            environment={process.env.NODE_ENV}
+            userContext={userContext}
+            options={{
+              enableAnalytics: true,
+              cacheFlags: true,
+              preventFetch: false,
+            }}
+          >
+            {children}
+          </FeatureFlagsProvider>
+        </body>
+      </html>
+    );
+  }
+  ```
+</Tab>
+
+<Tab title="Feature Flag Hooks">
+  **Purpose**: React hooks for accessing feature flags in components
+  
+  ```typescript
+  import { useFeatureFlag, useFeatureFlags, useFeatureFlagVariant } from '@repo/feature-flags';
+  import { useEffect } from 'react';
+  
+  // Basic feature flag usage
+  export function PatientDashboard() {
+    const showNewUI = useFeatureFlag('new-patient-dashboard');
+    const enableARNavigation = useFeatureFlag('ar-navigation-beta');
+    const showTelehealthOptions = useFeatureFlag('telehealth-integration');
+    
+    // Track feature flag exposure for analytics
+    useEffect(() => {
+      if (showNewUI) {
+        // Analytics tracking handled automatically by the provider
+        console.log('User exposed to new patient dashboard UI');
+      }
+    }, [showNewUI]);
+    
+    return (
+      <div className="patient-dashboard">
+        {showNewUI ? (
+          <NewPatientDashboardUI />
+        ) : (
+          <LegacyPatientDashboardUI />
+        )}
+        
+        {enableARNavigation && (
+          <ARNavigationButton />
+        )}
+        
+        {showTelehealthOptions && (
+          <TelehealthSection />
+        )}
+      </div>
+    );
+  }
+  
+  // Feature flag variants for A/B testing
+  export function AppointmentBookingFlow() {
+    const bookingFlowVariant = useFeatureFlagVariant('appointment-booking-flow');
+    
+    switch (bookingFlowVariant) {
+      case 'simplified':
+        return <SimplifiedBookingFlow />;
+      case 'detailed':
+        return <DetailedBookingFlow />;
+      case 'wizard':
+        return <WizardBookingFlow />;
+      default:
+        return <DefaultBookingFlow />;
+    }
+  }
+  
+  // Multiple feature flags
+  export function ProviderDashboard() {
+    const flags = useFeatureFlags([
+      'provider-analytics',
+      'patient-communication-hub',
+      'prescription-automation',
+      'schedule-optimization',
+    ]);
+    
+    return (
+      <div className="provider-dashboard">
+        <h1>Provider Dashboard</h1>
+        
+        {flags['provider-analytics'] && (
+          <AnalyticsSection />
+        )}
+        
+        {flags['patient-communication-hub'] && (
+          <CommunicationHub />
+        )}
+        
+        {flags['prescription-automation'] && (
+          <PrescriptionAutomation />
+        )}
+        
+        {flags['schedule-optimization'] && (
+          <ScheduleOptimizer />
+        )}
+      </div>
+    );
+  }
+  
+  // Conditional rendering with loading states
+  export function ConditionalFeature({ featureName, children, fallback = null }) {
+    const { isEnabled, loading } = useFeatureFlag(featureName, { 
+      suspense: false 
+    });
+    
+    if (loading) {
+      return <div className="animate-pulse bg-gray-200 h-8 rounded" />;
+    }
+    
+    return isEnabled ? children : fallback;
+  }
+  
+  // Usage example
+  export function HomePage() {
+    return (
+      <div>
+        <h1>Welcome to Waylio</h1>
+        
+        <ConditionalFeature 
+          featureName="homepage-hero-video"
+          fallback={<HeroImage />}
+        >
+          <HeroVideo />
+        </ConditionalFeature>
+        
+        <ConditionalFeature featureName="patient-testimonials">
+          <TestimonialsSection />
+        </ConditionalFeature>
+      </div>
+    );
+  }
+  ```
+</Tab>
+
+<Tab title="Server-Side Flags">
+  **Purpose**: Server-side feature flag evaluation for SSR and API routes
+  
+  ```typescript
+  import { getFeatureFlags, isFeatureEnabled } from '@repo/feature-flags/server';
+  import { auth } from '@repo/auth';
+  import { redirect } from 'next/navigation';
+  
+  // Server component with feature flags
+  export default async function AppointmentPage({
+    params,
+  }: {
+    params: { id: string };
+  }) {
+    const { user } = await auth();
+    
+    if (!user) {
+      redirect('/sign-in');
+    }
+    
+    // Check feature flags server-side
+    const flags = await getFeatureFlags({
+      userId: user.id,
+      organizationId: user.organizationMemberships?.[0]?.organization?.id,
+      role: user.publicMetadata?.role,
+    });
+    
+    const showAdvancedScheduling = flags['advanced-scheduling'];
+    const enableVideoConsultation = flags['video-consultation'];
+    
+    return (
+      <div>
+        <h1>Appointment Details</h1>
+        
+        {showAdvancedScheduling ? (
+          <AdvancedSchedulingInterface appointmentId={params.id} />
+        ) : (
+          <BasicSchedulingInterface appointmentId={params.id} />
+        )}
+        
+        {enableVideoConsultation && (
+          <VideoConsultationOptions appointmentId={params.id} />
+        )}
+      </div>
+    );
+  }
+  
+  // API route with feature flags
+  export async function POST(request: Request) {
+    const { user } = await auth();
+    
+    if (!user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    // Check if new prescription API is enabled
+    const useNewPrescriptionAPI = await isFeatureEnabled(
+      'new-prescription-api',
+      {
+        userId: user.id,
+        organizationId: user.organizationMemberships?.[0]?.organization?.id,
+      }
+    );
+    
+    if (useNewPrescriptionAPI) {
+      return handlePrescriptionV2(request);
+    } else {
+      return handlePrescriptionV1(request);
+    }
+  }
+  
+  // Middleware with feature flags
+  export async function middleware(request: NextRequest) {
+    const { user } = await auth();
+    
+    if (!user) {
+      return NextResponse.next();
+    }
+    
+    // Check if maintenance mode is enabled
+    const maintenanceMode = await isFeatureEnabled('maintenance-mode', {
+      userId: user.id,
+      role: user.publicMetadata?.role,
+    });
+    
+    if (maintenanceMode && user.publicMetadata?.role !== 'admin') {
+      return NextResponse.redirect(new URL('/maintenance', request.url));
+    }
+    
+    // Check if beta features are enabled for this user
+    const betaAccess = await isFeatureEnabled('beta-features', {
+      userId: user.id,
+      organizationId: user.organizationMemberships?.[0]?.organization?.id,
+    });
+    
+    if (request.nextUrl.pathname.startsWith('/beta') && !betaAccess) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+    
+    return NextResponse.next();
+  }
+  
+  // Static generation with feature flags
+  export async function generateStaticParams() {
+    const enableNewRoutes = await isFeatureEnabled('new-routes', {
+      // Use default context for static generation
+      environment: process.env.NODE_ENV,
+    });
+    
+    const baseParams = [
+      { slug: 'appointments' },
+      { slug: 'patients' },
+      { slug: 'providers' },
+    ];
+    
+    if (enableNewRoutes) {
+      baseParams.push(
+        { slug: 'telehealth' },
+        { slug: 'analytics' },
+        { slug: 'integrations' }
+      );
+    }
+    
+    return baseParams;
+  }
+  ```
+</Tab>
+</Tabs>
+
+## Feature Flag Management
+
+### Flag Configuration
+
+<AccordionGroup>
+<Accordion title="Flag Definitions">
+  ```typescript
+  // lib/feature-flags/definitions.ts
+  export interface FeatureFlagDefinition {
+    key: string;
+    name: string;
+    description: string;
+    type: 'boolean' | 'string' | 'number' | 'json';
+    defaultValue: any;
+    tags: string[];
+    environments: string[];
+    rolloutStrategy: 'all' | 'percentage' | 'user-list' | 'segment';
+    rolloutPercentage?: number;
+    targetUsers?: string[];
+    targetSegments?: string[];
+    variants?: Array<{
+      name: string;
+      value: any;
+      weight: number;
+    }>;
+  }
+  
+  export const FEATURE_FLAGS: Record<string, FeatureFlagDefinition> = {
+    'new-patient-dashboard': {
+      key: 'new-patient-dashboard',
+      name: 'New Patient Dashboard',
+      description: 'Enable the redesigned patient dashboard with improved UX',
+      type: 'boolean',
+      defaultValue: false,
+      tags: ['ui', 'patient', 'dashboard'],
+      environments: ['development', 'staging', 'production'],
+      rolloutStrategy: 'percentage',
+      rolloutPercentage: 25,
+    },
+    
+    'ar-navigation-beta': {
+      key: 'ar-navigation-beta',
+      name: 'AR Navigation Beta',
+      description: 'Enable AR navigation features for beta testing',
+      type: 'boolean',
+      defaultValue: false,
+      tags: ['ar', 'navigation', 'beta'],
+      environments: ['development', 'staging'],
+      rolloutStrategy: 'segment',
+      targetSegments: ['beta-users', 'internal-staff'],
+    },
+    
+    'appointment-booking-flow': {
+      key: 'appointment-booking-flow',
+      name: 'Appointment Booking Flow Variant',
+      description: 'A/B test different appointment booking flows',
+      type: 'string',
+      defaultValue: 'default',
+      tags: ['booking', 'ab-test', 'conversion'],
+      environments: ['production'],
+      rolloutStrategy: 'all',
+      variants: [
+        { name: 'default', value: 'default', weight: 25 },
+        { name: 'simplified', value: 'simplified', weight: 25 },
+        { name: 'detailed', value: 'detailed', weight: 25 },
+        { name: 'wizard', value: 'wizard', weight: 25 },
+      ],
+    },
+    
+    'prescription-automation': {
+      key: 'prescription-automation',
+      name: 'Prescription Automation',
+      description: 'Enable automated prescription processing and refills',
+      type: 'boolean',
+      defaultValue: false,
+      tags: ['prescription', 'automation', 'provider'],
+      environments: ['production'],
+      rolloutStrategy: 'user-list',
+      targetUsers: ['provider_123', 'provider_456'],
+    },
+    
+    'telehealth-integration': {
+      key: 'telehealth-integration',
+      name: 'Telehealth Integration',
+      description: 'Enable telehealth video consultation features',
+      type: 'boolean',
+      defaultValue: false,
+      tags: ['telehealth', 'video', 'consultation'],
+      environments: ['development', 'staging', 'production'],
+      rolloutStrategy: 'percentage',
+      rolloutPercentage: 50,
+    },
+    
+    'maintenance-mode': {
+      key: 'maintenance-mode',
+      name: 'Maintenance Mode',
+      description: 'Enable maintenance mode to restrict access',
+      type: 'boolean',
+      defaultValue: false,
+      tags: ['maintenance', 'system'],
+      environments: ['production'],
+      rolloutStrategy: 'all',
+    },
+    
+    'analytics-dashboard-config': {
+      key: 'analytics-dashboard-config',
+      name: 'Analytics Dashboard Configuration',
+      description: 'Configuration for analytics dashboard features',
+      type: 'json',
+      defaultValue: {
+        enableRealTime: false,
+        refreshInterval: 30000,
+        maxDataPoints: 100,
+        enableExport: false,
+      },
+      tags: ['analytics', 'dashboard', 'config'],
+      environments: ['production'],
+      rolloutStrategy: 'segment',
+      targetSegments: ['admin-users'],
+    },
+  };
+  
+  // Helper functions for flag management
+  export function getFlagDefinition(key: string): FeatureFlagDefinition | undefined {
+    return FEATURE_FLAGS[key];
+  }
+  
+  export function getFlagsByTag(tag: string): FeatureFlagDefinition[] {
+    return Object.values(FEATURE_FLAGS).filter(flag => 
+      flag.tags.includes(tag)
+    );
+  }
+  
+  export function getFlagsByEnvironment(environment: string): FeatureFlagDefinition[] {
+    return Object.values(FEATURE_FLAGS).filter(flag => 
+      flag.environments.includes(environment)
+    );
+  }
+  ```
+</Accordion>
+
+<Accordion title="User Segmentation">
+  ```typescript
+  // lib/feature-flags/segments.ts
+  export interface UserSegment {
+    id: string;
+    name: string;
+    description: string;
+    conditions: SegmentCondition[];
+  }
+  
+  export interface SegmentCondition {
+    property: string;
+    operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'greater_than' | 'less_than' | 'in' | 'not_in';
+    value: any;
+  }
+  
+  export const USER_SEGMENTS: Record<string, UserSegment> = {
+    'beta-users': {
+      id: 'beta-users',
+      name: 'Beta Users',
+      description: 'Users who have opted into beta testing',
+      conditions: [
+        {
+          property: 'betaOptIn',
+          operator: 'equals',
+          value: true,
+        },
+      ],
+    },
+    
+    'internal-staff': {
+      id: 'internal-staff',
+      name: 'Internal Staff',
+      description: 'Waylio internal team members',
+      conditions: [
+        {
+          property: 'email',
+          operator: 'contains',
+          value: '@waylio.com',
+        },
+      ],
+    },
+    
+    'premium-organizations': {
+      id: 'premium-organizations',
+      name: 'Premium Organizations',
+      description: 'Organizations with premium subscriptions',
+      conditions: [
+        {
+          property: 'organizationTier',
+          operator: 'in',
+          value: ['premium', 'enterprise'],
+        },
+      ],
+    },
+    
+    'new-users': {
+      id: 'new-users',
+      name: 'New Users',
+      description: 'Users who joined in the last 30 days',
+      conditions: [
+        {
+          property: 'createdAt',
+          operator: 'greater_than',
+          value: Date.now() - (30 * 24 * 60 * 60 * 1000), // 30 days ago
+        },
+      ],
+    },
+    
+    'high-volume-providers': {
+      id: 'high-volume-providers',
+      name: 'High Volume Providers',
+      description: 'Healthcare providers with high patient volume',
+      conditions: [
+        {
+          property: 'role',
+          operator: 'equals',
+          value: 'provider',
+        },
+        {
+          property: 'monthlyPatientCount',
+          operator: 'greater_than',
+          value: 100,
+        },
+      ],
+    },
+    
+    'admin-users': {
+      id: 'admin-users',
+      name: 'Admin Users',
+      description: 'Users with administrative privileges',
+      conditions: [
+        {
+          property: 'role',
+          operator: 'in',
+          value: ['admin', 'super_admin'],
+        },
+      ],
+    },
+  };
+  
+  export function evaluateSegment(
+    segment: UserSegment,
+    userContext: any
+  ): boolean {
+    return segment.conditions.every(condition => 
+      evaluateCondition(condition, userContext)
+    );
+  }
+  
+  function evaluateCondition(
+    condition: SegmentCondition,
+    userContext: any
+  ): boolean {
+    const userValue = getUserProperty(userContext, condition.property);
+    
+    switch (condition.operator) {
+      case 'equals':
+        return userValue === condition.value;
+        
+      case 'not_equals':
+        return userValue !== condition.value;
+        
+      case 'contains':
+        return typeof userValue === 'string' && 
+               userValue.includes(condition.value);
+        
+      case 'not_contains':
+        return typeof userValue === 'string' && 
+               !userValue.includes(condition.value);
+        
+      case 'greater_than':
+        return Number(userValue) > Number(condition.value);
+        
+      case 'less_than':
+        return Number(userValue) < Number(condition.value);
+        
+      case 'in':
+        return Array.isArray(condition.value) && 
+               condition.value.includes(userValue);
+        
+      case 'not_in':
+        return Array.isArray(condition.value) && 
+               !condition.value.includes(userValue);
+        
+      default:
+        return false;
+    }
+  }
+  
+  function getUserProperty(userContext: any, property: string): any {
+    const keys = property.split('.');
+    let value = userContext;
+    
+    for (const key of keys) {
+      if (value && typeof value === 'object') {
+        value = value[key];
+      } else {
+        return undefined;
+      }
+    }
+    
+    return value;
+  }
+  
+  export function getUserSegments(userContext: any): string[] {
+    return Object.values(USER_SEGMENTS)
+      .filter(segment => evaluateSegment(segment, userContext))
+      .map(segment => segment.id);
+  }
+  ```
+</Accordion>
+
+<Accordion title="A/B Testing">
+  ```typescript
+  // lib/feature-flags/ab-testing.ts
+  export interface ABTest {
+    id: string;
+    name: string;
+    description: string;
+    flagKey: string;
+    variants: ABTestVariant[];
+    startDate: Date;
+    endDate?: Date;
+    targetSegments?: string[];
+    trafficAllocation: number; // Percentage of users to include in test
+    status: 'draft' | 'running' | 'paused' | 'completed';
+    metrics: ABTestMetric[];
+  }
+  
+  export interface ABTestVariant {
+    id: string;
+    name: string;
+    value: any;
+    weight: number; // Percentage of test traffic
+    description?: string;
+  }
+  
+  export interface ABTestMetric {
+    name: string;
+    type: 'conversion' | 'numeric' | 'duration';
+    goal: 'increase' | 'decrease';
+    primaryMetric: boolean;
+  }
+  
+  export class ABTestManager {
+    static async createTest(test: Omit<ABTest, 'id'>): Promise<ABTest> {
+      const testId = `test_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const newTest: ABTest = {
+        ...test,
+        id: testId,
+      };
+      
+      // Store test configuration
+      await database.abTest.create({
+        data: {
+          id: testId,
+          name: test.name,
+          description: test.description,
+          flagKey: test.flagKey,
+          variants: test.variants,
+          startDate: test.startDate,
+          endDate: test.endDate,
+          targetSegments: test.targetSegments,
+          trafficAllocation: test.trafficAllocation,
+          status: test.status,
+          metrics: test.metrics,
+        },
+      });
+      
+      return newTest;
+    }
+    
+    static async getTestVariant(
+      testId: string,
+      userId: string,
+      userContext: any
+    ): Promise<string | null> {
+      const test = await database.abTest.findUnique({
+        where: { id: testId },
+      });
+      
+      if (!test || test.status !== 'running') {
+        return null;
+      }
+      
+      // Check if user is in target segments
+      if (test.targetSegments && test.targetSegments.length > 0) {
+        const userSegments = getUserSegments(userContext);
+        const hasTargetSegment = test.targetSegments.some(segment => 
+          userSegments.includes(segment)
+        );
+        
+        if (!hasTargetSegment) {
+          return null;
+        }
+      }
+      
+      // Check traffic allocation
+      const userHash = this.hashUserId(userId, testId);
+      const trafficThreshold = test.trafficAllocation / 100;
+      
+      if (userHash > trafficThreshold) {
+        return null; // User not in test
+      }
+      
+      // Determine variant based on weights
+      const variants = test.variants as ABTestVariant[];
+      const totalWeight = variants.reduce((sum, v) => sum + v.weight, 0);
+      const variantHash = this.hashUserId(userId, `${testId}_variant`);
+      const variantThreshold = variantHash * totalWeight;
+      
+      let cumulativeWeight = 0;
+      for (const variant of variants) {
+        cumulativeWeight += variant.weight;
+        if (variantThreshold <= cumulativeWeight) {
+          // Track user assignment
+          await this.trackAssignment(testId, userId, variant.id);
+          return variant.value;
+        }
+      }
+      
+      return variants[0]?.value || null;
+    }
+    
+    static async trackMetric(
+      testId: string,
+      userId: string,
+      metricName: string,
+      value: number | boolean
+    ): Promise<void> {
+      await database.abTestMetric.create({
+        data: {
+          testId,
+          userId,
+          metricName,
+          value: typeof value === 'boolean' ? (value ? 1 : 0) : value,
+          timestamp: new Date(),
+        },
+      });
+    }
+    
+    static async getTestResults(testId: string): Promise<ABTestResults> {
+      const test = await database.abTest.findUnique({
+        where: { id: testId },
+        include: {
+          assignments: true,
+          metrics: true,
+        },
+      });
+      
+      if (!test) {
+        throw new Error('Test not found');
+      }
+      
+      const variants = test.variants as ABTestVariant[];
+      const results: ABTestResults = {
+        testId,
+        status: test.status,
+        totalUsers: test.assignments.length,
+        variants: {},
+      };
+      
+      // Calculate results for each variant
+      for (const variant of variants) {
+        const variantAssignments = test.assignments.filter(
+          a => a.variantId === variant.id
+        );
+        
+        const variantMetrics = test.metrics.filter(
+          m => variantAssignments.some(a => a.userId === m.userId)
+        );
+        
+        results.variants[variant.id] = {
+          name: variant.name,
+          users: variantAssignments.length,
+          conversionRate: this.calculateConversionRate(variantMetrics),
+          averageValue: this.calculateAverageValue(variantMetrics),
+          confidence: this.calculateConfidence(variantMetrics, test.metrics),
+        };
+      }
+      
+      return results;
+    }
+    
+    private static hashUserId(userId: string, salt: string): number {
+      // Simple hash function for consistent user assignment
+      let hash = 0;
+      const str = userId + salt;
+      
+      for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32-bit integer
+      }
+      
+      return Math.abs(hash) / Math.pow(2, 31); // Normalize to 0-1
+    }
+    
+    private static async trackAssignment(
+      testId: string,
+      userId: string,
+      variantId: string
+    ): Promise<void> {
+      await database.abTestAssignment.upsert({
+        where: {
+          testId_userId: {
+            testId,
+            userId,
+          },
+        },
+        update: {
+          variantId,
+          assignedAt: new Date(),
+        },
+        create: {
+          testId,
+          userId,
+          variantId,
+          assignedAt: new Date(),
+        },
+      });
+    }
+    
+    private static calculateConversionRate(metrics: any[]): number {
+      if (metrics.length === 0) return 0;
+      
+      const conversions = metrics.filter(m => m.value > 0).length;
+      return conversions / metrics.length;
+    }
+    
+    private static calculateAverageValue(metrics: any[]): number {
+      if (metrics.length === 0) return 0;
+      
+      const sum = metrics.reduce((acc, m) => acc + m.value, 0);
+      return sum / metrics.length;
+    }
+    
+    private static calculateConfidence(
+      variantMetrics: any[],
+      allMetrics: any[]
+    ): number {
+      // Simplified confidence calculation
+      // In production, use proper statistical methods
+      const sampleSize = variantMetrics.length;
+      const totalSize = allMetrics.length;
+      
+      if (sampleSize < 30) return 0; // Insufficient data
+      
+      const proportion = sampleSize / totalSize;
+      return Math.min(95, proportion * 100); // Max 95% confidence
+    }
+  }
+  
+  export interface ABTestResults {
+    testId: string;
+    status: string;
+    totalUsers: number;
+    variants: Record<string, {
+      name: string;
+      users: number;
+      conversionRate: number;
+      averageValue: number;
+      confidence: number;
+    }>;
+  }
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Development
+
+### Setup and Configuration
+
+<Steps>
+<Step title="Environment Variables">
+  ```bash
+  # Flagsmith configuration
+  FLAGSMITH_ENVIRONMENT_KEY="ser...."
+  NEXT_PUBLIC_FLAGSMITH_CLIENT_KEY="ser...."
+  
+  # Optional: Custom feature flag service
+  FEATURE_FLAGS_API_URL="https://api.yourservice.com"
+  FEATURE_FLAGS_API_KEY="..."
+  ```
+</Step>
+
+<Step title="Feature Flag Middleware">
+  ```typescript
+  // middleware.ts
+  import { NextRequest, NextResponse } from 'next/server';
+  import { isFeatureEnabled } from '@repo/feature-flags/server';
+  
+  export async function middleware(request: NextRequest) {
+    // Skip middleware for static files and API routes
+    if (
+      request.nextUrl.pathname.startsWith('/_next') ||
+      request.nextUrl.pathname.startsWith('/api') ||
+      request.nextUrl.pathname.includes('.')
+    ) {
+      return NextResponse.next();
+    }
+    
+    // Check maintenance mode
+    const maintenanceMode = await isFeatureEnabled('maintenance-mode');
+    
+    if (maintenanceMode && !request.nextUrl.pathname.startsWith('/maintenance')) {
+      return NextResponse.redirect(new URL('/maintenance', request.url));
+    }
+    
+    return NextResponse.next();
+  }
+  
+  export const config = {
+    matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  };
+  ```
+</Step>
+
+<Step title="Testing Feature Flags">
+  ```typescript
+  // __tests__/feature-flags.test.ts
+  import { render, screen } from '@testing-library/react';
+  import { FeatureFlagsProvider, useFeatureFlag } from '@repo/feature-flags';
+  
+  // Mock feature flag provider for testing
+  const MockFeatureFlagsProvider = ({ 
+    flags, 
+    children 
+  }: { 
+    flags: Record<string, boolean>; 
+    children: React.ReactNode; 
+  }) => {
+    return (
+      <FeatureFlagsProvider
+        apiKey="test-key"
+        environment="test"
+        mockFlags={flags}
+      >
+        {children}
+      </FeatureFlagsProvider>
+    );
+  };
+  
+  function TestComponent() {
+    const showNewFeature = useFeatureFlag('new-feature');
+    
+    return (
+      <div>
+        {showNewFeature ? (
+          <div>New Feature Enabled</div>
+        ) : (
+          <div>Old Feature</div>
+        )}
+      </div>
+    );
+  }
+  
+  describe('Feature Flags', () => {
+    test('shows new feature when flag is enabled', () => {
+      render(
+        <MockFeatureFlagsProvider flags={{ 'new-feature': true }}>
+          <TestComponent />
+        </MockFeatureFlagsProvider>
+      );
+      
+      expect(screen.getByText('New Feature Enabled')).toBeInTheDocument();
+    });
+    
+    test('shows old feature when flag is disabled', () => {
+      render(
+        <MockFeatureFlagsProvider flags={{ 'new-feature': false }}>
+          <TestComponent />
+        </MockFeatureFlagsProvider>
+      );
+      
+      expect(screen.getByText('Old Feature')).toBeInTheDocument();
+    });
+  });
+  ```
+</Step>
+</Steps>
+
+## Best Practices
+
+### Feature Flag Guidelines
+
+<AccordionGroup>
+<Accordion title="Flag Lifecycle">
+  - Start with small, low-risk features
+  - Use descriptive, consistent naming conventions
+  - Set clear success criteria and timelines
+  - Plan for flag removal after rollout completion
+  - Document flag dependencies and interactions
+</Accordion>
+
+<Accordion title="Healthcare Considerations">
+  - Ensure critical healthcare features have proper fallbacks
+  - Test thoroughly in staging environments
+  - Consider regulatory compliance for feature changes
+  - Maintain audit trails for feature flag changes
+  - Implement proper access controls for flag management
+</Accordion>
+
+<Accordion title="Performance Optimization">
+  - Cache flag values to reduce API calls
+  - Use server-side evaluation for critical paths
+  - Implement proper error handling and fallbacks
+  - Monitor flag evaluation performance
+  - Clean up unused flags regularly
+</Accordion>
+</AccordionGroup>
+
+<Note>
+Feature flags enable safe, controlled deployments while maintaining system stability. Always consider the impact on healthcare workflows and ensure proper testing before enabling flags in production.
+</Note>

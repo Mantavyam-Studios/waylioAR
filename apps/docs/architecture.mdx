@@ -1,0 +1,419 @@
+---
+title: "Architecture Overview"
+description: "Comprehensive overview of Waylio's system architecture, including applications, services, and data flow patterns."
+---
+
+# Architecture Overview
+
+Waylio is built on a modern, scalable architecture that separates concerns across multiple applications and shared packages. This document provides a comprehensive overview of the system design and how components interact.
+
+## System Architecture Diagram
+
+The following diagram illustrates the complete Waylio architecture:
+
+<Frame>
+<img src="/images/architecture-diagram.png" alt="Waylio Architecture Diagram" />
+</Frame>
+
+## Architecture Principles
+
+Waylio follows these core architectural principles:
+
+<AccordionGroup>
+<Accordion title="Monorepo Structure">
+  All applications and packages are managed in a single repository using Turborepo, enabling:
+  - Shared code and dependencies
+  - Consistent tooling and configuration
+  - Atomic deployments across services
+  - Simplified development workflow
+</Accordion>
+
+<Accordion title="Microservices Pattern">
+  Core business logic is organized into domain-specific services:
+  - **Appointment & Queue Service**: Manages scheduling and wait times
+  - **Prescription Service**: Handles digital prescriptions
+  - **AR Navigation Service**: Powers indoor navigation
+  - **Parking Service**: Manages parking operations
+  - **User & Organization Management**: Handles authentication and permissions
+</Accordion>
+
+<Accordion title="API-First Design">
+  All services expose well-defined APIs:
+  - RESTful endpoints for standard operations
+  - Real-time WebSocket connections for live updates
+  - GraphQL for complex data queries (future enhancement)
+  - Comprehensive OpenAPI documentation
+</Accordion>
+
+<Accordion title="Event-Driven Architecture">
+  Services communicate through events and notifications:
+  - Real-time updates via Knock notifications
+  - Webhook integrations for external systems
+  - Event sourcing for audit trails
+  - Asynchronous processing for performance
+</Accordion>
+</AccordionGroup>
+
+## Application Layer
+
+### Frontend Applications
+
+<Tabs>
+<Tab title="Mobile App">
+  **Technology**: Kotlin (Android) / Swift (iOS)
+  **Purpose**: Patient-facing mobile application
+  
+  **Key Features**:
+  - Appointment booking and management
+  - AR-powered indoor navigation
+  - Digital prescription access
+  - Real-time notifications
+  - Parking payment integration
+  
+  **Architecture**:
+  - Native mobile applications
+  - REST API integration
+  - Real-time WebSocket connections
+  - Offline-first data synchronization
+</Tab>
+
+<Tab title="Web Dashboard">
+  **Technology**: Next.js 14, React 18, TypeScript
+  **Purpose**: Staff interface for healthcare professionals
+  
+  **Key Features**:
+  - Patient queue management
+  - Appointment scheduling
+  - Prescription management
+  - Analytics and reporting
+  - System administration
+  
+  **Architecture**:
+  - Server-side rendering (SSR)
+  - Static site generation (SSG) where appropriate
+  - API routes for backend integration
+  - Real-time updates via WebSockets
+</Tab>
+
+<Tab title="Marketing Website">
+  **Technology**: Next.js 14, React 18, TypeScript
+  **Purpose**: Public-facing marketing and information site
+  
+  **Key Features**:
+  - Product information
+  - Customer testimonials
+  - Contact forms
+  - Blog and resources
+  - SEO optimization
+  
+  **Architecture**:
+  - Static site generation for performance
+  - Content management via BaseHub CMS
+  - Form handling via API routes
+  - Analytics integration
+</Tab>
+</Tabs>
+
+### Backend Services
+
+<Tabs>
+<Tab title="API Server">
+  **Technology**: Next.js Serverless Functions
+  **Purpose**: Core business logic and data processing
+  
+  **Services**:
+  - Appointment & Queue Management
+  - Prescription Processing
+  - AR Navigation Data
+  - Parking Management
+  - User Authentication & Authorization
+  
+  **Architecture**:
+  - Serverless functions on Vercel
+  - Prisma ORM for database access
+  - Middleware for authentication and rate limiting
+  - Error handling and logging
+</Tab>
+
+<Tab title="Email Service">
+  **Technology**: React Email, Resend
+  **Purpose**: Transactional email templates and delivery
+  
+  **Features**:
+  - Appointment confirmations
+  - Prescription notifications
+  - System alerts
+  - Marketing communications
+  
+  **Architecture**:
+  - React-based email templates
+  - Preview server for development
+  - Resend for reliable delivery
+  - Template versioning and A/B testing
+</Tab>
+</Tabs>
+
+## Data Layer
+
+### Database Architecture
+
+<Tabs>
+<Tab title="Primary Database">
+  **Technology**: PostgreSQL (Neon)
+  **Purpose**: Primary data storage for all applications
+  
+  **Schema Design**:
+  - Multi-tenant architecture with organization isolation
+  - Normalized relational design
+  - Audit trails for sensitive operations
+  - Optimized indexes for performance
+  
+  **Key Tables**:
+  - Users, Organizations, Roles
+  - Appointments, Queues, Schedules
+  - Prescriptions, Medications
+  - Navigation Maps, Locations
+  - Parking Spaces, Transactions
+</Tab>
+
+<Tab title="Caching Layer">
+  **Technology**: Redis (future enhancement)
+  **Purpose**: High-performance caching and session storage
+  
+  **Use Cases**:
+  - Session management
+  - API response caching
+  - Real-time data synchronization
+  - Rate limiting counters
+</Tab>
+
+<Tab title="File Storage">
+  **Technology**: Vercel Blob Storage
+  **Purpose**: Static asset and file storage
+  
+  **Content Types**:
+  - User profile images
+  - Prescription documents
+  - Navigation maps and assets
+  - System backups
+</Tab>
+</Tabs>
+
+## Integration Layer
+
+### External Services
+
+<CardGroup cols={2}>
+<Card title="Authentication" icon="shield-check">
+  **Clerk**: Enterprise-grade authentication
+  - Multi-factor authentication
+  - Social login providers
+  - Role-based access control
+  - Session management
+</Card>
+
+<Card title="Notifications" icon="bell">
+  **Knock**: Real-time notification platform
+  - In-app notifications
+  - Email notifications
+  - SMS alerts (future)
+  - Push notifications
+</Card>
+
+<Card title="Payments" icon="credit-card">
+  **Stripe**: Payment processing
+  - Parking fee collection
+  - Appointment deposits
+  - Subscription billing
+  - Refund processing
+</Card>
+
+<Card title="AR Navigation" icon="map-location-dot">
+  **Multiset AI**: AR navigation SDK
+  - Indoor positioning
+  - Route optimization
+  - Real-time directions
+  - Accessibility features
+</Card>
+</CardGroup>
+
+### Monitoring & Observability
+
+<CardGroup cols={2}>
+<Card title="Error Tracking" icon="bug">
+  **Sentry**: Error monitoring and performance tracking
+  - Real-time error alerts
+  - Performance monitoring
+  - Release tracking
+  - User feedback collection
+</Card>
+
+<Card title="Analytics" icon="chart-line">
+  **PostHog & Google Analytics**: User behavior tracking
+  - Feature usage analytics
+  - Conversion tracking
+  - A/B testing
+  - Custom event tracking
+</Card>
+
+<Card title="Logging" icon="file-text">
+  **Better Stack**: Centralized logging
+  - Application logs
+  - Error logs
+  - Performance metrics
+  - Custom dashboards
+</Card>
+
+<Card title="Uptime Monitoring" icon="activity">
+  **Better Stack**: Service availability monitoring
+  - Endpoint monitoring
+  - Alert notifications
+  - Status page
+  - SLA tracking
+</Card>
+</CardGroup>
+
+## Security Architecture
+
+### Authentication & Authorization
+
+<Steps>
+<Step title="User Authentication">
+  - Clerk handles all authentication flows
+  - Support for email/password, social logins, and MFA
+  - JWT tokens for API authentication
+  - Session management with automatic refresh
+</Step>
+
+<Step title="Role-Based Access Control">
+  - Hierarchical role system (Patient, Staff, Admin, etc.)
+  - Permission-based access to features and data
+  - Organization-level isolation for multi-tenancy
+  - API-level authorization checks
+</Step>
+
+<Step title="Data Protection">
+  - Encryption at rest and in transit
+  - HIPAA-compliant data handling
+  - Audit logging for sensitive operations
+  - Regular security assessments
+</Step>
+</Steps>
+
+### API Security
+
+<AccordionGroup>
+<Accordion title="Rate Limiting">
+  - Arcjet for intelligent rate limiting
+  - Per-user and per-endpoint limits
+  - DDoS protection
+  - Bot detection and mitigation
+</Accordion>
+
+<Accordion title="Input Validation">
+  - Zod schemas for type-safe validation
+  - SQL injection prevention
+  - XSS protection
+  - CSRF token validation
+</Accordion>
+
+<Accordion title="API Authentication">
+  - Bearer token authentication
+  - API key management for external integrations
+  - Webhook signature verification
+  - CORS configuration
+</Accordion>
+</AccordionGroup>
+
+## Deployment Architecture
+
+### Infrastructure
+
+<Tabs>
+<Tab title="Vercel Platform">
+  **Primary Hosting**: All applications deployed on Vercel
+  
+  **Benefits**:
+  - Automatic scaling
+  - Global CDN
+  - Preview deployments
+  - Zero-config deployments
+  
+  **Configuration**:
+  - Separate projects for each app
+  - Environment-specific configurations
+  - Custom domains and SSL
+</Tab>
+
+<Tab title="Database Hosting">
+  **Neon PostgreSQL**: Managed database service
+  
+  **Features**:
+  - Automatic backups
+  - Connection pooling
+  - Read replicas
+  - Point-in-time recovery
+  
+  **Configuration**:
+  - Production and staging environments
+  - Connection string management
+  - SSL encryption
+</Tab>
+</Tabs>
+
+### CI/CD Pipeline
+
+<Steps>
+<Step title="Code Quality">
+  - Biome for linting and formatting
+  - TypeScript type checking
+  - Unit and integration tests
+  - Security vulnerability scanning
+</Step>
+
+<Step title="Build Process">
+  - Turborepo for efficient builds
+  - Parallel build execution
+  - Build caching and optimization
+  - Asset optimization
+</Step>
+
+<Step title="Deployment">
+  - Automatic deployments on merge to main
+  - Preview deployments for pull requests
+  - Environment-specific configurations
+  - Database migration automation
+</Step>
+
+<Step title="Monitoring">
+  - Deployment success/failure notifications
+  - Performance monitoring
+  - Error tracking
+  - Health checks
+</Step>
+</Steps>
+
+## Data Flow Patterns
+
+### Request Flow
+
+1. **Client Request**: User interacts with mobile app or web dashboard
+2. **Authentication**: Clerk validates user session and permissions
+3. **API Gateway**: Next.js API routes handle incoming requests
+4. **Business Logic**: Service-specific logic processes the request
+5. **Database Access**: Prisma ORM executes database operations
+6. **Response**: Formatted response returned to client
+7. **Real-time Updates**: Knock sends notifications to relevant users
+
+### Event Flow
+
+1. **Event Trigger**: User action or system event occurs
+2. **Event Processing**: Business logic processes the event
+3. **Database Update**: Relevant data is updated in the database
+4. **Notification Dispatch**: Knock sends real-time notifications
+5. **Webhook Delivery**: External systems receive webhook notifications
+6. **Audit Logging**: Event is logged for compliance and debugging
+
+<Note>
+This architecture is designed to scale horizontally and handle increasing loads while maintaining performance and reliability. For specific implementation details, refer to the individual application and package documentation.
+</Note>

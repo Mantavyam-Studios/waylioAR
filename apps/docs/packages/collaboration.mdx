@@ -1,0 +1,1191 @@
+---
+title: "Collaboration Package"
+description: "Real-time collaboration features powered by Liveblocks for shared documents, live cursors, and collaborative editing in healthcare workflows."
+---
+
+# Collaboration Package
+
+The collaboration package enables real-time collaborative features across the Waylio platform using Liveblocks. It provides shared documents, live cursors, presence indicators, and collaborative editing capabilities for healthcare teams working together on patient care, documentation, and administrative tasks.
+
+## Installation
+
+```bash
+# Install the collaboration package
+pnpm add @repo/collaboration
+
+# Peer dependencies (automatically installed in monorepo)
+pnpm add @liveblocks/client @liveblocks/react @liveblocks/node
+```
+
+## Overview
+
+The collaboration package facilitates seamless teamwork among healthcare professionals, enabling real-time collaboration on patient records, treatment plans, and administrative documents while maintaining HIPAA compliance and audit trails.
+
+### Key Features
+
+<CardGroup cols={2}>
+<Card title="Real-Time Presence" icon="users">
+  Live user presence indicators showing who's currently viewing or editing documents.
+</Card>
+
+<Card title="Collaborative Editing" icon="edit">
+  Multi-user document editing with conflict resolution and operational transforms.
+</Card>
+
+<Card title="Live Cursors" icon="mouse-pointer">
+  Real-time cursor tracking and user awareness for enhanced collaboration.
+</Card>
+
+<Card title="Audit Trail" icon="history">
+  Complete collaboration history with HIPAA-compliant logging and user tracking.
+</Card>
+</CardGroup>
+
+## Core Components
+
+### Collaboration Provider
+
+<Tabs>
+<Tab title="Provider Setup">
+  **Purpose**: Initialize Liveblocks client and provide collaboration context
+  
+  ```typescript
+  // app/layout.tsx
+  import { CollaborationProvider } from '@repo/collaboration';
+  import { createClient } from '@liveblocks/client';
+  import { auth } from '@repo/auth';
+  
+  const client = createClient({
+    authEndpoint: '/api/liveblocks-auth',
+    throttle: 100,
+  });
+  
+  export default function RootLayout({
+    children,
+  }: {
+    children: React.ReactNode;
+  }) {
+    return (
+      <html lang="en">
+        <body>
+          <CollaborationProvider client={client}>
+            {children}
+          </CollaborationProvider>
+        </body>
+      </html>
+    );
+  }
+  
+  // API route for Liveblocks authentication
+  // app/api/liveblocks-auth/route.ts
+  import { NextRequest, NextResponse } from 'next/server';
+  import { Liveblocks } from '@liveblocks/node';
+  import { auth } from '@repo/auth';
+  
+  const liveblocks = new Liveblocks({
+    secret: process.env.LIVEBLOCKS_SECRET_KEY,
+  });
+  
+  export async function POST(request: NextRequest) {
+    const { user } = await auth();
+    
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    // Get the current user's info from your database
+    const userInfo = {
+      id: user.id,
+      info: {
+        name: user.firstName + ' ' + user.lastName,
+        email: user.primaryEmailAddress?.emailAddress,
+        avatar: user.imageUrl,
+        role: user.publicMetadata?.role || 'user',
+        organizationId: user.organizationMemberships?.[0]?.organization?.id,
+        department: user.publicMetadata?.department,
+      },
+    };
+    
+    const session = liveblocks.prepareSession(userInfo.id, {
+      userInfo: userInfo.info,
+    });
+    
+    // Give access to rooms based on user permissions
+    const { room } = await request.json();
+    
+    if (await canAccessRoom(user.id, room)) {
+      session.allow(room, session.FULL_ACCESS);
+    }
+    
+    const { status, body } = await session.authorize();
+    return new Response(body, { status });
+  }
+  
+  async function canAccessRoom(userId: string, roomId: string): Promise<boolean> {
+    // Implement your room access logic here
+    // Check if user has permission to access the specific room
+    // This could be based on organization membership, role, etc.
+    
+    const user = await database.user.findUnique({
+      where: { id: userId },
+      include: { organizationMemberships: true },
+    });
+    
+    if (!user) return false;
+    
+    // Extract organization ID from room ID (e.g., "org_123:patient_456")
+    const [orgId] = roomId.split(':');
+    
+    return user.organizationMemberships.some(
+      membership => membership.organizationId === orgId
+    );
+  }
+  ```
+</Tab>
+
+<Tab title="Room Provider">
+  **Purpose**: Create collaborative rooms for specific documents or workflows
+  
+  ```typescript
+  import { RoomProvider, useRoom } from '@repo/collaboration';
+  import { ReactNode } from 'react';
+  
+  interface CollaborativeDocumentProps {
+    documentId: string;
+    documentType: 'patient-record' | 'treatment-plan' | 'notes' | 'prescription';
+    organizationId: string;
+    children: ReactNode;
+    initialPresence?: {
+      cursor: { x: number; y: number } | null;
+      selection: string | null;
+      editing: boolean;
+    };
+  }
+  
+  export function CollaborativeDocument({
+    documentId,
+    documentType,
+    organizationId,
+    children,
+    initialPresence = {
+      cursor: null,
+      selection: null,
+      editing: false,
+    },
+  }: CollaborativeDocumentProps) {
+    const roomId = `${organizationId}:${documentType}:${documentId}`;
+    
+    return (
+      <RoomProvider
+        id={roomId}
+        initialPresence={initialPresence}
+        initialStorage={{
+          document: {
+            content: '',
+            lastModified: Date.now(),
+            version: 1,
+          },
+          comments: {},
+          annotations: {},
+        }}
+      >
+        <CollaborativeDocumentContent>
+          {children}
+        </CollaborativeDocumentContent>
+      </RoomProvider>
+    );
+  }
+  
+  function CollaborativeDocumentContent({ children }: { children: ReactNode }) {
+    const room = useRoom();
+    
+    // Set up room event listeners
+    useEffect(() => {
+      const unsubscribe = room.subscribe('event', (event) => {
+        switch (event.type) {
+          case 'user-joined':
+            console.log(`User ${event.user.info.name} joined the document`);
+            break;
+            
+          case 'user-left':
+            console.log(`User ${event.user.info.name} left the document`);
+            break;
+            
+          case 'storage-updated':
+            // Log document changes for audit trail
+            logDocumentChange(event);
+            break;
+        }
+      });
+      
+      return unsubscribe;
+    }, [room]);
+    
+    return <>{children}</>;
+  }
+  
+  async function logDocumentChange(event: any) {
+    // Log changes for HIPAA compliance and audit trail
+    await fetch('/api/audit/document-change', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        roomId: event.room.id,
+        userId: event.user.id,
+        changeType: event.type,
+        timestamp: Date.now(),
+        changes: event.updates,
+      }),
+    });
+  }
+  ```
+</Tab>
+
+<Tab title="Presence Indicators">
+  **Purpose**: Show real-time user presence and activity
+  
+  ```typescript
+  import { useOthers, useSelf, useUpdateMyPresence } from '@repo/collaboration';
+  import { Avatar } from '@repo/design-system';
+  import { useEffect, useState } from 'react';
+  
+  export function PresenceIndicators() {
+    const others = useOthers();
+    const self = useSelf();
+    const updateMyPresence = useUpdateMyPresence();
+    
+    // Track mouse movement for cursor sharing
+    useEffect(() => {
+      const handleMouseMove = (e: MouseEvent) => {
+        updateMyPresence({
+          cursor: {
+            x: e.clientX,
+            y: e.clientY,
+          },
+        });
+      };
+      
+      const handleMouseLeave = () => {
+        updateMyPresence({
+          cursor: null,
+        });
+      };
+      
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseleave', handleMouseLeave);
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseleave', handleMouseLeave);
+      };
+    }, [updateMyPresence]);
+    
+    return (
+      <>
+        {/* User Avatars */}
+        <div className="fixed top-4 right-4 flex -space-x-2 z-50">
+          {others.map(({ connectionId, presence, info }) => (
+            <div
+              key={connectionId}
+              className="relative"
+              title={`${info.name} - ${info.role}`}
+            >
+              <Avatar
+                src={info.avatar}
+                alt={info.name}
+                size="sm"
+                className={`border-2 ${
+                  presence.editing ? 'border-green-500' : 'border-gray-300'
+                }`}
+              />
+              
+              {/* Activity indicator */}
+              <div
+                className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${
+                  presence.editing ? 'bg-green-500' : 'bg-gray-400'
+                }`}
+              />
+              
+              {/* Role badge */}
+              <div className="absolute -top-2 -right-2 bg-blue-600 text-white text-xs px-1 rounded">
+                {info.role === 'doctor' ? 'Dr' : 
+                 info.role === 'nurse' ? 'RN' : 
+                 info.role === 'admin' ? 'A' : 'U'}
+              </div>
+            </div>
+          ))}
+          
+          {/* Self indicator */}
+          <div className="relative">
+            <Avatar
+              src={self?.info?.avatar}
+              alt={self?.info?.name || 'You'}
+              size="sm"
+              className="border-2 border-blue-500"
+            />
+            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-white" />
+          </div>
+        </div>
+        
+        {/* Live Cursors */}
+        {others.map(({ connectionId, presence, info }) => {
+          if (!presence.cursor) return null;
+          
+          return (
+            <div
+              key={connectionId}
+              className="absolute pointer-events-none z-50"
+              style={{
+                left: presence.cursor.x,
+                top: presence.cursor.y,
+              }}
+            >
+              {/* Cursor */}
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                className="transform -translate-x-1 -translate-y-1"
+              >
+                <path
+                  d="M5.65376 12.3673H5.46026L5.31717 12.4976L0.500002 16.8829L0.500002 1.19841L11.7841 12.3673H5.65376Z"
+                  fill={getUserColor(connectionId)}
+                  stroke="white"
+                  strokeWidth="1.5"
+                />
+              </svg>
+              
+              {/* User name label */}
+              <div
+                className="absolute top-6 left-2 px-2 py-1 text-xs text-white rounded shadow-lg"
+                style={{ backgroundColor: getUserColor(connectionId) }}
+              >
+                {info.name}
+              </div>
+            </div>
+          );
+        })}
+        
+        {/* Active Users Panel */}
+        <div className="fixed bottom-4 right-4 bg-white border border-gray-200 rounded-lg shadow-lg p-4 max-w-sm">
+          <h3 className="font-semibold mb-2">Active Users ({others.length + 1})</h3>
+          
+          <div className="space-y-2">
+            {/* Self */}
+            <div className="flex items-center gap-2">
+              <Avatar src={self?.info?.avatar} alt="You" size="xs" />
+              <span className="text-sm">You</span>
+              <span className="text-xs text-gray-500">({self?.info?.role})</span>
+            </div>
+            
+            {/* Others */}
+            {others.map(({ connectionId, presence, info }) => (
+              <div key={connectionId} className="flex items-center gap-2">
+                <Avatar src={info.avatar} alt={info.name} size="xs" />
+                <span className="text-sm">{info.name}</span>
+                <span className="text-xs text-gray-500">({info.role})</span>
+                
+                {presence.editing && (
+                  <span className="text-xs bg-green-100 text-green-800 px-1 rounded">
+                    Editing
+                  </span>
+                )}
+                
+                {presence.selection && (
+                  <span className="text-xs bg-blue-100 text-blue-800 px-1 rounded">
+                    Selected
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </>
+    );
+  }
+  
+  function getUserColor(connectionId: number): string {
+    const colors = [
+      '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+      '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
+    ];
+    return colors[connectionId % colors.length];
+  }
+  ```
+</Tab>
+</Tabs>
+
+## Collaborative Features
+
+### Document Collaboration
+
+<AccordionGroup>
+<Accordion title="Shared Text Editor">
+  ```typescript
+  import { useStorage, useMutation } from '@repo/collaboration';
+  import { useCallback, useEffect, useRef } from 'react';
+  
+  export function CollaborativeTextEditor({
+    documentId,
+    placeholder = 'Start typing...',
+    className = '',
+  }: {
+    documentId: string;
+    placeholder?: string;
+    className?: string;
+  }) {
+    const editorRef = useRef<HTMLTextAreaElement>(null);
+    
+    // Get shared document content
+    const document = useStorage((root) => root.document);
+    
+    // Mutations for updating document
+    const updateContent = useMutation(({ storage }, content: string) => {
+      storage.get('document').set('content', content);
+      storage.get('document').set('lastModified', Date.now());
+      storage.get('document').set('version', storage.get('document').get('version') + 1);
+    }, []);
+    
+    const updateSelection = useMutation(({ setMyPresence }, selection: string) => {
+      setMyPresence({ selection, editing: true });
+    }, []);
+    
+    // Handle text changes
+    const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const content = e.target.value;
+      updateContent(content);
+    }, [updateContent]);
+    
+    // Handle selection changes
+    const handleSelect = useCallback((e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+      const target = e.target as HTMLTextAreaElement;
+      const selection = target.value.substring(target.selectionStart, target.selectionEnd);
+      updateSelection(selection);
+    }, [updateSelection]);
+    
+    // Handle focus/blur for editing state
+    const handleFocus = useMutation(({ setMyPresence }) => {
+      setMyPresence({ editing: true });
+    }, []);
+    
+    const handleBlur = useMutation(({ setMyPresence }) => {
+      setMyPresence({ editing: false, selection: null });
+    }, []);
+    
+    // Auto-save functionality
+    useEffect(() => {
+      if (!document?.content) return;
+      
+      const saveTimer = setTimeout(async () => {
+        await fetch(`/api/documents/${documentId}/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content: document.content,
+            version: document.version,
+          }),
+        });
+      }, 2000); // Save after 2 seconds of inactivity
+      
+      return () => clearTimeout(saveTimer);
+    }, [document?.content, document?.version, documentId]);
+    
+    return (
+      <div className="relative">
+        <textarea
+          ref={editorRef}
+          value={document?.content || ''}
+          onChange={handleChange}
+          onSelect={handleSelect}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          placeholder={placeholder}
+          className={`w-full h-96 p-4 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${className}`}
+        />
+        
+        {/* Document status */}
+        <div className="absolute bottom-2 right-2 text-xs text-gray-500">
+          {document?.lastModified && (
+            <span>
+              Last saved: {new Date(document.lastModified).toLocaleTimeString()}
+            </span>
+          )}
+        </div>
+        
+        {/* Version indicator */}
+        <div className="absolute top-2 right-2 text-xs bg-gray-100 px-2 py-1 rounded">
+          v{document?.version || 1}
+        </div>
+      </div>
+    );
+  }
+  ```
+</Accordion>
+
+<Accordion title="Collaborative Comments">
+  ```typescript
+  import { useStorage, useMutation, useOthers } from '@repo/collaboration';
+  import { useState, useCallback } from 'react';
+  import { Avatar, Button, Textarea } from '@repo/design-system';
+  
+  interface Comment {
+    id: string;
+    userId: string;
+    userName: string;
+    userAvatar: string;
+    content: string;
+    timestamp: number;
+    resolved: boolean;
+    replies: Comment[];
+  }
+  
+  export function CollaborativeComments({
+    documentId,
+    selectedText,
+    position,
+  }: {
+    documentId: string;
+    selectedText?: string;
+    position?: { x: number; y: number };
+  }) {
+    const [newComment, setNewComment] = useState('');
+    const [showCommentForm, setShowCommentForm] = useState(false);
+    
+    // Get comments from shared storage
+    const comments = useStorage((root) => root.comments) as Record<string, Comment>;
+    
+    // Mutations for comment operations
+    const addComment = useMutation(
+      ({ storage, self }, content: string, parentId?: string) => {
+        const commentId = `comment_${Date.now()}_${Math.random()}`;
+        const comment: Comment = {
+          id: commentId,
+          userId: self.id,
+          userName: self.info.name,
+          userAvatar: self.info.avatar,
+          content,
+          timestamp: Date.now(),
+          resolved: false,
+          replies: [],
+        };
+        
+        if (parentId) {
+          // Add as reply
+          const parentComment = storage.get('comments').get(parentId);
+          if (parentComment) {
+            parentComment.get('replies').push(comment);
+          }
+        } else {
+          // Add as new comment
+          storage.get('comments').set(commentId, comment);
+        }
+      },
+      []
+    );
+    
+    const resolveComment = useMutation(
+      ({ storage }, commentId: string) => {
+        const comment = storage.get('comments').get(commentId);
+        if (comment) {
+          comment.set('resolved', true);
+        }
+      },
+      []
+    );
+    
+    const deleteComment = useMutation(
+      ({ storage }, commentId: string) => {
+        storage.get('comments').delete(commentId);
+      },
+      []
+    );
+    
+    const handleAddComment = useCallback(() => {
+      if (!newComment.trim()) return;
+      
+      addComment(newComment);
+      setNewComment('');
+      setShowCommentForm(false);
+    }, [newComment, addComment]);
+    
+    const commentsList = Object.values(comments || {}).sort(
+      (a, b) => b.timestamp - a.timestamp
+    );
+    
+    return (
+      <div className="w-80 bg-white border-l border-gray-200 h-full overflow-y-auto">
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold">Comments</h3>
+            <Button
+              size="sm"
+              onClick={() => setShowCommentForm(!showCommentForm)}
+            >
+              Add Comment
+            </Button>
+          </div>
+          
+          {selectedText && (
+            <div className="bg-blue-50 border border-blue-200 rounded p-2 mb-4">
+              <p className="text-xs text-blue-600 mb-1">Selected text:</p>
+              <p className="text-sm italic">"{selectedText}"</p>
+            </div>
+          )}
+          
+          {showCommentForm && (
+            <div className="space-y-2">
+              <Textarea
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Add a comment..."
+                rows={3}
+              />
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleAddComment}>
+                  Comment
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setShowCommentForm(false);
+                    setNewComment('');
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        <div className="p-4 space-y-4">
+          {commentsList.length === 0 ? (
+            <div className="text-center text-gray-500 py-8">
+              No comments yet. Add the first comment!
+            </div>
+          ) : (
+            commentsList.map((comment) => (
+              <CommentItem
+                key={comment.id}
+                comment={comment}
+                onResolve={() => resolveComment(comment.id)}
+                onDelete={() => deleteComment(comment.id)}
+                onReply={(content) => addComment(content, comment.id)}
+              />
+            ))
+          )}
+        </div>
+      </div>
+    );
+  }
+  
+  function CommentItem({
+    comment,
+    onResolve,
+    onDelete,
+    onReply,
+  }: {
+    comment: Comment;
+    onResolve: () => void;
+    onDelete: () => void;
+    onReply: (content: string) => void;
+  }) {
+    const [showReplyForm, setShowReplyForm] = useState(false);
+    const [replyContent, setReplyContent] = useState('');
+    
+    const handleReply = () => {
+      if (!replyContent.trim()) return;
+      onReply(replyContent);
+      setReplyContent('');
+      setShowReplyForm(false);
+    };
+    
+    return (
+      <div className={`space-y-2 ${comment.resolved ? 'opacity-60' : ''}`}>
+        <div className="flex items-start gap-2">
+          <Avatar src={comment.userAvatar} alt={comment.userName} size="sm" />
+          
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-medium text-sm">{comment.userName}</span>
+              <span className="text-xs text-gray-500">
+                {new Date(comment.timestamp).toLocaleString()}
+              </span>
+              {comment.resolved && (
+                <span className="text-xs bg-green-100 text-green-800 px-1 rounded">
+                  Resolved
+                </span>
+              )}
+            </div>
+            
+            <p className="text-sm text-gray-700 mb-2">{comment.content}</p>
+            
+            <div className="flex gap-2 text-xs">
+              <button
+                onClick={() => setShowReplyForm(!showReplyForm)}
+                className="text-blue-600 hover:text-blue-800"
+              >
+                Reply
+              </button>
+              
+              {!comment.resolved && (
+                <button
+                  onClick={onResolve}
+                  className="text-green-600 hover:text-green-800"
+                >
+                  Resolve
+                </button>
+              )}
+              
+              <button
+                onClick={onDelete}
+                className="text-red-600 hover:text-red-800"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        {/* Replies */}
+        {comment.replies && comment.replies.length > 0 && (
+          <div className="ml-8 space-y-2">
+            {comment.replies.map((reply) => (
+              <div key={reply.id} className="flex items-start gap-2">
+                <Avatar src={reply.userAvatar} alt={reply.userName} size="xs" />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-medium text-xs">{reply.userName}</span>
+                    <span className="text-xs text-gray-500">
+                      {new Date(reply.timestamp).toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-700">{reply.content}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        {/* Reply form */}
+        {showReplyForm && (
+          <div className="ml-8 space-y-2">
+            <Textarea
+              value={replyContent}
+              onChange={(e) => setReplyContent(e.target.value)}
+              placeholder="Write a reply..."
+              rows={2}
+              className="text-sm"
+            />
+            <div className="flex gap-2">
+              <Button size="xs" onClick={handleReply}>
+                Reply
+              </Button>
+              <Button
+                size="xs"
+                variant="outline"
+                onClick={() => {
+                  setShowReplyForm(false);
+                  setReplyContent('');
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+  ```
+</Accordion>
+
+<Accordion title="Collaborative Forms">
+  ```typescript
+  import { useStorage, useMutation, useUpdateMyPresence } from '@repo/collaboration';
+  import { useForm } from 'react-hook-form';
+  import { useEffect } from 'react';
+  
+  interface PatientFormData {
+    personalInfo: {
+      firstName: string;
+      lastName: string;
+      dateOfBirth: string;
+      gender: string;
+      phone: string;
+      email: string;
+    };
+    medicalHistory: {
+      allergies: string[];
+      medications: string[];
+      conditions: string[];
+      surgeries: string[];
+    };
+    insurance: {
+      provider: string;
+      policyNumber: string;
+      groupNumber: string;
+    };
+    emergencyContact: {
+      name: string;
+      relationship: string;
+      phone: string;
+    };
+  }
+  
+  export function CollaborativePatientForm({
+    patientId,
+    onSave,
+  }: {
+    patientId: string;
+    onSave: (data: PatientFormData) => void;
+  }) {
+    const updateMyPresence = useUpdateMyPresence();
+    
+    // Get form data from shared storage
+    const formData = useStorage((root) => root.patientForm) as PatientFormData;
+    
+    // Mutations for updating form fields
+    const updateField = useMutation(
+      ({ storage }, path: string, value: any) => {
+        const keys = path.split('.');
+        let current = storage.get('patientForm');
+        
+        for (let i = 0; i < keys.length - 1; i++) {
+          current = current.get(keys[i]);
+        }
+        
+        current.set(keys[keys.length - 1], value);
+      },
+      []
+    );
+    
+    const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<PatientFormData>({
+      defaultValues: formData,
+    });
+    
+    // Watch for form changes and sync with Liveblocks
+    const watchedValues = watch();
+    
+    useEffect(() => {
+      // Update shared storage when form values change
+      Object.entries(watchedValues).forEach(([section, sectionData]) => {
+        if (sectionData && typeof sectionData === 'object') {
+          Object.entries(sectionData).forEach(([field, value]) => {
+            updateField(`${section}.${field}`, value);
+          });
+        }
+      });
+    }, [watchedValues, updateField]);
+    
+    // Update form when shared storage changes
+    useEffect(() => {
+      if (formData) {
+        Object.entries(formData).forEach(([section, sectionData]) => {
+          if (sectionData && typeof sectionData === 'object') {
+            Object.entries(sectionData).forEach(([field, value]) => {
+              setValue(`${section}.${field}` as any, value);
+            });
+          }
+        });
+      }
+    }, [formData, setValue]);
+    
+    const handleFieldFocus = (fieldName: string) => {
+      updateMyPresence({
+        editing: true,
+        currentField: fieldName,
+      });
+    };
+    
+    const handleFieldBlur = () => {
+      updateMyPresence({
+        editing: false,
+        currentField: null,
+      });
+    };
+    
+    const onSubmit = (data: PatientFormData) => {
+      onSave(data);
+    };
+    
+    return (
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+        {/* Personal Information */}
+        <section className="bg-white p-6 rounded-lg border border-gray-200">
+          <h2 className="text-xl font-semibold mb-4">Personal Information</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">First Name</label>
+              <input
+                {...register('personalInfo.firstName', { required: 'First name is required' })}
+                onFocus={() => handleFieldFocus('personalInfo.firstName')}
+                onBlur={handleFieldBlur}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+              {errors.personalInfo?.firstName && (
+                <p className="text-red-600 text-sm mt-1">{errors.personalInfo.firstName.message}</p>
+              )}
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1">Last Name</label>
+              <input
+                {...register('personalInfo.lastName', { required: 'Last name is required' })}
+                onFocus={() => handleFieldFocus('personalInfo.lastName')}
+                onBlur={handleFieldBlur}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+              {errors.personalInfo?.lastName && (
+                <p className="text-red-600 text-sm mt-1">{errors.personalInfo.lastName.message}</p>
+              )}
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1">Date of Birth</label>
+              <input
+                type="date"
+                {...register('personalInfo.dateOfBirth', { required: 'Date of birth is required' })}
+                onFocus={() => handleFieldFocus('personalInfo.dateOfBirth')}
+                onBlur={handleFieldBlur}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1">Gender</label>
+              <select
+                {...register('personalInfo.gender', { required: 'Gender is required' })}
+                onFocus={() => handleFieldFocus('personalInfo.gender')}
+                onBlur={handleFieldBlur}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select gender</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+                <option value="prefer-not-to-say">Prefer not to say</option>
+              </select>
+            </div>
+          </div>
+        </section>
+        
+        {/* Medical History */}
+        <section className="bg-white p-6 rounded-lg border border-gray-200">
+          <h2 className="text-xl font-semibold mb-4">Medical History</h2>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Known Allergies</label>
+              <textarea
+                {...register('medicalHistory.allergies')}
+                onFocus={() => handleFieldFocus('medicalHistory.allergies')}
+                onBlur={handleFieldBlur}
+                placeholder="List any known allergies..."
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1">Current Medications</label>
+              <textarea
+                {...register('medicalHistory.medications')}
+                onFocus={() => handleFieldFocus('medicalHistory.medications')}
+                onBlur={handleFieldBlur}
+                placeholder="List current medications..."
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+        </section>
+        
+        {/* Form Actions */}
+        <div className="flex justify-end gap-4">
+          <button
+            type="button"
+            className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Save Patient Information
+          </button>
+        </div>
+      </form>
+    );
+  }
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Development
+
+### Setup and Configuration
+
+<Steps>
+<Step title="Environment Variables">
+  ```bash
+  # Liveblocks configuration
+  LIVEBLOCKS_SECRET_KEY="sk_..."
+  NEXT_PUBLIC_LIVEBLOCKS_PUBLIC_KEY="pk_..."
+  
+  # Optional: Custom domain
+  LIVEBLOCKS_DOMAIN="your-domain.com"
+  ```
+</Step>
+
+<Step title="Room Access Control">
+  ```typescript
+  // lib/room-access.ts
+  export async function canAccessRoom(
+    userId: string,
+    roomId: string
+  ): Promise<boolean> {
+    // Parse room ID to extract context
+    const [orgId, resourceType, resourceId] = roomId.split(':');
+    
+    const user = await database.user.findUnique({
+      where: { id: userId },
+      include: {
+        organizationMemberships: {
+          include: { organization: true },
+        },
+        permissions: true,
+      },
+    });
+    
+    if (!user) return false;
+    
+    // Check organization membership
+    const isMember = user.organizationMemberships.some(
+      membership => membership.organizationId === orgId
+    );
+    
+    if (!isMember) return false;
+    
+    // Check resource-specific permissions
+    switch (resourceType) {
+      case 'patient-record':
+        return hasPatientAccess(user, resourceId);
+        
+      case 'treatment-plan':
+        return hasTreatmentPlanAccess(user, resourceId);
+        
+      case 'notes':
+        return hasNotesAccess(user, resourceId);
+        
+      default:
+        return false;
+    }
+  }
+  
+  async function hasPatientAccess(user: any, patientId: string): Promise<boolean> {
+    // Check if user has access to this patient
+    const patient = await database.patient.findUnique({
+      where: { id: patientId },
+      include: { assignedProviders: true },
+    });
+    
+    if (!patient) return false;
+    
+    // Doctors and nurses can access assigned patients
+    if (['doctor', 'nurse'].includes(user.role)) {
+      return patient.assignedProviders.some(provider => provider.id === user.id);
+    }
+    
+    // Admin can access all patients in their organization
+    if (user.role === 'admin') {
+      return patient.organizationId === user.organizationMemberships[0]?.organizationId;
+    }
+    
+    return false;
+  }
+  ```
+</Step>
+
+<Step title="Testing Collaboration">
+  ```typescript
+  // __tests__/collaboration.test.ts
+  import { render, screen, fireEvent } from '@testing-library/react';
+  import { CollaborativeTextEditor } from '@repo/collaboration';
+  
+  // Mock Liveblocks
+  jest.mock('@liveblocks/react');
+  
+  describe('Collaboration', () => {
+    test('updates document content in real-time', async () => {
+      const mockUpdateContent = jest.fn();
+      
+      render(
+        <CollaborativeTextEditor
+          documentId="test-doc"
+          placeholder="Start typing..."
+        />
+      );
+      
+      const editor = screen.getByPlaceholderText('Start typing...');
+      
+      fireEvent.change(editor, { target: { value: 'Hello, world!' } });
+      
+      expect(mockUpdateContent).toHaveBeenCalledWith('Hello, world!');
+    });
+    
+    test('shows presence indicators for other users', () => {
+      const mockOthers = [
+        {
+          connectionId: 1,
+          presence: { editing: true },
+          info: { name: 'Dr. Smith', avatar: '/avatar1.jpg' },
+        },
+      ];
+      
+      render(<PresenceIndicators />);
+      
+      expect(screen.getByText('Dr. Smith')).toBeInTheDocument();
+    });
+  });
+  ```
+</Step>
+</Steps>
+
+## Best Practices
+
+### Collaboration Guidelines
+
+<AccordionGroup>
+<Accordion title="Real-Time Performance">
+  - Implement proper throttling for cursor movements
+  - Use debouncing for text input updates
+  - Optimize presence updates to reduce bandwidth
+  - Implement conflict resolution for simultaneous edits
+  - Cache frequently accessed collaborative data
+</Accordion>
+
+<Accordion title="Healthcare Compliance">
+  - Maintain audit trails for all collaborative actions
+  - Implement proper access controls for sensitive documents
+  - Ensure HIPAA compliance in all collaborative features
+  - Log user activities for compliance reporting
+  - Implement session timeouts for security
+</Accordion>
+
+<Accordion title="User Experience">
+  - Provide clear visual indicators for user presence
+  - Implement smooth cursor animations
+  - Show meaningful conflict resolution messages
+  - Provide offline support with sync when reconnected
+  - Implement proper error handling and recovery
+</Accordion>
+</AccordionGroup>
+
+<Note>
+The collaboration package enables powerful real-time features while maintaining healthcare compliance and security standards. Always prioritize data privacy and user access controls when implementing collaborative features.
+</Note>

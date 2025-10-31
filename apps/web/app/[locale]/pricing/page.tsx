@@ -12,7 +12,7 @@ const Pricing = () => (
             Prices that make sense!
           </h2>
           <p className="max-w-xl text-center text-lg text-muted-foreground leading-relaxed tracking-tight">
-            Managing a small business today is already tough.
+            Eliminate Navigation Chaos with Waylio AR Integration
           </p>
         </div>
         <div className="grid w-full grid-cols-3 divide-x pt-20 text-left lg:grid-cols-4">
@@ -20,11 +20,10 @@ const Pricing = () => (
           <div className="flex flex-col gap-2 px-3 py-1 md:px-6 md:py-4">
             <p className="text-2xl">Startup</p>
             <p className="text-muted-foreground text-sm">
-              Our goal is to streamline SMB trade, making it easier and faster
-              than ever for everyone and everywhere.
+              Includes core Waylio features like AR navigation, appointment booking, and digital prescriptions for a single campus.
             </p>
             <p className="mt-8 flex flex-col gap-2 text-xl lg:flex-row lg:items-center">
-              <span className="text-4xl">$40</span>
+              <span className="text-4xl">$50</span>
               <span className="text-muted-foreground text-sm"> / month</span>
             </p>
             <Button asChild className="mt-8 gap-4" variant="outline">
@@ -36,11 +35,10 @@ const Pricing = () => (
           <div className="flex flex-col gap-2 px-3 py-1 md:px-6 md:py-4">
             <p className="text-2xl">Growth</p>
             <p className="text-muted-foreground text-sm">
-              Our goal is to streamline SMB trade, making it easier and faster
-              than ever for everyone and everywhere.
+              All Professional features, plus smart parking, multi-building support, and advanced operational analytics.
             </p>
             <p className="mt-8 flex flex-col gap-2 text-xl lg:flex-row lg:items-center">
-              <span className="text-4xl">$40</span>
+              <span className="text-4xl">$150</span>
               <span className="text-muted-foreground text-sm"> / month</span>
             </p>
             <Button asChild className="mt-8 gap-4">
@@ -52,11 +50,10 @@ const Pricing = () => (
           <div className="flex flex-col gap-2 px-3 py-1 md:px-6 md:py-4">
             <p className="text-2xl">Enterprise</p>
             <p className="text-muted-foreground text-sm">
-              Our goal is to streamline SMB trade, making it easier and faster
-              than ever for everyone and everywhere.
+              For multi-campus health systems. Includes custom integrations, dedicated support, and white-labeling options.
             </p>
             <p className="mt-8 flex flex-col gap-2 text-xl lg:flex-row lg:items-center">
-              <span className="text-4xl">$40</span>
+              <span className="text-4xl">$500</span>
               <span className="text-muted-foreground text-sm"> / month</span>
             </p>
             <Button asChild className="mt-8 gap-4" variant="outline">
@@ -72,7 +69,7 @@ const Pricing = () => (
           <div />
           <div />
           {/* New Line */}
-          <div className="col-span-3 px-3 py-4 lg:col-span-1 lg:px-6">SSO</div>
+          <div className="col-span-3 px-3 py-4 lg:col-span-1 lg:px-6">AR Indoor Navigation</div>
           <div className="flex justify-center px-3 py-1 md:px-6 md:py-4">
             <Check className="h-4 w-4 text-primary" />
           </div>
@@ -84,7 +81,7 @@ const Pricing = () => (
           </div>
           {/* New Line */}
           <div className="col-span-3 px-3 py-4 lg:col-span-1 lg:px-6">
-            AI Assistant
+            Appointment & Queue Management
           </div>
           <div className="flex justify-center px-3 py-1 md:px-6 md:py-4">
             <Minus className="h-4 w-4 text-muted-foreground" />
@@ -97,7 +94,7 @@ const Pricing = () => (
           </div>
           {/* New Line */}
           <div className="col-span-3 px-3 py-4 lg:col-span-1 lg:px-6">
-            Version Control
+            Digital Prescriptions
           </div>
           <div className="flex justify-center px-3 py-1 md:px-6 md:py-4">
             <Minus className="h-4 w-4 text-muted-foreground" />
@@ -110,20 +107,20 @@ const Pricing = () => (
           </div>
           {/* New Line */}
           <div className="col-span-3 px-3 py-4 lg:col-span-1 lg:px-6">
-            Members
+            Visitors
           </div>
           <div className="flex justify-center px-3 py-1 md:px-6 md:py-4">
-            <p className="text-muted-foreground text-sm">5 members</p>
+            <p className="text-muted-foreground text-sm">1000 +</p>
           </div>
           <div className="flex justify-center px-3 py-1 md:px-6 md:py-4">
-            <p className="text-muted-foreground text-sm">25 members</p>
+            <p className="text-muted-foreground text-sm">10000 +</p>
           </div>
           <div className="flex justify-center px-3 py-1 md:px-6 md:py-4">
-            <p className="text-muted-foreground text-sm">100+ members</p>
+            <p className="text-muted-foreground text-sm">100000 +</p>
           </div>
           {/* New Line */}
           <div className="col-span-3 px-3 py-4 lg:col-span-1 lg:px-6">
-            Multiplayer Mode
+            Smart Parking Management
           </div>
           <div className="flex justify-center px-3 py-1 md:px-6 md:py-4">
             <Minus className="h-4 w-4 text-muted-foreground" />
@@ -136,7 +133,7 @@ const Pricing = () => (
           </div>
           {/* New Line */}
           <div className="col-span-3 px-3 py-4 lg:col-span-1 lg:px-6">
-            Orchestration
+            Operational Analytics
           </div>
           <div className="flex justify-center px-3 py-1 md:px-6 md:py-4">
             <Minus className="h-4 w-4 text-muted-foreground" />

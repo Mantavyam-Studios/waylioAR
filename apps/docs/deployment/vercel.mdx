@@ -1,0 +1,855 @@
+---
+title: "Vercel Deployment"
+description: "Complete guide for deploying the Waylio healthcare platform to Vercel with optimized configurations, environment setup, and production best practices."
+---
+
+# Vercel Deployment
+
+This guide covers the complete deployment process for the Waylio healthcare platform on Vercel, including configuration optimization, environment setup, and production best practices for healthcare applications.
+
+## Deployment Overview
+
+### Platform Benefits
+
+<CardGroup cols={2}>
+<Card title="Serverless Architecture" icon="server">
+  Automatic scaling and zero-downtime deployments with edge computing capabilities
+</Card>
+
+<Card title="Global CDN" icon="globe">
+  Worldwide content delivery network for optimal performance and low latency
+</Card>
+
+<Card title="Built-in Monitoring" icon="chart-line">
+  Real-time analytics, performance monitoring, and error tracking
+</Card>
+
+<Card title="HIPAA Compliance" icon="shield-check">
+  Enterprise-grade security features suitable for healthcare applications
+</Card>
+</CardGroup>
+
+### Architecture Components
+
+The Waylio platform deploys as multiple Vercel projects:
+- **Web Dashboard** (`apps/web`) - Main healthcare dashboard
+- **API Server** (`apps/api`) - Serverless API endpoints
+- **Marketing Site** (`apps/marketing`) - Public website
+- **Documentation** (`apps/docs`) - Mintlify documentation
+
+## Prerequisites
+
+### Account Setup
+
+<Steps>
+<Step title="Vercel Account">
+  1. Create account at [vercel.com](https://vercel.com)
+  2. Connect GitHub repository
+  3. Upgrade to Pro plan for production features
+  4. Enable team collaboration if needed
+</Step>
+
+<Step title="Domain Configuration">
+  ```bash
+  # Add custom domain in Vercel dashboard
+  # Configure DNS records:
+  
+  # A record for root domain
+  @ -> 76.76.19.19
+  
+  # CNAME for www subdomain
+  www -> cname.vercel-dns.com
+  
+  # CNAME for API subdomain
+  api -> cname.vercel-dns.com
+  ```
+</Step>
+
+<Step title="SSL Certificate">
+  Vercel automatically provisions SSL certificates for custom domains:
+  - Automatic certificate renewal
+  - Support for wildcard certificates
+  - HSTS headers enabled by default
+</Step>
+</Steps>
+
+## Project Configuration
+
+### Vercel Configuration Files
+
+<Tabs>
+<Tab title="Web Dashboard (vercel.json)">
+  ```json
+  {
+    "version": 2,
+    "name": "waylio-web",
+    "builds": [
+      {
+        "src": "package.json",
+        "use": "@vercel/next"
+      }
+    ],
+    "env": {
+      "NODE_ENV": "production"
+    },
+    "build": {
+      "env": {
+        "NEXT_TELEMETRY_DISABLED": "1"
+      }
+    },
+    "functions": {
+      "app/api/**/*.ts": {
+        "maxDuration": 30
+      }
+    },
+    "regions": ["iad1", "sfo1"],
+    "framework": "nextjs",
+    "installCommand": "pnpm install --frozen-lockfile",
+    "buildCommand": "pnpm build:web",
+    "outputDirectory": ".next",
+    "headers": [
+      {
+        "source": "/(.*)",
+        "headers": [
+          {
+            "key": "X-Frame-Options",
+            "value": "DENY"
+          },
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "strict-origin-when-cross-origin"
+          },
+          {
+            "key": "Permissions-Policy",
+            "value": "camera=(), microphone=(), geolocation=()"
+          }
+        ]
+      },
+      {
+        "source": "/api/(.*)",
+        "headers": [
+          {
+            "key": "Access-Control-Allow-Origin",
+            "value": "https://waylio.com"
+          },
+          {
+            "key": "Access-Control-Allow-Methods",
+            "value": "GET, POST, PUT, DELETE, OPTIONS"
+          },
+          {
+            "key": "Access-Control-Allow-Headers",
+            "value": "Content-Type, Authorization"
+          }
+        ]
+      }
+    ],
+    "redirects": [
+      {
+        "source": "/dashboard",
+        "destination": "/",
+        "permanent": false
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "/api/v1/(.*)",
+        "destination": "/api/$1"
+      }
+    ]
+  }
+  ```
+</Tab>
+
+<Tab title="API Server (vercel.json)">
+  ```json
+  {
+    "version": 2,
+    "name": "waylio-api",
+    "builds": [
+      {
+        "src": "package.json",
+        "use": "@vercel/next"
+      }
+    ],
+    "functions": {
+      "app/api/**/*.ts": {
+        "maxDuration": 60,
+        "memory": 1024
+      },
+      "app/api/webhooks/**/*.ts": {
+        "maxDuration": 30
+      },
+      "app/api/uploads/**/*.ts": {
+        "maxDuration": 300,
+        "memory": 3008
+      }
+    },
+    "regions": ["iad1"],
+    "env": {
+      "NODE_ENV": "production"
+    },
+    "headers": [
+      {
+        "source": "/api/(.*)",
+        "headers": [
+          {
+            "key": "Access-Control-Allow-Origin",
+            "value": "https://waylio.com, https://app.waylio.com"
+          },
+          {
+            "key": "Access-Control-Allow-Credentials",
+            "value": "true"
+          },
+          {
+            "key": "X-RateLimit-Limit",
+            "value": "100"
+          },
+          {
+            "key": "X-RateLimit-Window",
+            "value": "900"
+          }
+        ]
+      }
+    ]
+  }
+  ```
+</Tab>
+
+<Tab title="Documentation (vercel.json)">
+  ```json
+  {
+    "version": 2,
+    "name": "waylio-docs",
+    "framework": "other",
+    "installCommand": "pnpm install --frozen-lockfile",
+    "buildCommand": "pnpm build:docs",
+    "outputDirectory": "out",
+    "cleanUrls": true,
+    "trailingSlash": false,
+    "headers": [
+      {
+        "source": "/(.*)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=3600, s-maxage=86400"
+          }
+        ]
+      }
+    ]
+  }
+  ```
+</Tab>
+</Tabs>
+
+### Environment Variables
+
+<Steps>
+<Step title="Production Environment">
+  Configure environment variables in Vercel dashboard:
+  
+  ```bash
+  # Database
+  DATABASE_URL="postgresql://user:pass@host/waylio?sslmode=require"
+  
+  # Authentication
+  CLERK_SECRET_KEY="sk_live_production_key"
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_live_production_key"
+  CLERK_WEBHOOK_SECRET="whsec_production_webhook_secret"
+  
+  # Application
+  NEXT_PUBLIC_SITE_URL="https://waylio.com"
+  NEXT_PUBLIC_API_URL="https://api.waylio.com"
+  NODE_ENV="production"
+  
+  # Security
+  JWT_SECRET="production-jwt-secret-key"
+  ENCRYPTION_MASTER_KEY="production-encryption-master-key"
+  
+  # External Services
+  RESEND_API_KEY="re_production_api_key"
+  STRIPE_SECRET_KEY="sk_live_production_stripe_key"
+  AWS_ACCESS_KEY_ID="production_aws_access_key"
+  AWS_SECRET_ACCESS_KEY="production_aws_secret_key"
+  
+  # Monitoring
+  SENTRY_DSN="https://production-sentry-dsn@sentry.io/project"
+  NEXT_PUBLIC_POSTHOG_KEY="phc_production_posthog_key"
+  ```
+</Step>
+
+<Step title="Environment-Specific Variables">
+  Set different values for preview and production environments:
+  
+  ```bash
+  # Preview Environment (for staging)
+  DATABASE_URL="postgresql://user:pass@staging-host/waylio"
+  CLERK_SECRET_KEY="sk_test_staging_key"
+  NEXT_PUBLIC_SITE_URL="https://staging.waylio.com"
+  
+  # Production Environment
+  DATABASE_URL="postgresql://user:pass@prod-host/waylio"
+  CLERK_SECRET_KEY="sk_live_production_key"
+  NEXT_PUBLIC_SITE_URL="https://waylio.com"
+  ```
+</Step>
+
+<Step title="Sensitive Data Handling">
+  ```bash
+  # Use Vercel's encrypted environment variables
+  # Mark sensitive variables as "Sensitive" in dashboard
+  
+  # Database credentials
+  DATABASE_URL (Sensitive)
+  
+  # API keys
+  CLERK_SECRET_KEY (Sensitive)
+  STRIPE_SECRET_KEY (Sensitive)
+  RESEND_API_KEY (Sensitive)
+  
+  # Encryption keys
+  ENCRYPTION_MASTER_KEY (Sensitive)
+  JWT_SECRET (Sensitive)
+  ```
+</Step>
+</Steps>
+
+## Deployment Process
+
+### Automatic Deployments
+
+<Steps>
+<Step title="GitHub Integration">
+  ```bash
+  # Connect repository to Vercel
+  # Automatic deployments trigger on:
+  # - Push to main branch (production)
+  # - Push to develop branch (preview)
+  # - Pull request creation (preview)
+  
+  # Configure branch settings in vercel.json
+  {
+    "git": {
+      "deploymentEnabled": {
+        "main": true,
+        "develop": true
+      }
+    }
+  }
+  ```
+</Step>
+
+<Step title="Build Configuration">
+  ```json
+  // package.json build scripts
+  {
+    "scripts": {
+      "build": "next build",
+      "build:web": "cd apps/web && pnpm build",
+      "build:api": "cd apps/api && pnpm build",
+      "build:docs": "cd apps/docs && mintlify build",
+      "postbuild": "pnpm db:generate"
+    }
+  }
+  ```
+</Step>
+
+<Step title="Deployment Verification">
+  ```bash
+  # Vercel CLI for local testing
+  npm install -g vercel
+  
+  # Login to Vercel
+  vercel login
+  
+  # Deploy to preview
+  vercel
+  
+  # Deploy to production
+  vercel --prod
+  
+  # Check deployment status
+  vercel ls
+  ```
+</Step>
+</Steps>
+
+### Manual Deployments
+
+<Tabs>
+<Tab title="Vercel CLI">
+  ```bash
+  # Install Vercel CLI
+  npm install -g vercel@latest
+  
+  # Login to your account
+  vercel login
+  
+  # Link project to Vercel
+  vercel link
+  
+  # Deploy to preview environment
+  vercel
+  
+  # Deploy to production
+  vercel --prod
+  
+  # Check deployment logs
+  vercel logs
+  ```
+</Tab>
+
+<Tab title="GitHub Actions">
+  ```yaml
+  # .github/workflows/deploy.yml
+  name: Deploy to Vercel
+  
+  on:
+    push:
+      branches: [main, develop]
+    pull_request:
+      branches: [main]
+  
+  jobs:
+    deploy:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+        
+        - name: Setup Node.js
+          uses: actions/setup-node@v4
+          with:
+            node-version: '20'
+            cache: 'pnpm'
+        
+        - name: Install pnpm
+          run: npm install -g pnpm
+        
+        - name: Install dependencies
+          run: pnpm install --frozen-lockfile
+        
+        - name: Build project
+          run: pnpm build
+        
+        - name: Deploy to Vercel
+          uses: amondnet/vercel-action@v25
+          with:
+            vercel-token: ${{ secrets.VERCEL_TOKEN }}
+            vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+            vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+            vercel-args: '--prod'
+  ```
+</Tab>
+</Tabs>
+
+## Performance Optimization
+
+### Next.js Configuration
+
+<Steps>
+<Step title="Production Optimizations">
+  ```javascript
+  // next.config.js
+  /** @type {import('next').NextConfig} */
+  const nextConfig = {
+    // Performance optimizations
+    compress: true,
+    poweredByHeader: false,
+    generateEtags: true,
+    
+    // Image optimization
+    images: {
+      domains: ['waylio.com', 's3.amazonaws.com'],
+      formats: ['image/webp', 'image/avif'],
+      minimumCacheTTL: 86400,
+    },
+    
+    // Bundle optimization
+    experimental: {
+      optimizeCss: true,
+      optimizePackageImports: ['@repo/ui', 'lucide-react'],
+    },
+    
+    // Security headers
+    async headers() {
+      return [
+        {
+          source: '/(.*)',
+          headers: [
+            {
+              key: 'Strict-Transport-Security',
+              value: 'max-age=31536000; includeSubDomains; preload'
+            },
+            {
+              key: 'Content-Security-Policy',
+              value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
+            }
+          ],
+        },
+      ];
+    },
+    
+    // Redirects for SEO
+    async redirects() {
+      return [
+        {
+          source: '/dashboard',
+          destination: '/',
+          permanent: false,
+        },
+      ];
+    },
+  };
+  
+  module.exports = nextConfig;
+  ```
+</Step>
+
+<Step title="Bundle Analysis">
+  ```bash
+  # Install bundle analyzer
+  pnpm add -D @next/bundle-analyzer
+  
+  # Analyze bundle size
+  ANALYZE=true pnpm build
+  
+  # Check for large dependencies
+  pnpm dlx webpack-bundle-analyzer .next/static/chunks/*.js
+  ```
+</Step>
+
+<Step title="Edge Functions">
+  ```typescript
+  // app/api/edge-example/route.ts
+  import { NextRequest, NextResponse } from 'next/server';
+  
+  export const runtime = 'edge';
+  
+  export async function GET(request: NextRequest) {
+    // Edge function runs closer to users
+    // Ideal for authentication, redirects, A/B testing
+    
+    const country = request.geo?.country || 'US';
+    const region = request.geo?.region || 'Unknown';
+    
+    return NextResponse.json({
+      message: 'Hello from the edge!',
+      location: { country, region },
+      timestamp: new Date().toISOString(),
+    });
+  }
+  ```
+</Step>
+</Steps>
+
+### Caching Strategy
+
+<AccordionGroup>
+<Accordion title="Static Assets">
+  ```javascript
+  // next.config.js - Static asset caching
+  async headers() {
+    return [
+      {
+        source: '/static/(.*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        source: '/_next/static/(.*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+    ];
+  }
+  ```
+</Accordion>
+
+<Accordion title="API Response Caching">
+  ```typescript
+  // app/api/patients/route.ts
+  import { NextRequest, NextResponse } from 'next/server';
+  
+  export async function GET(request: NextRequest) {
+    const patients = await getPatients();
+    
+    const response = NextResponse.json(patients);
+    
+    // Cache for 5 minutes
+    response.headers.set(
+      'Cache-Control',
+      'public, s-maxage=300, stale-while-revalidate=600'
+    );
+    
+    return response;
+  }
+  ```
+</Accordion>
+
+<Accordion title="ISR (Incremental Static Regeneration)">
+  ```typescript
+  // app/providers/[id]/page.tsx
+  export const revalidate = 3600; // Revalidate every hour
+  
+  export default async function ProviderPage({ params }: { params: { id: string } }) {
+    const provider = await getProvider(params.id);
+    
+    return (
+      <div>
+        <h1>{provider.name}</h1>
+        <p>Last updated: {new Date().toISOString()}</p>
+      </div>
+    );
+  }
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Monitoring and Analytics
+
+### Built-in Monitoring
+
+<Steps>
+<Step title="Vercel Analytics">
+  ```bash
+  # Install Vercel Analytics
+  pnpm add @vercel/analytics
+  
+  # Add to root layout
+  import { Analytics } from '@vercel/analytics/react';
+  
+  export default function RootLayout({ children }) {
+    return (
+      <html>
+        <body>
+          {children}
+          <Analytics />
+        </body>
+      </html>
+    );
+  }
+  ```
+</Step>
+
+<Step title="Speed Insights">
+  ```bash
+  # Install Speed Insights
+  pnpm add @vercel/speed-insights
+  
+  # Add to root layout
+  import { SpeedInsights } from '@vercel/speed-insights/next';
+  
+  export default function RootLayout({ children }) {
+    return (
+      <html>
+        <body>
+          {children}
+          <SpeedInsights />
+        </body>
+      </html>
+    );
+  }
+  ```
+</Step>
+
+<Step title="Custom Monitoring">
+  ```typescript
+  // lib/monitoring.ts
+  export function trackDeployment() {
+    if (process.env.NODE_ENV === 'production') {
+      // Track deployment metrics
+      fetch('/api/metrics/deployment', {
+        method: 'POST',
+        body: JSON.stringify({
+          timestamp: new Date().toISOString(),
+          version: process.env.VERCEL_GIT_COMMIT_SHA,
+          environment: 'production',
+        }),
+      });
+    }
+  }
+  ```
+</Step>
+</Steps>
+
+## Security Configuration
+
+### HIPAA Compliance
+
+<Steps>
+<Step title="Security Headers">
+  ```javascript
+  // next.config.js - HIPAA-compliant security headers
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=31536000; includeSubDomains; preload'
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY'
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff'
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin'
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=(), payment=()'
+          }
+        ],
+      },
+    ];
+  }
+  ```
+</Step>
+
+<Step title="Environment Security">
+  ```bash
+  # Secure environment variable handling
+  # Mark all sensitive variables as "Sensitive" in Vercel dashboard
+  
+  # Database credentials
+  DATABASE_URL (Sensitive)
+  
+  # Encryption keys
+  ENCRYPTION_MASTER_KEY (Sensitive)
+  PATIENT_DATA_ENCRYPTION_KEY (Sensitive)
+  
+  # API keys
+  CLERK_SECRET_KEY (Sensitive)
+  STRIPE_SECRET_KEY (Sensitive)
+  
+  # Webhook secrets
+  CLERK_WEBHOOK_SECRET (Sensitive)
+  STRIPE_WEBHOOK_SECRET (Sensitive)
+  ```
+</Step>
+
+<Step title="Access Control">
+  ```typescript
+  // middleware.ts - Route protection
+  import { authMiddleware } from '@clerk/nextjs';
+  
+  export default authMiddleware({
+    publicRoutes: ['/api/health', '/api/webhooks/(.*)'],
+    ignoredRoutes: ['/api/public/(.*)'],
+    
+    // Protect all routes by default
+    afterAuth(auth, req) {
+      // Additional security checks for healthcare routes
+      if (req.nextUrl.pathname.startsWith('/api/patients')) {
+        if (!auth.userId) {
+          return new Response('Unauthorized', { status: 401 });
+        }
+        
+        // Check HIPAA compliance headers
+        const userAgent = req.headers.get('user-agent');
+        if (!userAgent || userAgent.includes('bot')) {
+          return new Response('Forbidden', { status: 403 });
+        }
+      }
+    },
+  });
+  
+  export const config = {
+    matcher: ['/((?!.*\\..*|_next).*)', '/', '/(api|trpc)(.*)'],
+  };
+  ```
+</Step>
+</Steps>
+
+## Troubleshooting
+
+### Common Deployment Issues
+
+<AccordionGroup>
+<Accordion title="Build Failures">
+  **Problem**: Build fails during deployment
+  
+  **Solutions**:
+  ```bash
+  # Check build logs in Vercel dashboard
+  # Common issues:
+  
+  # 1. Missing environment variables
+  # Add required variables in Vercel dashboard
+  
+  # 2. TypeScript errors
+  pnpm type-check
+  
+  # 3. Dependency issues
+  pnpm install --frozen-lockfile
+  
+  # 4. Memory issues
+  # Increase function memory in vercel.json
+  "functions": {
+    "app/**/*.ts": {
+      "memory": 1024
+    }
+  }
+  ```
+</Accordion>
+
+<Accordion title="Function Timeouts">
+  **Problem**: Serverless functions timing out
+  
+  **Solutions**:
+  ```json
+  // vercel.json - Increase timeout limits
+  {
+    "functions": {
+      "app/api/uploads/**/*.ts": {
+        "maxDuration": 300
+      },
+      "app/api/reports/**/*.ts": {
+        "maxDuration": 60
+      }
+    }
+  }
+  ```
+</Accordion>
+
+<Accordion title="Environment Variable Issues">
+  **Problem**: Environment variables not working
+  
+  **Solutions**:
+  ```bash
+  # Check variable names match exactly
+  # Ensure variables are set for correct environment
+  # Verify sensitive variables are marked as "Sensitive"
+  
+  # Test locally with Vercel CLI
+  vercel env pull .env.local
+  vercel dev
+  ```
+</Accordion>
+</AccordionGroup>
+
+<Warning>
+Healthcare applications require additional security measures. Ensure all PHI is encrypted in transit and at rest, and maintain comprehensive audit logs for HIPAA compliance.
+</Warning>
+
+<Note>
+Vercel's serverless architecture is ideal for healthcare applications with variable traffic patterns. The automatic scaling ensures availability during peak usage while maintaining cost efficiency.
+</Note>

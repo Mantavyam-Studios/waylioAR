@@ -1,0 +1,794 @@
+---
+title: "Marketing Website"
+description: "Public-facing marketing website built with Next.js, showcasing Waylio's features and providing information for potential customers."
+---
+
+# Marketing Website
+
+The marketing website is the public-facing site for Waylio, built with Next.js and optimized for performance and SEO. It serves as the primary marketing channel, providing information about the platform's features, benefits, and pricing.
+
+<Info>
+The marketing website runs on port 3001 in development. We recommend deploying it to `www.{yourdomain}.com` in production.
+</Info>
+
+## Overview
+
+The marketing website is designed to convert visitors into customers by showcasing Waylio's value proposition, features, and success stories. It's built with modern web technologies and optimized for search engines and performance.
+
+### Key Features
+
+<CardGroup cols={2}>
+<Card title="SEO Optimized" icon="search">
+  Built-in SEO optimization with meta tags, structured data, and sitemap generation.
+</Card>
+
+<Card title="Performance First" icon="bolt">
+  Optimized for Core Web Vitals with static generation and image optimization.
+</Card>
+
+<Card title="Content Management" icon="edit">
+  Integrated with BaseHub CMS for easy content updates without code changes.
+</Card>
+
+<Card title="Analytics Ready" icon="chart-line">
+  Google Analytics and PostHog integration for visitor tracking and conversion analysis.
+</Card>
+</CardGroup>
+
+## Site Structure
+
+### Homepage
+
+<AccordionGroup>
+<Accordion title="Hero Section">
+  **Purpose**: Capture attention and communicate value proposition
+  
+  **Components**:
+  - Compelling headline and subheading
+  - Hero image or video demonstration
+  - Primary call-to-action button
+  - Trust indicators (customer logos, testimonials)
+  
+  **Implementation**:
+  ```typescript
+  export function HeroSection() {
+    return (
+      <section className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="container mx-auto px-4 py-20">
+          <div className="text-center">
+            <h1 className="text-5xl font-bold text-gray-900 mb-6">
+              Transform Your Hospital Operations with Waylio
+            </h1>
+            <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+              Streamline patient care with intelligent appointment management, 
+              AR navigation, and digital prescriptions.
+            </p>
+            <div className="flex gap-4 justify-center">
+              <Button size="lg" asChild>
+                <Link href="/demo">Request Demo</Link>
+              </Button>
+              <Button variant="outline" size="lg" asChild>
+                <Link href="/features">Learn More</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+  ```
+</Accordion>
+
+<Accordion title="Features Overview">
+  **Purpose**: Highlight key platform capabilities
+  
+  **Components**:
+  - Feature cards with icons and descriptions
+  - Interactive demonstrations
+  - Benefit-focused messaging
+  - Screenshots and videos
+  
+  **Key Features Highlighted**:
+  - Smart Queue Management
+  - AR Indoor Navigation
+  - Digital Prescriptions
+  - Parking Management
+  - Real-time Notifications
+</Accordion>
+
+<Accordion title="Social Proof">
+  **Purpose**: Build trust through customer testimonials and case studies
+  
+  **Components**:
+  - Customer testimonials
+  - Success metrics and statistics
+  - Customer logo wall
+  - Case study previews
+  
+  **Implementation**:
+  ```typescript
+  export function TestimonialsSection() {
+    return (
+      <section className="py-20 bg-white">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl font-bold text-center mb-12">
+            Trusted by Leading Healthcare Organizations
+          </h2>
+          <div className="grid md:grid-cols-3 gap-8">
+            {testimonials.map((testimonial) => (
+              <TestimonialCard key={testimonial.id} {...testimonial} />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+  ```
+</Accordion>
+</AccordionGroup>
+
+### Product Pages
+
+<Tabs>
+<Tab title="Features Page">
+  **URL**: `/features`
+  **Purpose**: Detailed feature explanations with benefits
+  
+  **Sections**:
+  - Feature comparison table
+  - Detailed feature descriptions
+  - Use case scenarios
+  - Integration capabilities
+  
+  **Content Strategy**:
+  - Problem-solution format
+  - Benefit-focused messaging
+  - Technical specifications
+  - ROI calculations
+</Tab>
+
+<Tab title="Pricing Page">
+  **URL**: `/pricing`
+  **Purpose**: Transparent pricing information
+  
+  **Components**:
+  - Pricing tiers comparison
+  - Feature inclusion matrix
+  - FAQ section
+  - Contact sales CTA
+  
+  **Pricing Strategy**:
+  - Tiered pricing model
+  - Custom enterprise solutions
+  - Free trial offerings
+  - ROI calculator
+</Tab>
+
+<Tab title="Solutions Page">
+  **URL**: `/solutions`
+  **Purpose**: Industry-specific use cases
+  
+  **Solutions**:
+  - Small clinics
+  - Large hospitals
+  - Multi-location healthcare systems
+  - Specialty practices
+  
+  **Content**:
+  - Use case scenarios
+  - Implementation timelines
+  - Success metrics
+  - Customer stories
+</Tab>
+</Tabs>
+
+### Content Pages
+
+<Tabs>
+<Tab title="Blog">
+  **URL**: `/blog`
+  **Purpose**: Content marketing and SEO
+  **CMS**: BaseHub integration
+  
+  **Content Types**:
+  - Industry insights
+  - Product updates
+  - Best practices
+  - Case studies
+  
+  **Implementation**:
+  ```typescript
+  import { basehub } from '@repo/cms';
+  
+  export async function generateStaticParams() {
+    const { blog } = await basehub({ next: { revalidate: 60 } }).query({
+      blog: {
+        posts: {
+          _slug: true,
+        },
+      },
+    });
+    
+    return blog.posts.map((post) => ({
+      slug: post._slug,
+    }));
+  }
+  
+  export default async function BlogPost({ params }) {
+    const { blog } = await basehub().query({
+      blog: {
+        posts: {
+          __args: { where: { _slug: { eq: params.slug } } },
+          _title: true,
+          content: { json: { content: true } },
+          publishedAt: true,
+          author: { name: true, avatar: { url: true } },
+        },
+      },
+    });
+    
+    const post = blog.posts[0];
+    
+    return (
+      <article>
+        <BlogHeader post={post} />
+        <BlogContent content={post.content.json.content} />
+      </article>
+    );
+  }
+  ```
+</Tab>
+
+<Tab title="Resources">
+  **URL**: `/resources`
+  **Purpose**: Educational content and downloads
+  
+  **Resources**:
+  - Whitepapers
+  - Implementation guides
+  - Webinar recordings
+  - ROI calculators
+  
+  **Lead Generation**:
+  - Gated content
+  - Email capture forms
+  - Newsletter signup
+  - Demo requests
+</Tab>
+
+<Tab title="About">
+  **URL**: `/about`
+  **Purpose**: Company information and team
+  
+  **Sections**:
+  - Company mission and vision
+  - Team member profiles
+  - Company timeline
+  - Press and media
+  
+  **Trust Building**:
+  - Leadership team
+  - Company values
+  - Awards and recognition
+  - Press coverage
+</Tab>
+</Tabs>
+
+### Conversion Pages
+
+<AccordionGroup>
+<Accordion title="Demo Request">
+  **URL**: `/demo`
+  **Purpose**: Capture qualified leads
+  
+  **Form Fields**:
+  - Contact information
+  - Organization details
+  - Use case requirements
+  - Preferred demo time
+  
+  **Implementation**:
+  ```typescript
+  'use server';
+  
+  import { resend } from '@repo/email';
+  import { DemoRequestTemplate } from '@repo/email/templates/demo-request';
+  
+  export async function submitDemoRequest(formData: FormData) {
+    const data = {
+      name: formData.get('name') as string,
+      email: formData.get('email') as string,
+      organization: formData.get('organization') as string,
+      message: formData.get('message') as string,
+    };
+    
+    // Send notification to sales team
+    await resend.emails.send({
+      from: 'noreply@waylio.com',
+      to: 'sales@waylio.com',
+      subject: 'New Demo Request',
+      react: <DemoRequestTemplate {...data} />,
+    });
+    
+    // Send confirmation to prospect
+    await resend.emails.send({
+      from: 'sales@waylio.com',
+      to: data.email,
+      subject: 'Demo Request Received',
+      react: <DemoConfirmationTemplate {...data} />,
+    });
+    
+    return { success: true };
+  }
+  ```
+</Accordion>
+
+<Accordion title="Contact Page">
+  **URL**: `/contact`
+  **Purpose**: Multiple contact options
+  
+  **Contact Methods**:
+  - Contact form
+  - Phone numbers
+  - Email addresses
+  - Office locations
+  
+  **Form Handling**:
+  - Server actions for form processing
+  - Email notifications
+  - CRM integration
+  - Auto-responders
+</Accordion>
+</AccordionGroup>
+
+## CMS Integration
+
+### BaseHub Configuration
+
+<Tabs>
+<Tab title="Content Schema">
+  The website uses BaseHub CMS for content management:
+  
+  ```typescript
+  // basehub.config.ts
+  export default {
+    schema: {
+      blog: {
+        posts: {
+          title: 'string',
+          slug: 'string',
+          content: 'rich-text',
+          excerpt: 'string',
+          publishedAt: 'date',
+          author: {
+            name: 'string',
+            avatar: 'image',
+            bio: 'string',
+          },
+          tags: ['string'],
+          featured: 'boolean',
+        },
+      },
+      pages: {
+        homepage: {
+          hero: {
+            title: 'string',
+            subtitle: 'string',
+            ctaText: 'string',
+            ctaLink: 'string',
+          },
+          features: [{
+            title: 'string',
+            description: 'string',
+            icon: 'string',
+          }],
+        },
+      },
+    },
+  };
+  ```
+</Tab>
+
+<Tab title="Content Fetching">
+  ```typescript
+  import { basehub } from '@repo/cms';
+  
+  // Static generation with revalidation
+  export async function getStaticProps() {
+    const { homepage } = await basehub({ 
+      next: { revalidate: 3600 } // Revalidate every hour
+    }).query({
+      homepage: {
+        hero: {
+          title: true,
+          subtitle: true,
+          ctaText: true,
+          ctaLink: true,
+        },
+        features: {
+          title: true,
+          description: true,
+          icon: true,
+        },
+      },
+    });
+    
+    return {
+      props: { homepage },
+    };
+  }
+  ```
+</Tab>
+
+<Tab title="Dynamic Content">
+  ```typescript
+  // Real-time content updates
+  export function useLiveContent() {
+    const [content, setContent] = useState(null);
+    
+    useEffect(() => {
+      const subscription = basehub.subscribe({
+        query: {
+          blog: {
+            posts: {
+              _title: true,
+              _slug: true,
+              publishedAt: true,
+            },
+          },
+        },
+        onUpdate: (data) => setContent(data),
+      });
+      
+      return () => subscription.unsubscribe();
+    }, []);
+    
+    return content;
+  }
+  ```
+</Tab>
+</Tabs>
+
+## SEO Optimization
+
+### Technical SEO
+
+<AccordionGroup>
+<Accordion title="Meta Tags">
+  ```typescript
+  import { generateMetadata } from '@repo/seo';
+  
+  export async function generateMetadata({ params }) {
+    const post = await getBlogPost(params.slug);
+    
+    return generateMetadata({
+      title: post.title,
+      description: post.excerpt,
+      openGraph: {
+        title: post.title,
+        description: post.excerpt,
+        images: [post.featuredImage],
+        type: 'article',
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title: post.title,
+        description: post.excerpt,
+        images: [post.featuredImage],
+      },
+    });
+  }
+  ```
+</Accordion>
+
+<Accordion title="Structured Data">
+  ```typescript
+  import { JsonLd } from '@repo/seo';
+  
+  export function BlogPostJsonLd({ post }) {
+    return (
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'Article',
+          headline: post.title,
+          description: post.excerpt,
+          author: {
+            '@type': 'Person',
+            name: post.author.name,
+          },
+          datePublished: post.publishedAt,
+          image: post.featuredImage,
+        }}
+      />
+    );
+  }
+  ```
+</Accordion>
+
+<Accordion title="Sitemap Generation">
+  ```typescript
+  // app/sitemap.ts
+  import { basehub } from '@repo/cms';
+  
+  export default async function sitemap() {
+    const { blog } = await basehub().query({
+      blog: {
+        posts: {
+          _slug: true,
+          publishedAt: true,
+        },
+      },
+    });
+    
+    const blogPosts = blog.posts.map((post) => ({
+      url: `https://waylio.com/blog/${post._slug}`,
+      lastModified: post.publishedAt,
+      changeFrequency: 'weekly',
+      priority: 0.7,
+    }));
+    
+    return [
+      {
+        url: 'https://waylio.com',
+        lastModified: new Date(),
+        changeFrequency: 'daily',
+        priority: 1,
+      },
+      {
+        url: 'https://waylio.com/features',
+        lastModified: new Date(),
+        changeFrequency: 'weekly',
+        priority: 0.9,
+      },
+      ...blogPosts,
+    ];
+  }
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Analytics & Tracking
+
+### Analytics Implementation
+
+<Tabs>
+<Tab title="Google Analytics">
+  ```typescript
+  import { GoogleAnalytics } from '@repo/analytics';
+  
+  export default function RootLayout({ children }) {
+    return (
+      <html>
+        <body>
+          {children}
+          <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />
+        </body>
+      </html>
+    );
+  }
+  
+  // Track custom events
+  export function trackDemoRequest(data) {
+    gtag('event', 'demo_request', {
+      event_category: 'lead_generation',
+      event_label: data.organization,
+      value: 1,
+    });
+  }
+  ```
+</Tab>
+
+<Tab title="PostHog Integration">
+  ```typescript
+  import { PostHogProvider } from '@repo/analytics';
+  
+  export default function App({ Component, pageProps }) {
+    return (
+      <PostHogProvider>
+        <Component {...pageProps} />
+      </PostHogProvider>
+    );
+  }
+  
+  // Track feature usage
+  export function trackFeatureView(feature) {
+    posthog.capture('feature_viewed', {
+      feature_name: feature,
+      page_url: window.location.href,
+    });
+  }
+  ```
+</Tab>
+
+<Tab title="Conversion Tracking">
+  ```typescript
+  // Track form submissions
+  export function trackFormSubmission(formType, data) {
+    // Google Analytics
+    gtag('event', 'form_submit', {
+      event_category: 'engagement',
+      event_label: formType,
+    });
+    
+    // PostHog
+    posthog.capture('form_submitted', {
+      form_type: formType,
+      ...data,
+    });
+    
+    // Facebook Pixel (if configured)
+    fbq('track', 'Lead', {
+      content_name: formType,
+    });
+  }
+  ```
+</Tab>
+</Tabs>
+
+## Performance Optimization
+
+### Core Web Vitals
+
+<AccordionGroup>
+<Accordion title="Image Optimization">
+  ```typescript
+  import Image from 'next/image';
+  
+  export function OptimizedHeroImage() {
+    return (
+      <Image
+        src="/images/hero-dashboard.png"
+        alt="Waylio Dashboard"
+        width={1200}
+        height={800}
+        priority
+        placeholder="blur"
+        blurDataURL="data:image/jpeg;base64,..."
+        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+      />
+    );
+  }
+  ```
+</Accordion>
+
+<Accordion title="Code Splitting">
+  ```typescript
+  import dynamic from 'next/dynamic';
+  
+  // Lazy load heavy components
+  const InteractiveDemo = dynamic(() => import('./InteractiveDemo'), {
+    loading: () => <DemoSkeleton />,
+    ssr: false,
+  });
+  
+  const PricingCalculator = dynamic(() => import('./PricingCalculator'), {
+    loading: () => <CalculatorSkeleton />,
+  });
+  ```
+</Accordion>
+
+<Accordion title="Static Generation">
+  ```typescript
+  // Generate static pages at build time
+  export async function generateStaticParams() {
+    const posts = await getAllBlogPosts();
+    
+    return posts.map((post) => ({
+      slug: post.slug,
+    }));
+  }
+  
+  // Incremental Static Regeneration
+  export const revalidate = 3600; // Revalidate every hour
+  ```
+</Accordion>
+</AccordionGroup>
+
+## Development
+
+### Local Development
+
+<Steps>
+<Step title="Start the Website">
+  ```bash
+  # Start only the marketing website
+  pnpm dev --filter web
+  
+  # Or start all services
+  pnpm dev
+  ```
+  
+  The website will be available at http://localhost:3001
+</Step>
+
+<Step title="CMS Setup">
+  Configure BaseHub CMS connection:
+  
+  ```bash
+  # Set BaseHub token
+  export BASEHUB_TOKEN="your_token_here"
+  
+  # Test CMS connection
+  pnpm cms:sync --filter web
+  ```
+</Step>
+
+<Step title="Content Preview">
+  Enable live content preview:
+  
+  ```bash
+  # Start with draft content
+  pnpm dev:preview --filter web
+  ```
+</Step>
+</Steps>
+
+### Content Management
+
+<Tabs>
+<Tab title="Blog Management">
+  ```bash
+  # Create new blog post
+  pnpm cms:create-post --filter web
+  
+  # Publish draft posts
+  pnpm cms:publish --filter web
+  
+  # Sync content from CMS
+  pnpm cms:sync --filter web
+  ```
+</Tab>
+
+<Tab title="Page Updates">
+  ```bash
+  # Update homepage content
+  pnpm cms:update-page homepage --filter web
+  
+  # Preview changes
+  pnpm cms:preview --filter web
+  ```
+</Tab>
+</Tabs>
+
+## Deployment
+
+### Build Configuration
+
+```typescript
+// next.config.ts
+import { withSentryConfig } from '@sentry/nextjs';
+import { nextConfig } from '@repo/next-config';
+
+const config = {
+  ...nextConfig,
+  output: 'standalone',
+  images: {
+    domains: ['basehub.com', 'images.unsplash.com'],
+  },
+  async redirects() {
+    return [
+      {
+        source: '/old-page',
+        destination: '/new-page',
+        permanent: true,
+      },
+    ];
+  },
+};
+
+export default withSentryConfig(config);
+```
+
+### Performance Monitoring
+
+The website includes comprehensive performance monitoring:
+
+- **Core Web Vitals**: Automatic tracking of LCP, FID, and CLS
+- **Real User Monitoring**: Performance metrics from actual users
+- **Lighthouse CI**: Automated performance testing in CI/CD
+- **Error Tracking**: Sentry integration for error monitoring
+
+<Note>
+For content management and CMS integration details, see the [CMS Package Documentation](/packages/cms).
+</Note>
