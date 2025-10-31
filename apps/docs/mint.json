@@ -139,7 +139,7 @@
       "method": "bearer"
     }
   },
-  "openapi": "/api/openapi.json",
+  "openapi": "https://petstore3.swagger.io/api/v3/openapi.json",
   "analytics": {
     "posthog": {
       "apiKey": "phc_your_posthog_key"
