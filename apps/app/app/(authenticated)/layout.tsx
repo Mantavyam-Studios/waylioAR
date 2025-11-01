@@ -1,11 +1,11 @@
 import { auth, currentUser } from "@repo/auth/server";
-import { SidebarProvider } from "@repo/design-system/components/ui/sidebar";
+import { SidebarProvider, SidebarInset } from "@repo/design-system/components/ui/sidebar";
 import { showBetaFeature } from "@repo/feature-flags";
 import { secure } from "@repo/security";
 import type { ReactNode } from "react";
 import { env } from "@/env";
 import { NotificationsProvider } from "./components/notifications-provider";
-import { GlobalSidebar } from "./components/sidebar";
+import { AppSidebar } from "./components/app-sidebar";
 
 type AppLayoutProperties = {
   readonly children: ReactNode;
@@ -27,14 +27,15 @@ const AppLayout = async ({ children }: AppLayoutProperties) => {
   return (
     <NotificationsProvider userId={user.id}>
       <SidebarProvider>
-        <GlobalSidebar>
+        <AppSidebar />
+        <SidebarInset>
           {betaFeature && (
             <div className="m-4 rounded-full bg-blue-500 p-1.5 text-center text-sm text-white">
               Beta feature now available
             </div>
           )}
           {children}
-        </GlobalSidebar>
+        </SidebarInset>
       </SidebarProvider>
     </NotificationsProvider>
   );
