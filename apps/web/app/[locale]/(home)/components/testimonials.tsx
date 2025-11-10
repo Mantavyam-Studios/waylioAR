@@ -41,27 +41,27 @@ export const Testimonials = ({ dictionary }: TestimonialsProps) => {
 
   return (
     <div className="w-full py-20 lg:py-40">
-      <div className="container mx-auto">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-10">
-          <h2 className="text-left font-regular text-3xl tracking-tighter md:text-5xl lg:max-w-xl">
+          <h2 className="text-left font-regular text-2xl tracking-tighter sm:text-3xl md:text-4xl lg:max-w-xl lg:text-5xl">
             {dictionary.web.home.testimonials.title}
           </h2>
           <Carousel className="w-full" setApi={setApi}>
-            <CarouselContent>
+            <CarouselContent className="-ml-2 md:-ml-4">
               {dictionary.web.home.testimonials.items.map((item, index) => (
-                <CarouselItem className="lg:basis-1/2" key={index}>
-                  <div className="flex aspect-video h-full flex-col justify-between rounded-md bg-muted p-6 lg:col-span-2">
-                    <User className="h-8 w-8 stroke-1" />
-                    <div className="flex flex-col gap-4">
+                <CarouselItem className="pl-2 md:pl-4 md:basis-1/2 lg:basis-1/2" key={index}>
+                  <div className="flex aspect-video h-full flex-col justify-between rounded-md bg-muted p-4 sm:p-6">
+                    <User aria-hidden="true" className="h-6 w-6 stroke-1 sm:h-8 sm:w-8" />
+                    <div className="flex flex-col gap-3 sm:gap-4">
                       <div className="flex flex-col">
-                        <h3 className="text-xl tracking-tight">{item.title}</h3>
-                        <p className="max-w-xs text-base text-muted-foreground">
+                        <h3 className="text-lg tracking-tight sm:text-xl">{item.title}</h3>
+                        <p className="max-w-xs text-sm text-muted-foreground sm:text-base">
                           {item.description}
                         </p>
                       </div>
-                      <p className="flex flex-row items-center gap-2 text-sm">
+                      <p className="flex flex-row items-center gap-2 text-xs sm:text-sm">
                         <span className="text-muted-foreground">By</span>
-                        <Avatar className="h-6 w-6">
+                        <Avatar className="h-4 w-4 sm:h-6 sm:w-6">
                           <AvatarImage src={item.author.image} />
                           <AvatarFallback>??</AvatarFallback>
                         </Avatar>

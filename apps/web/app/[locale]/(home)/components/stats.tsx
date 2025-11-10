@@ -7,14 +7,14 @@ type StatsProps = {
 
 export const Stats = ({ dictionary }: StatsProps) => (
   <div className="w-full py-20 lg:py-40">
-    <div className="container mx-auto">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8">
       <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
         <div className="flex flex-col items-start gap-4">
           <div className="flex flex-col gap-2">
-            <h2 className="text-left font-regular text-xl tracking-tighter md:text-5xl lg:max-w-xl">
+            <h2 className="text-left font-regular text-2xl tracking-tighter sm:text-3xl md:text-4xl lg:max-w-xl lg:text-5xl">
               {dictionary.web.home.stats.title}
             </h2>
-            <p className="text-left text-lg text-muted-foreground leading-relaxed tracking-tight lg:max-w-sm">
+            <p className="text-left text-base text-muted-foreground leading-relaxed tracking-tight sm:text-lg lg:max-w-sm">
               {dictionary.web.home.stats.description}
             </p>
           </div>

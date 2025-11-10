@@ -12,7 +12,7 @@ type HeroProps = {
 
 export const Hero = async ({ dictionary }: HeroProps) => (
   <div className="w-full">
-    <div className="container mx-auto">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8">
       <div className="flex flex-col items-center justify-center gap-8 py-20 lg:py-40">
         <div>
           <Feed queries={[blog.latestPostQuery]}>
@@ -32,14 +32,14 @@ export const Hero = async ({ dictionary }: HeroProps) => (
           </Feed>
         </div>
         <div className="flex flex-col gap-4">
-          <h1 className="max-w-2xl text-center font-regular text-5xl tracking-tighter md:text-7xl">
+          <h1 className="max-w-2xl text-center font-regular text-3xl tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl">
             {dictionary.web.home.meta.title}
           </h1>
-          <p className="max-w-2xl text-center text-lg text-muted-foreground leading-relaxed tracking-tight md:text-xl">
+          <p className="max-w-2xl text-center text-base text-muted-foreground leading-relaxed tracking-tight sm:text-lg md:text-xl">
             {dictionary.web.home.meta.description}
           </p>
         </div>
-        <div className="flex flex-row gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row">
           <Button asChild className="gap-4" size="lg" variant="outline">
             <Link href="/contact">
               Book a Demo <PhoneCall className="h-4 w-4" />

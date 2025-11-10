@@ -53,7 +53,7 @@ const LegalPage = async ({ params }: LegalPageProperties) => {
         }
 
         return (
-          <div className="container max-w-5xl py-16">
+          <div className="container max-w-5xl py-16 px-4 sm:px-6 lg:px-8 mx-auto">
             <Link
               className="mb-4 inline-flex items-center gap-1 text-muted-foreground text-sm focus:underline focus:outline-none"
               href="/"
@@ -64,12 +64,12 @@ const LegalPage = async ({ params }: LegalPageProperties) => {
             <h1 className="scroll-m-20 text-balance font-extrabold text-4xl tracking-tight lg:text-5xl">
               {page._title}
             </h1>
-            <p className="text-balance leading-7 [&:not(:first-child)]:mt-6">
+            <p className="text-balance leading-7 not-first:mt-6">
               {page.description}
             </p>
             <div className="mt-16 flex flex-col items-start gap-8 sm:flex-row">
-              <div className="sm:flex-1">
-                <div className="prose prose-neutral dark:prose-invert">
+              <div className="w-full sm:flex-1">
+                <div className="prose prose-neutral dark:prose-invert max-w-none prose-headings:text-left prose-p:text-left">
                   <Body content={page.body.json.content} />
                 </div>
               </div>

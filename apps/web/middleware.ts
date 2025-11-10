@@ -4,7 +4,6 @@ import { parseError } from "@repo/observability/error";
 import { secure } from "@repo/security";
 import {
   noseconeOptions,
-  noseconeOptionsWithToolbar,
   securityMiddleware,
 } from "@repo/security/middleware";
 import { createNEMO } from "@rescale/nemo";
@@ -22,9 +21,7 @@ export const config = {
   runtime: "nodejs",
 };
 
-const securityHeaders = env.FLAGS_SECRET
-  ? securityMiddleware(noseconeOptionsWithToolbar)
-  : securityMiddleware(noseconeOptions);
+const securityHeaders = securityMiddleware(noseconeOptions);
 
 // Custom middleware for Arcjet security checks
 const arcjetMiddleware = async (request: NextRequest) => {

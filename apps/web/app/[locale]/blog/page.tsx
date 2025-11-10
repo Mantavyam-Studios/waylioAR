@@ -37,9 +37,9 @@ const BlogIndex = async ({ params }: BlogProps) => {
     <>
       <JsonLd code={jsonLd} />
       <div className="w-full py-20 lg:py-40">
-        <div className="container mx-auto flex flex-col gap-14">
+        <div className="container mx-auto flex flex-col gap-14 px-4 sm:px-6 lg:px-8">
           <div className="flex w-full flex-col gap-8 sm:flex-row sm:items-center sm:justify-between">
-            <h4 className="max-w-xl font-regular text-3xl tracking-tighter md:text-5xl">
+            <h4 className="max-w-xl font-regular text-2xl tracking-tighter sm:text-3xl md:text-4xl lg:text-5xl">
               {dictionary.web.blog.meta.title}
             </h4>
           </div>

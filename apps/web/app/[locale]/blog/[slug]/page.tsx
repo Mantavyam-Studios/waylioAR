@@ -81,7 +81,7 @@ const BlogPost = async ({ params }: BlogPostProperties) => {
                 isAccessibleForFree: true,
               }}
             />
-            <div className="container mx-auto py-16">
+            <div className="container mx-auto py-16 px-4 sm:px-6 lg:px-8">
               <Link
                 className="mb-4 inline-flex items-center gap-1 text-muted-foreground text-sm focus:underline focus:outline-none"
                 href="/blog"
@@ -95,7 +95,7 @@ const BlogPost = async ({ params }: BlogPostProperties) => {
                     <h1 className="scroll-m-20 text-balance font-extrabold text-4xl tracking-tight lg:text-5xl">
                       {page._title}
                     </h1>
-                    <p className="text-balance leading-7 [&:not(:first-child)]:mt-6">
+                    <p className="text-balance leading-7 not-first:mt-6">
                       {page.description}
                     </p>
                     {page.image ? (

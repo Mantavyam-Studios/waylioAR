@@ -14,7 +14,7 @@ export const Sidebar = async ({
   tags,
   toc: Toc,
 }: SidebarProperties) => (
-  <div className="col-span-4 flex w-72 flex-col items-start gap-8 border-foreground/10 border-l px-6 lg:col-span-2">
+  <div className="w-full flex-col items-start gap-8 border-foreground/10 px-4 sm:w-72 sm:border-l sm:px-6 md:flex">
     <div className="grid gap-2">
       <p className="text-muted-foreground text-sm">Published</p>
       <p className="rounded-sm text-foreground text-sm">

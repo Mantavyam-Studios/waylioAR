@@ -1,6 +1,6 @@
 "use client";
 
-import { ModeToggle } from "@repo/design-system/components/mode-toggle";
+import { ThemeToggle } from "@repo/design-system/components/theme-toggle";
 import { Button } from "@repo/design-system/components/ui/button";
 import {
   NavigationMenu,
@@ -57,7 +57,7 @@ export const Header = ({ dictionary }: HeaderProps) => {
   const [isOpen, setOpen] = useState(false);
   return (
     <header className="sticky top-0 left-0 z-40 w-full border-b bg-background">
-      <div className="container relative mx-auto flex min-h-20 flex-row items-center gap-4 lg:grid lg:grid-cols-3">
+      <div className="container relative mx-auto flex min-h-20 flex-row items-center gap-4 px-4 sm:px-6 lg:grid lg:grid-cols-3 lg:px-8">
         <div className="hidden flex-row items-center justify-start gap-4 lg:flex">
           <NavigationMenu className="flex items-start justify-start">
             <NavigationMenuList className="flex flex-row justify-start gap-4">
@@ -74,7 +74,7 @@ export const Header = ({ dictionary }: HeaderProps) => {
                       <NavigationMenuTrigger className="font-medium text-sm">
                         {item.title}
                       </NavigationMenuTrigger>
-                      <NavigationMenuContent className="!w-[450px] p-4">
+                      <NavigationMenuContent className="w-[450px]! p-4">
                         <div className="flex grid-cols-2 flex-col gap-4 lg:grid">
                           <div className="flex h-full flex-col justify-between">
                             <div className="flex flex-col">
@@ -111,19 +111,6 @@ export const Header = ({ dictionary }: HeaderProps) => {
           </NavigationMenu>
         </div>
         <div className="flex items-center gap-2 lg:justify-center">
-          <svg
-            className="-translate-y-[0.5px] h-[18px] w-[18px] fill-current"
-            fill="none"
-            height="22"
-            viewBox="0 0 235 203"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <title>Vercel</title>
-            <path
-              d="M117.082 0L234.164 202.794H0L117.082 0Z"
-              fill="currentColor"
-            />
-          </svg>
           <p className="whitespace-nowrap font-semibold">Waylio AR</p>
         </div>
         <div className="flex w-full justify-end gap-4">
@@ -135,7 +122,7 @@ export const Header = ({ dictionary }: HeaderProps) => {
             <LanguageSwitcher />
           </div>
           <div className="hidden md:inline">
-            <ModeToggle />
+            <ThemeToggle />
           </div>
           <Button asChild className="hidden md:inline" variant="outline">
             <Link href={`${env.NEXT_PUBLIC_APP_URL}/sign-in`}>
@@ -149,11 +136,16 @@ export const Header = ({ dictionary }: HeaderProps) => {
           </Button>
         </div>
         <div className="flex w-12 shrink items-end justify-end lg:hidden">
-          <Button onClick={() => setOpen(!isOpen)} variant="ghost">
+          <Button
+            aria-expanded={isOpen}
+            aria-label="Toggle navigation menu"
+            onClick={() => setOpen(!isOpen)}
+            variant="ghost"
+          >
             {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
           {isOpen && (
-            <div className="container absolute top-20 right-0 flex w-full flex-col gap-8 border-t bg-background py-4 shadow-lg">
+            <div className="container absolute top-20 right-0 flex w-full flex-col gap-8 border-t bg-background py-6 px-4 sm:px-6 lg:px-8 shadow-lg">
               {navigationItems.map((item) => (
                 <div key={item.title}>
                   <div className="flex flex-col gap-2">
@@ -161,6 +153,7 @@ export const Header = ({ dictionary }: HeaderProps) => {
                       <Link
                         className="flex items-center justify-between"
                         href={item.href}
+                        onClick={() => setOpen(false)}
                         rel={
                           item.href.startsWith("http")
                             ? "noopener noreferrer"
@@ -181,6 +174,7 @@ export const Header = ({ dictionary }: HeaderProps) => {
                         className="flex items-center justify-between"
                         href={subItem.href}
                         key={subItem.title}
+                        onClick={() => setOpen(false)}
                       >
                         <span className="text-muted-foreground">
                           {subItem.title}
@@ -191,6 +185,16 @@ export const Header = ({ dictionary }: HeaderProps) => {
                   </div>
                 </div>
               ))}
+              <div className="flex gap-4 pt-4 border-t">
+                <div className="flex items-center gap-2">
+                  <ThemeToggle />
+                  <Button asChild>
+                    <Link href={`${env.NEXT_PUBLIC_APP_URL}/sign-up`}>
+                      {dictionary.web.header.signUp}
+                    </Link>
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </div>

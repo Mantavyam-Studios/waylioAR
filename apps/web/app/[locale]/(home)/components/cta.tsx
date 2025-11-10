@@ -10,17 +10,17 @@ type CTAProps = {
 
 export const CTA = ({ dictionary }: CTAProps) => (
   <div className="w-full py-20 lg:py-40">
-    <div className="container mx-auto">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8">
       <div className="flex flex-col items-center gap-8 rounded-md bg-muted p-4 text-center lg:p-14">
         <div className="flex flex-col gap-2">
-          <h3 className="max-w-xl font-regular text-3xl tracking-tighter md:text-5xl">
+          <h3 className="max-w-xl font-regular text-2xl tracking-tighter sm:text-3xl md:text-4xl lg:text-5xl">
             {dictionary.web.home.cta.title}
           </h3>
-          <p className="max-w-xl text-lg text-muted-foreground leading-relaxed tracking-tight">
+          <p className="max-w-xl text-base text-muted-foreground leading-relaxed tracking-tight sm:text-lg">
             {dictionary.web.home.cta.description}
           </p>
         </div>
-        <div className="flex flex-row gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row">
           <Button asChild className="gap-4" variant="outline">
             <Link href="/contact">
               {dictionary.web.global.primaryCta}{" "}

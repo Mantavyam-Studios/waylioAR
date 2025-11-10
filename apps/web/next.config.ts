@@ -1,11 +1,31 @@
 import { withCMS } from "@repo/cms/next-config";
-import { withToolbar } from "@repo/feature-flags/lib/toolbar";
 import { config, withAnalyzer } from "@repo/next-config";
 import { withLogging, withSentry } from "@repo/observability/next-config";
 import type { NextConfig } from "next";
 import { env } from "@/env";
 
-let nextConfig: NextConfig = withToolbar(withLogging(config));
+let nextConfig: NextConfig = withLogging(config);
+
+// Configure webpack to prevent import-in-the-middle from being externalized
+nextConfig.webpack = (config, { isServer }) => {
+  if (isServer) {
+    config.externals = config.externals || [];
+    
+    // If externals is an array, filter out import-in-the-middle
+    if (Array.isArray(config.externals)) {
+      config.externals = config.externals.filter((external: any) => {
+        if (typeof external === 'string') {
+          return external !== 'import-in-the-middle';
+        }
+        if (typeof external === 'object' && external !== null) {
+          delete external['import-in-the-middle'];
+        }
+        return true;
+      });
+    }
+  }
+  return config;
+};
 
 // Allow forwarded domains for development (e.g., VS Code port forwarding)
 if (process.env.NODE_ENV === "development") {
@@ -21,6 +41,10 @@ if (process.env.NODE_ENV === "development") {
       // Disable origin check for development
       bodySizeLimit: "2mb",
     },
+  };
+} else {
+  nextConfig.experimental = {
+    ...nextConfig.experimental,
   };
 }
 

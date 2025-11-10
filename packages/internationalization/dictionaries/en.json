@@ -151,6 +151,7 @@
     },
     "blog": {
       "meta": {
+        "title": "Blog",
         "description": "Thoughts, ideas, and opinions."
       }
     },

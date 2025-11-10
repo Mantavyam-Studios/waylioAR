@@ -5,18 +5,18 @@ import { env } from "@/env";
 
 const Pricing = () => (
   <div className="w-full py-20 lg:py-40">
-    <div className="container mx-auto">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8">
       <div className="flex flex-col items-center justify-center gap-4 text-center">
         <div className="flex flex-col gap-2">
-          <h2 className="max-w-xl text-center font-regular text-3xl tracking-tighter md:text-5xl">
+          <h2 className="max-w-xl text-center font-regular text-2xl tracking-tighter sm:text-3xl md:text-4xl lg:text-5xl">
             Prices that make sense!
           </h2>
-          <p className="max-w-xl text-center text-lg text-muted-foreground leading-relaxed tracking-tight">
+          <p className="max-w-xl text-center text-base text-muted-foreground leading-relaxed tracking-tight sm:text-lg">
             Eliminate Navigation Chaos with Waylio AR Integration
           </p>
         </div>
-        <div className="grid w-full grid-cols-3 divide-x pt-20 text-left lg:grid-cols-4">
-          <div className="col-span-3 lg:col-span-1" />
+        <div className="grid w-full grid-cols-1 divide-y pt-20 text-left sm:grid-cols-4 sm:divide-x sm:divide-y-0">
+          <div className="col-span-1 sm:col-span-1" />
           <div className="flex flex-col gap-2 px-3 py-1 md:px-6 md:py-4">
             <p className="text-2xl">Startup</p>
             <p className="text-muted-foreground text-sm">
@@ -62,14 +62,14 @@ const Pricing = () => (
               </Link>
             </Button>
           </div>
-          <div className="col-span-3 px-3 py-4 lg:col-span-1 lg:px-6">
+          <div className="col-span-1 px-3 py-4 sm:col-span-1 sm:px-6">
             <b>Features</b>
           </div>
           <div />
           <div />
           <div />
           {/* New Line */}
-          <div className="col-span-3 px-3 py-4 lg:col-span-1 lg:px-6">AR Indoor Navigation</div>
+          <div className="col-span-1 px-3 py-4 sm:col-span-1 sm:px-6">AR Indoor Navigation</div>
           <div className="flex justify-center px-3 py-1 md:px-6 md:py-4">
             <Check className="h-4 w-4 text-primary" />
           </div>
@@ -80,7 +80,7 @@ const Pricing = () => (
             <Check className="h-4 w-4 text-primary" />
           </div>
           {/* New Line */}
-          <div className="col-span-3 px-3 py-4 lg:col-span-1 lg:px-6">
+          <div className="col-span-1 px-3 py-4 sm:col-span-1 sm:px-6">
             Appointment & Queue Management
           </div>
           <div className="flex justify-center px-3 py-1 md:px-6 md:py-4">
@@ -93,7 +93,7 @@ const Pricing = () => (
             <Check className="h-4 w-4 text-primary" />
           </div>
           {/* New Line */}
-          <div className="col-span-3 px-3 py-4 lg:col-span-1 lg:px-6">
+          <div className="col-span-1 px-3 py-4 sm:col-span-1 sm:px-6">
             Digital Prescriptions
           </div>
           <div className="flex justify-center px-3 py-1 md:px-6 md:py-4">
@@ -106,7 +106,7 @@ const Pricing = () => (
             <Check className="h-4 w-4 text-primary" />
           </div>
           {/* New Line */}
-          <div className="col-span-3 px-3 py-4 lg:col-span-1 lg:px-6">
+          <div className="col-span-1 px-3 py-4 sm:col-span-1 sm:px-6">
             Visitors
           </div>
           <div className="flex justify-center px-3 py-1 md:px-6 md:py-4">
@@ -119,7 +119,7 @@ const Pricing = () => (
             <p className="text-muted-foreground text-sm">100000 +</p>
           </div>
           {/* New Line */}
-          <div className="col-span-3 px-3 py-4 lg:col-span-1 lg:px-6">
+          <div className="col-span-1 px-3 py-4 sm:col-span-1 sm:px-6">
             Smart Parking Management
           </div>
           <div className="flex justify-center px-3 py-1 md:px-6 md:py-4">
@@ -132,7 +132,7 @@ const Pricing = () => (
             <Check className="h-4 w-4 text-primary" />
           </div>
           {/* New Line */}
-          <div className="col-span-3 px-3 py-4 lg:col-span-1 lg:px-6">
+          <div className="col-span-1 px-3 py-4 sm:col-span-1 sm:px-6">
             Operational Analytics
           </div>
           <div className="flex justify-center px-3 py-1 md:px-6 md:py-4">

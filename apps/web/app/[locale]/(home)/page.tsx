@@ -33,7 +33,7 @@ const Home = async ({ params }: HomeProps) => {
   return (
     <>
       {betaFeature && (
-        <div className="w-full bg-black py-2 text-center text-white">
+        <div className="w-full bg-black py-2 text-center text-white" role="banner" aria-label="Beta feature announcement">
           Beta feature now available
         </div>
       )}

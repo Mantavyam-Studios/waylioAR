@@ -24,28 +24,28 @@ export const ContactForm = ({ dictionary }: ContactFormProps) => {
 
   return (
     <div className="w-full py-20 lg:py-40">
-      <div className="container mx-auto max-w-6xl">
+      <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <div className="grid gap-10 lg:grid-cols-2">
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
-                <h4 className="max-w-xl text-left font-regular text-3xl tracking-tighter md:text-5xl">
+                <h4 className="max-w-xl text-left font-regular text-2xl tracking-tighter sm:text-3xl md:text-4xl lg:text-5xl">
                   {dictionary.web.contact.meta.title}
                 </h4>
-                <p className="max-w-sm text-left text-lg text-muted-foreground leading-relaxed tracking-tight">
+                <p className="max-w-sm text-left text-base text-muted-foreground leading-relaxed tracking-tight sm:text-lg">
                   {dictionary.web.contact.meta.description}
                 </p>
               </div>
             </div>
             {dictionary.web.contact.hero.benefits.map((benefit, index) => (
               <div
-                className="flex flex-row items-start gap-6 text-left"
+                className="flex flex-row items-start gap-4 sm:gap-6 text-left"
                 key={index}
               >
-                <Check className="mt-2 h-4 w-4 text-primary" />
+                <Check className="mt-2 h-4 w-4 text-primary shrink-0" />
                 <div className="flex flex-col gap-1">
-                  <p>{benefit.title}</p>
-                  <p className="text-muted-foreground text-sm">
+                  <p className="text-sm sm:text-base">{benefit.title}</p>
+                  <p className="text-muted-foreground text-xs sm:text-sm">
                     {benefit.description}
                   </p>
                 </div>
@@ -54,8 +54,8 @@ export const ContactForm = ({ dictionary }: ContactFormProps) => {
           </div>
 
           <div className="flex items-center justify-center">
-            <div className="flex max-w-sm flex-col gap-4 rounded-md border p-8">
-              <p>{dictionary.web.contact.hero.form.title}</p>
+            <div className="flex w-full max-w-sm flex-col gap-4 rounded-md border p-6 sm:p-8">
+              <p className="text-sm sm:text-base">{dictionary.web.contact.hero.form.title}</p>
               <div className="grid w-full max-w-sm items-center gap-1">
                 <Label htmlFor="picture">
                   {dictionary.web.contact.hero.form.date}
